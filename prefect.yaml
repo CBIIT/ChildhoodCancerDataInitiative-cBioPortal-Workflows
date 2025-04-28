@@ -1,0 +1,41 @@
+name: s3-Prefect-Workflow
+prefect-version: 3.2.14
+
+build: null
+push: null
+
+pull:
+- prefect.deployments.steps.git_clone:
+    id: clone-step
+    repository: https://github.com/CBIIT/ChildhoodCancerDataInitiative-cBioPortal-Workflows.git
+    branch: main
+
+- prefect.deployments.steps.run_shell_script:
+    script: apt-get update
+    stream_output: true
+- prefect.deployments.steps.run_shell_script:
+    script: apt-get install -y mariadb-client
+    stream_output: true
+
+- prefect.deployments.steps.pip_install_requirements:
+    requirements_file: requirements.txt
+    directory: '{{ clone-step.directory }}'
+    stream_output: false
+
+deployments:
+- name: cbio-mysql-dump
+  version: null
+  tags:
+  - mysql
+  - cbioportal
+  - V3
+  description: Dumps the family table or entire cbioportal DB using mysqldump
+  entrypoint: workflows/export_db.py:export_db
+  parameters:
+    env_tier: "dev"
+    bucket_name: "cbio-backup-dev"
+  work_pool:
+    name: cbio-8gb-prefect-3.2.14-python3.9
+    work_queue_name:
+    job_variables: {}
+  schedules: []
