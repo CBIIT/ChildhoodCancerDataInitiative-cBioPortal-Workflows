@@ -19,4 +19,4 @@ pip install -r requirements.txt
 
 ## Workflows
 
-- **cbio-mysql-dump**: A Prefect workflow that can either create MySQL database dump or cBioPortal data from a specified env/tier (e.g. dev, qa, prod etc.) and save the mysql dump to a specified S3 bucket
+- **cbio-mysql-dump**: A Prefect workflow that can create a MySQL database dump of cBioPortal data from a specified env/tier (e.g. dev, qa, prod etc.) and save the mysql dump to a specified S3 bucket. 
