@@ -64,7 +64,9 @@ deployments:
   entrypoint: workflows/cnv.py:cnv_flow
   parameters: 
     bucket: "ccdi-validation"
-    manifest: "bullenca/manifest.tsv"
+    manifest_path: "bullenca/manifest.tsv"
+    destination_path: ""
+    flow_type: ""
   work_pool:
     name: cbio-8gb-prefect-3.2.14-python3.9
     work_queue_name:
