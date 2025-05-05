@@ -187,7 +187,7 @@ def download_cnv(manifest_df: pd.DataFrame, logger) -> None:
 DropDownChoices = Literal["segment", "cnv_gene", "segment_and_cnv_gene", "cleanup"]
 
 #main flow to orchestrate the tasks
-@flow(name="cbio-cnv-flow")
+@flow(name="cbio-cnv-flow", log_prints=True)
 def cnv_flow(bucket: str, manifest_path: str, destination_path: str, flow_type: DropDownChoices):
     """Prefect workflow to download, parse and transform cnv data for ingestion into cBioPortal.
 
@@ -249,6 +249,13 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, flow_type: 
         runner_logger.info(f"Downloading cnv files from S3 bucket")
         #download_cnv(manifest_df, logger)
         
+        if not os.path.exists(log_filename):
+            print(f"Log file does not exist: {log_filename}")
+        else:
+            print(f"Log file exists: {log_filename}")
+            print(f"Permissions for {output_path}: {oct(os.stat(output_path).st_mode)}")
+
+
         os.rename(log_filename, log_filename.replace(".log", "_"+get_time()+".log"))
 
         #upload output directory to S3
