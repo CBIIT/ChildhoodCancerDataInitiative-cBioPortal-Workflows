@@ -171,7 +171,7 @@ def get_logger(loggername: str, log_level: str):
         "error": logging.ERROR,  # 40
     }
 
-    logger_filename = loggername + "_" + get_date() + ".log"
+    logger_filename = loggername + ".log"
     logger = logging.getLogger(loggername)
     logger.setLevel(log_levels[log_level])
 

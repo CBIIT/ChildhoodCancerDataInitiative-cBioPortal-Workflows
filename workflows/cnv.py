@@ -218,16 +218,19 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, flow_type: 
     else:
         runner_logger.info(f"Running cnv_flow with bucket: {bucket}, manifest_path: {manifest_path}, destination_path: {destination_path}, flow_type: {flow_type}")
         
-        # create logger
-        log_filename = "cbio_cnv_transform_" + get_time() + ".log"
-        logger = get_logger("cbio_cnv_transform", "info")
-
+        
         # change working directory to mounted drive
         output_path = os.path.join("/usr/local/data/cnv", "cnv_run_"+get_time())
         os.makedirs(output_path, exist_ok=True)
-        logger.info(f"Output path: {output_path}")
+        # change working directory to output path
         runner_logger.info(f"Output path: {output_path}")
         os.chdir(output_path)
+
+        # create logger
+        log_filename = f"{output_path}/cbio_cnv_transform.log"
+        logger = get_logger(log_filename, "info")
+        logger.info(f"Output path: {output_path}")
+
 
         logger.info(f"Logs beginning at {get_time()}")
 
@@ -245,7 +248,7 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, flow_type: 
         runner_logger.info(f"Downloading cnv files from S3 bucket")
         download_cnv(manifest_df, logger)
         
-        os.rename(log_filename, os.path.join(output_path, log_filename))
+        os.rename(log_filename, f"{output_path}/{log_filename.replace(".log", "_"+get_time()+".log")}")
 
         #upload output directory to S3
         upload_folder_to_s3(
