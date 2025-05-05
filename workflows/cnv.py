@@ -10,7 +10,7 @@ from typing import Literal
 import boto3
 from botocore.exceptions import ClientError
 from prefect import flow, task, get_run_logger, unmapped
-from src.utils import get_time, file_dl, get_logger, upload_folder_to_s3
+from src.utils import get_time, file_dl, get_logger, upload_folder_to_s3, set_s3_resource
 
 
 # task to read in manifest file to dataframe and check columns
@@ -92,14 +92,12 @@ def json_dl(dl_parameter: dict, logger, runner_logger):
         runner_logger: Prefect logger object
     """
     # Set the s3 resource object for local or remote execution
-    region_name = "us-east-1"
     bucket = dl_parameter['s3_url'].split("/")[2]
-    file_path = "/".join(dl_parameter['s3_url'].split("/")[3:])
-    s3 = boto3.client("s3", region_name=region_name)
+    file_key = "/".join(dl_parameter['s3_url'].split("/")[3:]) #file path in bucket
+    s3 = set_s3_resource()
     source = s3.Bucket(bucket)
-    file_key = file_path
-    row = dl_parameter['row']
     filename = dl_parameter['file_name']
+
     try:
         source.download_file(file_key, filename)
         
