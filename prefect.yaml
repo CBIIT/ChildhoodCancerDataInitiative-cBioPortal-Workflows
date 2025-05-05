@@ -39,3 +39,34 @@ deployments:
     work_queue_name:
     job_variables: {}
   schedules: []
+
+
+pull:
+- prefect.deployments.steps.git_clone:
+    id: clone-step
+    repository: https://github.com/CBIIT/ChildhoodCancerDataInitiative-cBioPortal-Workflows.git
+    branch: CBIO-172_CNA_workflow
+
+- prefect.deployments.steps.pip_install_requirements:
+    requirements_file: requirements.txt
+    directory: '{{ clone-step.directory }}'
+    stream_output: false
+
+deployments:
+- name: TEST-cbio-cnv-transform
+  version: null
+  tags:
+  - mysql
+  - cbioportal
+  - V3
+  - TEST
+  description: 
+  entrypoint: workflows/cnv.py:cnv_flow
+  parameters: 
+    bucket: "ccdi-validation"
+    manifest: "bullenca/manifest.tsv"
+  work_pool:
+    name: cbio-8gb-prefect-3.2.14-python3.9
+    work_queue_name:
+    job_variables: {}
+  schedules: []

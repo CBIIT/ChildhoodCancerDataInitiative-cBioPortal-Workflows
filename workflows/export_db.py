@@ -31,4 +31,5 @@ def export_db(
 
 
 if __name__ == "__main__":
-    export_db()
+    # testing
+    export_db(env_tier="test", bucket_name="my-test-bucket")

@@ -13,6 +13,28 @@ def get_time() -> str:
     dt_string = now.strftime("%Y%m%d_T%H%M%S")
     return dt_string
 
+@task(name="Download file", task_run_name="download_file_{filename}", log_prints=True)
+def file_dl(bucket, filepath):
+    """File download using bucket name and filename
+    filepath is the key path in bucket
+    file is the basename
+    """
+    # Set the s3 resource object for local or remote execution
+    region_name = "us-east-1"
+    s3 = boto3.client("s3", region_name=region_name)
+    source = s3.Bucket(bucket)
+    file_key = filepath
+    file_name = os.path.basename(filepath)
+    try:
+        source.download_file(file_key, file_name)
+    except ClientError as ex:
+        ex_code = ex.response["Error"]["Code"]
+        ex_message = ex.response["Error"]["Message"]
+        print(
+            f"ClientError occurred while downloading file {filepath} from bucket {bucket}:\n{ex_code}, {ex_message}"
+        )
+        raise
+
 @task(name="get_secret")
 def get_secret(env_name: str):
     """Get the secret from AWS Secrets Manager.
