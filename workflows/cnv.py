@@ -248,7 +248,7 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, flow_type: 
         runner_logger.info(f"Downloading cnv files from S3 bucket")
         download_cnv(manifest_df, logger)
         
-        os.rename(log_filename, f"{output_path}/{log_filename.replace(".log", "_"+get_time()+".log")}")
+        os.rename(log_filename, f'{output_path}/{log_filename.replace(".log", "_"+get_time()+".log")}')
 
         #upload output directory to S3
         upload_folder_to_s3(
