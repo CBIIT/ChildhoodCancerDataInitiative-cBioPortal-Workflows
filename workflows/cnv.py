@@ -240,7 +240,7 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, flow_type: 
 
         # read in manifest file
         runner_logger.info(f"Reading in manifest file")
-        manifest_df = read_manifest(manifest_path)[:10]
+        manifest_df = read_manifest(os.path.basename(manifest_path))[:10]
 
         logger.info(f"Number of files to download: {len(manifest_df)}")
 
