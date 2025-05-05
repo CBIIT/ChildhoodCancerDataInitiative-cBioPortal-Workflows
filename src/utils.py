@@ -14,7 +14,7 @@ def get_time() -> str:
     dt_string = now.strftime("%Y%m%d_T%H%M%S")
     return dt_string
 
-@task(name="Download file", task_run_name="download_file_{filename}", log_prints=True)
+@task(name="Download file", task_run_name="download_file_{filepath}", log_prints=True)
 def file_dl(bucket, filepath):
     """File download using bucket name and filename
     filepath is the key path in bucket
