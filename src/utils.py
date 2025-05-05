@@ -7,6 +7,26 @@ from botocore.exceptions import ClientError
 import logging
 
 
+
+def set_s3_resource():
+    """This method sets the s3_resource object to either use localstack
+    for local development if the LOCALSTACK_ENDPOINT_URL variable is
+    defined and returns the object
+    """
+    localstack_endpoint = os.environ.get("LOCALSTACK_ENDPOINT_URL")
+    if localstack_endpoint != None:
+        AWS_REGION = "us-east-1"
+        AWS_PROFILE = "localstack"
+        ENDPOINT_URL = localstack_endpoint
+        boto3.setup_default_session(profile_name=AWS_PROFILE)
+        s3_resource = boto3.resource(
+            "s3", region_name=AWS_REGION, endpoint_url=ENDPOINT_URL
+        )
+    else:
+        s3_resource = boto3.resource("s3")
+    return s3_resource
+
+
 def get_time() -> str:
     """Returns the current time"""
     tz = timezone("EST")
@@ -21,8 +41,8 @@ def file_dl(bucket, filepath):
     file is the basename
     """
     # Set the s3 resource object for local or remote execution
-    region_name = "us-east-1"
-    s3 = boto3.client("s3", region_name=region_name)
+
+    s3 = set_s3_resource()
     source = s3.Bucket(bucket)
     file_key = filepath
     file_name = os.path.basename(filepath)
@@ -198,8 +218,7 @@ def upload_folder_to_s3(
     """This function uploads all the files from a folder
     and preserves the original folder structure
     """
-    region_name = "us-east-1"
-    s3 = boto3.client("s3", region_name=region_name)
+    s3 = set_s3_resource()
     source = s3.Bucket(bucket)
     folder_basename = os.path.basename(local_folder)
     for root, _, files in os.walk(local_folder):
