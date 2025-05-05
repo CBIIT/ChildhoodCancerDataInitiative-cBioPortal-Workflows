@@ -259,9 +259,10 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, flow_type: 
 
         #upload output directory to S3
         upload_folder_to_s3(
-            output_path,
-            bucket,
-            destination_path
+            local_folder=output_path,
+            bucket=bucket,
+            destination=destination_path,
+            sub_folder=""
         )
 
 
