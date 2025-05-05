@@ -190,3 +190,29 @@ def get_logger(loggername: str, log_level: str):
     logger.addHandler(file_handler)
 
     return logger
+
+@task(name="Upload folder", task_run_name="upload_folder_{local_folder}", log_prints=True)
+def upload_folder_to_s3(
+    local_folder: str, bucket: str, destination: str, sub_folder: str
+) -> None:
+    """This function uploads all the files from a folder
+    and preserves the original folder structure
+    """
+    region_name = "us-east-1"
+    s3 = boto3.client("s3", region_name=region_name)
+    source = s3.Bucket(bucket)
+    folder_basename = os.path.basename(local_folder)
+    for root, _, files in os.walk(local_folder):
+        for filename in files:
+            # construct local path
+            local_path = os.path.join(root, filename)
+
+            # construct the full dst path
+            relative_path = os.path.relpath(local_path, local_folder)
+            s3_path = os.path.join(
+                destination, sub_folder, folder_basename, relative_path
+            )
+
+            # upload file
+            # this should overwrite file if file exists in the bucket
+            source.upload_file(local_path, s3_path)

@@ -9,7 +9,7 @@ from typing import Literal
 import boto3
 from botocore.exceptions import ClientError
 from prefect import flow, task, get_run_logger, unmapped
-from src.utils import get_time, file_dl, get_logger
+from src.utils import get_time, file_dl, get_logger, upload_folder_to_s3
 
 
 # task to read in manifest file to dataframe and check columns
@@ -187,13 +187,13 @@ DropDownChoices = Literal["segment", "cnv_gene", "segment_and_cnv_gene", "cleanu
 
 #main flow to orchestrate the tasks
 @flow(name="cbio-cnv-flow")
-def cnv_flow(bucket: str, manifest_path: str, output_path: str, flow_type: DropDownChoices):
+def cnv_flow(bucket: str, manifest_path: str, destination_path: str, flow_type: DropDownChoices):
     """Prefect workflow to download, parse and transform cnv data for ingestion into cBioPortal.
 
     Args:
         bucket (str): S3 bucket name of location of manifest and to direct output files
         manifest_path (str): Path to the manifest file in specified S3 bucket
-        output_path (str): Output path at specified S3 bucket for the transformed data
+        destination_path (str): Destination path at specified S3 bucket for the output/transformed data files and log file
         flow_type (DropDownChoices): Type of flow to run. Options are "segment", "cnv-gene", "segment_and_cnv-gene", "cleanup"
     """
 
@@ -218,6 +218,13 @@ def cnv_flow(bucket: str, manifest_path: str, output_path: str, flow_type: DropD
     else:
         runner_logger.info(f"Running cnv_flow with bucket: {bucket}, manifest_path: {manifest_path}, output_path: {output_path}, flow_type: {flow_type}")
         
+        # change working directory to mounted drive
+        output_path = os.path.join("/usr/local/data/cnv", "cnv_run_"+get_time())
+        os.makedirs(output_path, exist_ok=True)
+        logger.info(f"Output path: {output_path}")
+        runner_logger.info(f"Output path: {output_path}")
+        os.chdir(output_path)
+
         # create logger
         log_filename = "cbio_cnv_transform_" + get_time() + ".log"
         logger = get_logger("cbio_cnv_transform", "info")
@@ -230,20 +237,24 @@ def cnv_flow(bucket: str, manifest_path: str, output_path: str, flow_type: DropD
 
         # read in manifest file
         runner_logger.info(f"Reading in manifest file")
-        manifest_df = read_manifest(manifest_path)
+        manifest_df = read_manifest(manifest_path)[:10]
 
         logger.info(f"Number of files to download: {len(manifest_df)}")
-
-        # change working directory to mounted drive
-        output_path = os.path.join("/usr/local/data/cnv", "cnv_run_"+get_time())
-        os.makedirs(output_path, exist_ok=True)
-        logger.info(f"Output path: {output_path}")
-        runner_logger.info(f"Output path: {output_path}")
-        os.chdir(output_path)
 
         # download cnv files from S3
         runner_logger.info(f"Downloading cnv files from S3 bucket")
         download_cnv(manifest_df, logger)
+        
+        os.rename(log_filename, os.path.join(output_path, log_filename))
+
+        #upload output directory to S3
+        upload_folder_to_s3(
+            output_path,
+            bucket,
+            destination_path
+        )
+
+
 
 if __name__ == "__main__":
     # testing
