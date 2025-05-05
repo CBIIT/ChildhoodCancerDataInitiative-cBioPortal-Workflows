@@ -219,7 +219,6 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, flow_type: 
     else:
         runner_logger.info(f"Running cnv_flow with bucket: {bucket}, manifest_path: {manifest_path}, destination_path: {destination_path}, flow_type: {flow_type}")
         
-        
         # change working directory to mounted drive
         output_path = os.path.join("/usr/local/data/cnv", "cnv_run_"+get_time())
         os.makedirs(output_path, exist_ok=True)
@@ -229,7 +228,7 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, flow_type: 
 
         # create logger
         log_filename = f"{output_path}/cbio_cnv_transform.log"
-        logger = get_logger(log_filename, "info")
+        logger = get_logger(f"{output_path}/cbio_cnv_transform", "info")
         logger.info(f"Output path: {output_path}")
 
 
