@@ -188,34 +188,62 @@ DropDownChoices = Literal["segment", "cnv_gene", "segment_and_cnv_gene", "cleanu
 #main flow to orchestrate the tasks
 @flow(name="cbio-cnv-flow")
 def cnv_flow(bucket: str, manifest_path: str, output_path: str, flow_type: DropDownChoices):
-    """_summary_
+    """Prefect workflow to download, parse and transform cnv data for ingestion into cBioPortal.
 
     Args:
-        bucket (str): S3 bucket name
+        bucket (str): S3 bucket name of location of manifest and to direct output files
         manifest_path (str): Path to the manifest file in specified S3 bucket
         output_path (str): Output path at specified S3 bucket for the transformed data
         flow_type (DropDownChoices): Type of flow to run. Options are "segment", "cnv-gene", "segment_and_cnv-gene", "cleanup"
     """
 
     runner_logger = get_run_logger()
-    runner_logger.info(f"Running cnv_flow with bucket: {bucket}, manifest_path: {manifest_path}, output_path: {output_path}, flow_type: {flow_type}")
+    
+    if flow_type == "cleanup":
+        
+        # get a list of all dirs in /usr/local/data/cnv
+        runner_logger.info(f"Cleaning up cnv_flow output directory")
+        output_path = "/usr/local/data/cnv"
+        dirs = os.listdir(output_path)
+        # delete all dirs in /usr/local/data/cnv
+        for dir in dirs:
+            dir_path = os.path.join(output_path, dir)
+            if os.path.isdir(dir_path):
+                runner_logger.info(f"Deleting directory: {dir_path}")
+                os.rmdir(dir_path)
+                runner_logger.info(f"Deleted directory: {dir_path}")
+            else:
+                runner_logger.info(f"Skipping non-directory file: {dir_path}")
+    
+    else:
+        runner_logger.info(f"Running cnv_flow with bucket: {bucket}, manifest_path: {manifest_path}, output_path: {output_path}, flow_type: {flow_type}")
+        
+        # create logger
+        log_filename = "cbio_cnv_transform_" + get_time() + ".log"
+        logger = get_logger("cbio_cnv_transform", "info")
 
-    # download manifest file from S3
-    runner_logger.info(f"Downloading manifest file from S3 bucket")
-    file_dl(bucket, manifest_path)
+        logger.info(f"Logs beginning at {get_time()}")
 
-    # read in manifest file
-    runner_logger.info(f"Reading in manifest file")
-    manifest_df = read_manifest(manifest_path)
+        # download manifest file from S3
+        runner_logger.info(f"Downloading manifest file from S3 bucket")
+        file_dl(bucket, manifest_path)
 
-    # change working directory to mounted drive
-    output_path = os.path.join("/usr/local/data/cnv", get_time())
-    os.makedirs(output_path, exist_ok=True)
-    os.chdir(output_path)
+        # read in manifest file
+        runner_logger.info(f"Reading in manifest file")
+        manifest_df = read_manifest(manifest_path)
 
-    # download cnv files from S3
-    runner_logger.info(f"Downloading cnv files from S3 bucket")
-    download_cnv(manifest_df, bucket)
+        logger.info(f"Number of files to download: {len(manifest_df)}")
+
+        # change working directory to mounted drive
+        output_path = os.path.join("/usr/local/data/cnv", "cnv_run_"+get_time())
+        os.makedirs(output_path, exist_ok=True)
+        logger.info(f"Output path: {output_path}")
+        runner_logger.info(f"Output path: {output_path}")
+        os.chdir(output_path)
+
+        # download cnv files from S3
+        runner_logger.info(f"Downloading cnv files from S3 bucket")
+        download_cnv(manifest_df, logger)
 
 if __name__ == "__main__":
     # testing
