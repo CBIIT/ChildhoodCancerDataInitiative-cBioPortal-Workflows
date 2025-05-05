@@ -1,19 +1,15 @@
 import json
-import requests
 import os
-import sys
+import time
 import pandas as pd
-import shutil
+import hashlib
 from prefect_shell import ShellOperation
 from prefect.task_runners import ConcurrentTaskRunner
 from typing import Literal
-from functools import partial
-
-# prefect dependencies
 import boto3
 from botocore.exceptions import ClientError
-from prefect import flow, task, get_run_logger, runtime
-from src.utils import get_time, file_dl, folder_ul## workflow for transforming and formatting cnv data
+from prefect import flow, task, get_run_logger, unmapped
+from src.utils import get_time, file_dl, get_logger
 
 
 # task to read in manifest file to dataframe and check columns
@@ -54,6 +50,28 @@ def read_manifest(manifest_name: str) -> pd.DataFrame:
     
     return manifest_df
 
+# task to calculate md5sum of file
+def get_md5(file_path):
+    """Get md5sum of file
+
+    Args:
+        file_path (str): Path to the file
+
+    Returns:
+        str: md5sum of the file
+    """
+    # Create a hash object for MD5
+    md5_hash = hashlib.md5()
+
+    # Open the file in binary mode
+    with open(file_path, "rb") as file:
+        # Read the file in chunks to avoid memory issues with large files
+        for byte_block in iter(lambda: file.read(4096), b""):
+            md5_hash.update(byte_block)
+
+    # Return the hexadecimal digest of the file's MD5 checksum
+    return md5_hash.hexdigest()
+
 
 # task to download cnv files from S3
 @task(
@@ -93,12 +111,33 @@ def json_dl(dl_parameter: dict, logger, runner_logger):
         logger.error(f"ClientError occurred while downloading file {filename} from bucket {bucket}:\n{ex_code}, {ex_message}")
         raise
 
+    # check if file was downloaded successfully
+    if os.path.exists(filename):
+        runner_logger.info(f"File {filename} downloaded successfully")
+        logger.info(f"File {filename} downloaded successfully")
+    else:
+        runner_logger.error(f"File {filename} not downloaded successfully")
+        logger.error(f"File {filename} not downloaded successfully")
+        raise ValueError(f"File {filename} not downloaded successfully")
+    
+    # check if md5sum matches
+    # get md5sum of downloaded file
+    md5sum = get_md5(filename)
+    # check if md5sum matches
+    if md5sum != dl_parameter['md5sum']:
+        runner_logger.error(f"MD5 checksum does not match for file {filename}")
+        logger.error(f"MD5 checksum does not match for file {filename}")
+        raise ValueError(f"MD5 checksum does not match for file {filename}")
+    else:
+        runner_logger.info(f"MD5 checksum matches for file {filename}")
+        logger.info(f"MD5 checksum matches for file {filename}")
+
 
 
 # flow to download cnv data from S3 and verify md5 checksum
 # use concurrency pool to download multiple files in parallel
 @flow(name="download-cnv-flow", task_runner=ConcurrentTaskRunner(), log_prints=True)
-def download_cnv(manifest_df: pd.DataFrame, bucket: str) -> None:
+def download_cnv(manifest_df: pd.DataFrame, logger) -> None:
     """Download cnv files from S3 and verify md5 checksum
 
     Args:
@@ -106,23 +145,32 @@ def download_cnv(manifest_df: pd.DataFrame, bucket: str) -> None:
         bucket (str): S3 bucket name
     """
     # download cnv files from S3
-    for index, row in manifest_df.iterrows():
-        sample_id = row["sample_id"]
-        s3_url = row["s3_url"]
-        file_name = row["file_name"]
-        md5sum = row["md5sum"]
-        file_size = row["file_size"]
+    runner_logger = get_run_logger()
 
-        # download file
-        file_dl(bucket, s3_url)
+    # throttle submission of tasks to avoid overwhelming the system
+    time.sleep(2)
+    #setup with list of dicts to iterate over and then run with map
+    submit_list = []
 
-        # verify md5 checksum
-        if not verify_md5(file_name, md5sum):
-            raise ValueError(f"MD5 checksum failed for file: {file_name}")
+    for _, row in manifest_df.iterrows():
+        row["bucket"] = row["s3_url"].split("/", 3)[2]
+        row["file_path"] = "/".join(row["s3_url"].split("/", 3)[3:])
+        f_name = os.path.basename(row["s3_url"])
 
-        # check file size
-        if os.path.getsize(file_name) != file_size:
-            raise ValueError(f"File size mismatch for file: {file_name}")
+        if f_name != row["file_name"]:
+            runner_logger.error(
+                f"Expected file name {row['file_name']} does not match observed file name in s3 url, {f_name}, not downloading file"
+            )
+            #logger.error(
+            #    f"Expected file name {row['file_name']} does not match observed file name in s3 url, {f_name}, not downloading file"
+            #)
+        else:
+            submit_list.append(row.to_dict()) 
+
+
+    json_dl.map(submit_list, unmapped(logger), unmapped(runner_logger))
+    
+    return None
 
 
 
@@ -135,7 +183,7 @@ def download_cnv(manifest_df: pd.DataFrame, bucket: str) -> None:
 
 
 
-DropDownChoices = Literal["segment", "cnv_gene", "segment_cnv_gene", "cleanup"]
+DropDownChoices = Literal["segment", "cnv_gene", "segment_and_cnv_gene", "cleanup"]
 
 #main flow to orchestrate the tasks
 @flow(name="cbio-cnv-flow")
@@ -146,7 +194,7 @@ def cnv_flow(bucket: str, manifest_path: str, output_path: str, flow_type: DropD
         bucket (str): S3 bucket name
         manifest_path (str): Path to the manifest file in specified S3 bucket
         output_path (str): Output path at specified S3 bucket for the transformed data
-        flow_type (DropDownChoices): Type of flow to run. Options are "segment", "cnv-gene", or "cleanup"
+        flow_type (DropDownChoices): Type of flow to run. Options are "segment", "cnv-gene", "segment_and_cnv-gene", "cleanup"
     """
 
     runner_logger = get_run_logger()
@@ -159,6 +207,11 @@ def cnv_flow(bucket: str, manifest_path: str, output_path: str, flow_type: DropD
     # read in manifest file
     runner_logger.info(f"Reading in manifest file")
     manifest_df = read_manifest(manifest_path)
+
+    # change working directory to mounted drive
+    output_path = os.path.join("/usr/local/data/cnv", get_time())
+    os.makedirs(output_path, exist_ok=True)
+    os.chdir(output_path)
 
     # download cnv files from S3
     runner_logger.info(f"Downloading cnv files from S3 bucket")

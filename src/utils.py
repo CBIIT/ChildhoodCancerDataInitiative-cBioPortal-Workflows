@@ -4,6 +4,7 @@ from pytz import timezone
 from prefect import task
 import boto3
 from botocore.exceptions import ClientError
+import logging
 
 
 def get_time() -> str:
@@ -156,3 +157,36 @@ def upload_to_s3(file_path : str, bucket_name: str, region_name="us-east-1"):
     except ClientError as e:
         print(f"❌ Failed to upload to S3: {e}")
         raise
+
+def get_logger(loggername: str, log_level: str):
+    """Returns a basic logger with a logger name using a std format
+
+    log level can be set using one of the values in log_levels.
+    """
+    log_levels = {  # sorted level
+        "notset": logging.NOTSET,  # 00
+        "debug": logging.DEBUG,  # 10
+        "info": logging.INFO,  # 20
+        "warning": logging.WARNING,  # 30
+        "error": logging.ERROR,  # 40
+    }
+
+    logger_filename = loggername + "_" + get_date() + ".log"
+    logger = logging.getLogger(loggername)
+    logger.setLevel(log_levels[log_level])
+
+    # set the file handler
+    file_FORMAT = "%(asctime)s - %(levelname)s - %(message)s"
+    file_handler = logging.FileHandler(logger_filename, mode="w")
+    file_handler.setFormatter(logging.Formatter(file_FORMAT, "%H:%M:%S"))
+    file_handler.setLevel(log_levels["info"])
+
+    # set the stream handler
+    # stream_handler = logging.StreamHandler(sys.stdout)
+    # stream_handler.setFormatter(logging.Formatter(file_FORMAT, "%H:%M:%S"))
+    # stream_handler.setLevel(log_levels["info"])
+
+    # logger.addHandler(stream_handler)
+    logger.addHandler(file_handler)
+
+    return logger
