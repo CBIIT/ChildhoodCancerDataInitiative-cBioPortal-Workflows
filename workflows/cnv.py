@@ -131,6 +131,8 @@ def json_dl(dl_parameter: dict, logger, runner_logger):
     else:
         runner_logger.info(f"MD5 checksum matches for file {filename}")
         logger.info(f"MD5 checksum matches for file {filename}")
+    
+    return "completed"
 
 
 
@@ -165,12 +167,12 @@ def download_cnv(manifest_df: pd.DataFrame, logger) -> None:
             #    f"Expected file name {row['file_name']} does not match observed file name in s3 url, {f_name}, not downloading file"
             #)
         else:
-            submit_list.append(row.to_dict()) 
+            submit_list.append(row.to_dict())
 
 
-    json_dl.map(submit_list, unmapped(logger), unmapped(runner_logger))
+    file_downloads = json_dl.map(submit_list, unmapped(logger), unmapped(runner_logger))
     
-    return None
+    return file_downloads.result()
 
 
 
