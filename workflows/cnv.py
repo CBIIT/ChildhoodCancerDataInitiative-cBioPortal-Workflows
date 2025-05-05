@@ -218,16 +218,16 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, flow_type: 
     else:
         runner_logger.info(f"Running cnv_flow with bucket: {bucket}, manifest_path: {manifest_path}, destination_path: {destination_path}, flow_type: {flow_type}")
         
+        # create logger
+        log_filename = "cbio_cnv_transform_" + get_time() + ".log"
+        logger = get_logger("cbio_cnv_transform", "info")
+
         # change working directory to mounted drive
         output_path = os.path.join("/usr/local/data/cnv", "cnv_run_"+get_time())
         os.makedirs(output_path, exist_ok=True)
         logger.info(f"Output path: {output_path}")
         runner_logger.info(f"Output path: {output_path}")
         os.chdir(output_path)
-
-        # create logger
-        log_filename = "cbio_cnv_transform_" + get_time() + ".log"
-        logger = get_logger("cbio_cnv_transform", "info")
 
         logger.info(f"Logs beginning at {get_time()}")
 
