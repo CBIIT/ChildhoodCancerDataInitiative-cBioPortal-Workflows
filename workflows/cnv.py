@@ -77,11 +77,11 @@ def get_md5(file_path):
 # task to download cnv files from S3
 @task(
     name="cnv-json-downloader",
-    task_run_name="cnv-json-downloader-{filename}", 
+    task_run_name="cnv-json-downloader_{dl_parameter[file_name]}", 
     log_prints=True,
     tags=["cnv-json-downloader-tag"],
     retries=3,
-    retry_delay_seconds=0.5,
+    retry_delay_seconds=1,
 )
 def json_dl(dl_parameter: dict, logger, runner_logger):
     """Download cnv files from S3
