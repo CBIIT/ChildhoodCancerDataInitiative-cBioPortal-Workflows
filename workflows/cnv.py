@@ -3,6 +3,7 @@ import os
 import time
 import pandas as pd
 import hashlib
+import shutil
 from prefect_shell import ShellOperation
 from prefect.task_runners import ConcurrentTaskRunner
 from typing import Literal
@@ -212,7 +213,7 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, flow_type: 
             dir_path = os.path.join(output_path, dir)
             if os.path.isdir(dir_path):
                 runner_logger.info(f"Deleting directory: {dir_path}")
-                os.rmdir(dir_path)
+                shutil.rmtree(dir_path)
                 runner_logger.info(f"Deleted directory: {dir_path}")
             else:
                 runner_logger.info(f"Skipping non-directory file: {dir_path}")
