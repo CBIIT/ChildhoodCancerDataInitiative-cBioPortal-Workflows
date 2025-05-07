@@ -39,3 +39,33 @@ deployments:
     work_queue_name:
     job_variables: {}
   schedules: []
+
+- name: TEST-cbio-mysql-restore
+  version: null
+  tags:
+  - mysql
+  - cbioportal
+  - V3
+  - TEST
+  description: Restore the family table or entire cbioportal DB using mysql
+  entrypoint: workflows/restore_db.py:restore_db
+  parameters:
+    target_env_name: "qa",
+    source_bucket: "cbio-backup-dev",
+    sql_dump_path: ""
+    output_bucket: "cbio-backup-qa",
+    output_path: ""
+  work_pool:
+    name: cbio-8gb-prefect-3.2.14-python3.9
+    work_queue_name:
+    job_variables: {}
+  schedules: []
+  pull:
+  - prefect.deployments.steps.git_clone:
+      id: clone-step
+      repository: https://github.com/CBIIT/ChildhoodCancerDataInitiative-Prefect_Pipeline.git
+      branch: CBIO-158_restore_db
+  - prefect.deployments.steps.pip_install_requirements:
+      requirements_file: requirements.txt
+      directory: "{{ clone-step.directory }}"
+      stream_output: False
