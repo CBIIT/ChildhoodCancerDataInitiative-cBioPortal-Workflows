@@ -13,6 +13,24 @@ def get_time() -> str:
     dt_string = now.strftime("%Y%m%d_T%H%M%S")
     return dt_string
 
+def set_s3_resource():
+    """This method sets the s3_resource object to either use localstack
+    for local development if the LOCALSTACK_ENDPOINT_URL variable is
+    defined and returns the object
+    """
+    localstack_endpoint = os.environ.get("LOCALSTACK_ENDPOINT_URL")
+    if localstack_endpoint != None:
+        AWS_REGION = "us-east-1"
+        AWS_PROFILE = "localstack"
+        ENDPOINT_URL = localstack_endpoint
+        boto3.setup_default_session(profile_name=AWS_PROFILE)
+        s3_resource = boto3.resource(
+            "s3", region_name=AWS_REGION, endpoint_url=ENDPOINT_URL
+        )
+    else:
+        s3_resource = boto3.resource("s3")
+    return s3_resource
+
 @task(name="get_secret")
 def get_secret(env_name: str):
     """Get the secret from AWS Secrets Manager.
@@ -53,6 +71,14 @@ def file_dl(bucket, filepath):
     """File download using bucket name and filename
     filepath is the key path in bucket
     file is the basename
+
+    Args:
+        bucket (str): S3 bucket name
+        filepath (str): Path to the file in the S3 bucket
+    Raises:
+        ClientError: If the download fails
+    Returns:
+        None
     """
     # Set the s3 resource object for local or remote execution
 
