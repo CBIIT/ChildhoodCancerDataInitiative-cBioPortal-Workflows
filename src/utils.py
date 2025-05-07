@@ -50,6 +50,8 @@ def get_secret(env_name: str):
 
     if env_name == "dev":
         secret_name = "ccdicbio-dev-rds"
+    elif env_name == "qa":
+        secret_name = "ccdicbio-qa-rds"
     else:
         raise ValueError("Invalid environment name. Please use one of: ['dev'].")
         
