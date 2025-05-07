@@ -96,7 +96,7 @@ def file_dl(bucket, filepath):
         )
         raise
 
-@task(name="create_dump")
+@task(name="create_dump", log_prints=True)
 def create_dump(
     host: str,
     username: str,
@@ -156,9 +156,9 @@ def create_dump(
         return dump_file
     except Exception as err:
         print(f"❌ mysqldump failed: {err}")
-        raise
+        raise err
 
-@task(name="upload_to_s3")
+@task(name="upload_to_s3", log_prints=True)
 def upload_to_s3(file_path : str, bucket_name: str, region_name="us-east-1"):
     """
     Uploads a file to an S3 bucket.
@@ -182,3 +182,53 @@ def upload_to_s3(file_path : str, bucket_name: str, region_name="us-east-1"):
     except ClientError as e:
         print(f"❌ Failed to upload to S3: {e}")
         raise
+
+@task(name="restore_dump", log_prints=True)
+def restore_dump(
+    host: str,
+    username: str,
+    password: str,
+    dbClusterIdentifier: str,
+    engine: str = "mysql",
+    port=3306,
+    dump_file: str = None,
+):
+    """Creates a dump of the database using mysqldump.
+
+    Args:
+        host (str): Host name of the database.
+        username (str): Username for the database.
+        password (str): Password for the database.
+        dbClusterIdentifier (str): Database name/cluster identifier.
+        engine (str, optional): Database engine. Defaults to "mysql".
+        port (int, optional): Port number of mysql database. Defaults to 3306.
+        dump_file (str): Local path of dump file to restore.
+
+    Raises:
+        subprocess.CalledProcessError: If the mysqldump command fails.
+
+    Returns:
+        None
+    """
+
+    command = [
+        "mysql",
+        f"--host={host}",
+        f"--port={port}",
+        f"--user={username}",
+        f"--password={password}",
+        "--databases",
+        dbClusterIdentifier,
+        "<",
+        dump_file,
+    ]
+
+    try:
+        # Run the MySQL command using subprocess
+        subprocess.run(" ".join(command), shell=False, check=True)
+
+        print(f"✅ Dump successful: {dump_file}")
+        return True
+    except Exception as err:
+        print(f"❌ Error importing dump file: {err}")
+        raise err
