@@ -51,11 +51,11 @@ def restore_db(
     print(f"✅ Downloaded dump file from S3: {file_name}")
 
     # restore the database using the dump file
-    if restore_dump(dump_file_path=file_name, **creds):
+    """if restore_dump(dump_file_path=file_name, **creds):
         print(f"✅ Restored database from dump file: {file_name}")
     else:
         print(f"❌ Failed to restore database from dump file: {file_name}")
-        raise Exception(f"Failed to restore database from dump file: {file_name}")
+        raise Exception(f"Failed to restore database from dump file: {file_name}")"""
 
     # TODO: validate the database restore
 
