@@ -61,6 +61,12 @@ deployments:
     job_variables: {}
   schedules: []
   pull:
+  - prefect.deployments.steps.run_shell_script:
+      script: apt-get update
+      stream_output: true
+  - prefect.deployments.steps.run_shell_script:
+      script: apt-get install -y mariadb-client
+      stream_output: true
   - prefect.deployments.steps.git_clone:
       id: clone-step
       repository: https://github.com/CBIIT/ChildhoodCancerDataInitiative-cBioPortal-Workflows.git
