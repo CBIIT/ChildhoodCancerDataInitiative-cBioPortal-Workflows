@@ -252,22 +252,29 @@ def db_counter(db_type: str, dump_file: str = None, **kwargs):
     if db_type == "dump": 
     
         # make mock db to load in dump file to assess counts
-        conn = mysql.connector.connect(
-            host='host.docker.internal',
+        """conn = mysql.connector.connect(
+            host='localhost',
             user='root',
             password=''
         )
 
         cursor = conn.cursor()
         cursor.execute("CREATE DATABASE IF NOT EXISTS count_db")
-        conn.close()
+        conn.close()"""
+
+        sql = "CREATE DATABASE IF NOT EXISTS count_db;"
+        subprocess.run(
+            ["mysql", "-u", "root", "-p", "", "-e", sql],
+            shell=False,
+            check=True
+        )
 
         #load in dump file locally to get counts
         command = f"mysql -u root -p count_db < {dump_file}"
         subprocess.run(command, shell=False, check=True)
 
         config = {
-            'host': 'host.docker.internal',
+            'host': 'localhost',
             'user': 'root',
             'password': '',
             'database': 'count_db'
