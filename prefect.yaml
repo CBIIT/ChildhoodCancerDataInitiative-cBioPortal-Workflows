@@ -50,6 +50,7 @@ deployments:
   description: Restore the family table or entire cbioportal DB using mysql
   entrypoint: workflows/restore_db.py:restore_db
   parameters:
+    run_type: "restore"
     target_env_name: "qa"
     source_bucket: "cbio-backup-dev"
     sql_dump_path: ""
@@ -67,6 +68,12 @@ deployments:
   - prefect.deployments.steps.run_shell_script:
       script: apt-get install -y mariadb-client
       stream_output: true
+  - prefect.deployments.steps.run_shell_script:
+      id: start-mysql
+      script: |
+        echo "🔧 Starting MySQL service..."
+        sudo systemctl start mysql || sudo service mysql start || mysql.server start
+        echo "✅ MySQL should be running now."
   - prefect.deployments.steps.git_clone:
       id: clone-step
       repository: https://github.com/CBIIT/ChildhoodCancerDataInitiative-cBioPortal-Workflows.git

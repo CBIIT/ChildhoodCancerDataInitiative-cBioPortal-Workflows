@@ -11,7 +11,7 @@ DropDownEnvChoice = Literal["qa", "stage", "prod"]
 
 @flow(name="cbio-restore-flow", log_prints=True)
 def restore_db(
-    run_choice: DropDownRunChoice,
+    run_type: DropDownRunChoice,
     target_env_name: DropDownEnvChoice,
     source_bucket: str,
     sql_dump_path: str,
@@ -21,7 +21,7 @@ def restore_db(
     """Execute database restore and upload to S3.
 
     Args:
-        run_choice (str): Type of run for workflow (e.g., , stage, prod)
+        run_type (str): Type of run for workflow (e.g., , stage, prod)
         target_env_name (str): Environment to restore database to (e.g., qa, stage, prod)
         source_bucket (str): S3 bucket name to download from (e.g. cbio-backup-dev)
         sql_dump_path (str): Path to the SQL dump file in the S3 bucket
@@ -32,7 +32,7 @@ def restore_db(
     # set working directory
     working_dir = "/usr/local/data/dumps"
 
-    if run_choice == "clear_working_dir":
+    if run_type == "clear_working_dir":
         os.chdir(working_dir)
 
         for file in os.listdir(working_dir):
