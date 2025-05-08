@@ -3,7 +3,7 @@
 import os
 import json
 from prefect import flow
-from src.utils import create_dump, get_secret, upload_to_s3, file_dl, restore_dump
+from src.utils import create_dump, get_secret, upload_to_s3, file_dl, restore_dump, db_counter
 from typing import Literal
 
 
@@ -44,11 +44,11 @@ def restore_db(
     file_dl(source_bucket, sql_dump_path)
 
     #check if the file exists
-    file_name = os.path.basename(sql_dump_path)
-    if not os.path.exists(file_name):
-        raise FileNotFoundError(f"File {file_name} does not exist.")
+    dump_file_name = os.path.basename(sql_dump_path)
+    if not os.path.exists(dump_file_name):
+        raise FileNotFoundError(f"File {dump_file_name} does not exist.")
     
-    print(f"✅ Downloaded dump file from S3: {file_name}")
+    print(f"✅ Downloaded dump file from S3: {dump_file_name}")
 
     # restore the database using the dump file
     """if restore_dump(dump_file_path=file_name, **creds):
@@ -56,6 +56,13 @@ def restore_db(
     else:
         print(f"❌ Failed to restore database from dump file: {file_name}")
         raise Exception(f"Failed to restore database from dump file: {file_name}")"""
+
+    # perform row and col counts on the dump database file
+    dump_counts = db_counter("dump", dump_file=dump_file_name)
+
+    print(f"✅ Dump file counts: {dump_counts}")
+
+    # TODO: perform row and col counts on the restored database
 
     # TODO: validate the database restore
 

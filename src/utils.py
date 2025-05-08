@@ -1,7 +1,9 @@
 import subprocess, os
 from datetime import datetime
 from pytz import timezone
-from prefect import task
+from prefect import task, flow
+import mysql.connector
+import pandas as pd
 import boto3
 from botocore.exceptions import ClientError
 
@@ -53,7 +55,7 @@ def get_secret(env_name: str):
     elif env_name == "qa":
         secret_name = "ccdicbio-qa-rds"
     else:
-        raise ValueError("Invalid environment name. Please use one of: ['dev'].")
+        raise ValueError("Invalid environment name. Please use one of: ['dev', 'qa'].")
         
     # Create a Secrets Manager client
     session = boto3.session.Session()
@@ -234,3 +236,83 @@ def restore_dump(
     except Exception as err:
         print(f"❌ Error importing dump file: {err}")
         raise err
+    
+@flow(name="db_counter", log_prints=True)
+def db_counter(db_type: str, dump_file: str = None, **kwargs):
+    """Count columns and rows in a MySQL dump file.
+
+    Args:
+        db_type (str): Type of database to count ('dump' or 'restore')
+        dump_file (str): Path to database dump file to perform 'expected' counts on. Optional if db_type is 'restore'.
+        **kwargs: database creds for restored database to perform 'observed' counts on
+
+    Returns:
+        pd.DataFrame: DataFrame containing table names, column counts, and row counts.
+    """
+    if db_type == "dump": 
+    
+        # make mock db to load in dump file to assess counts
+        conn = mysql.connector.connect(
+            host='localhost',
+            user='root',
+            password=''
+        )
+
+        cursor = conn.cursor()
+        cursor.execute("CREATE DATABASE IF NOT EXISTS count_db")
+        conn.close()
+
+        #load in dump file locally to get counts
+        command = f"mysql -u root -p count_db < {dump_file}"
+        subprocess.run(command, shell=False, check=True)
+
+        config = {
+            'host': 'localhost',
+            'user': 'root',
+            'password': '',
+            'database': 'count_db'
+            }
+    elif db_type == "restore":
+        config = kwargs
+    else:
+        raise ValueError("Invalid db_type. Use 'dump' or 'restore'.")
+
+    # count columns and rows in the dump file
+    try:
+        conn = mysql.connector.connect(**config)
+
+        cursor = conn.cursor()
+        cursor.execute(f"SHOW TABLES")
+        tables = [row[0] for row in cursor.fetchall()]
+
+        stats = []
+
+        for table in tables:
+            # Count columns
+            cursor.execute("""
+                SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s
+            """, ('count_db', table))
+            column_count = cursor.fetchone()[0]
+
+            # Count rows
+            cursor.execute(f"SELECT COUNT(*) FROM `{table}`")
+            row_count = cursor.fetchone()[0]
+
+            stats.append({
+                'table_name': table,
+                'column_count': column_count,
+                'row_count': row_count
+            })
+
+        # Create DataFrame
+        df = pd.DataFrame(stats)
+        return df
+
+    except mysql.connector.Error as err:
+        print(f"Error: {err}")
+        return pd.DataFrame()
+    finally:
+        if conn.is_connected():
+            cursor.close()
+            conn.close()
