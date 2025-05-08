@@ -264,11 +264,14 @@ def db_counter(db_type: str, dump_file: str = None, **kwargs):
 
         # create a new database for the dump file
         print("Creating database for dump file...")
+        env = os.environ.copy()
+        env["MYSQL_PWD"] = ""
         sql = "CREATE DATABASE IF NOT EXISTS count_db;"
         subprocess.run(
             ["mysql", "-u", "root", "-e", sql],
             shell=False,
-            check=True
+            check=True,
+            env=env,
         )
 
         #load in dump file locally to get counts
