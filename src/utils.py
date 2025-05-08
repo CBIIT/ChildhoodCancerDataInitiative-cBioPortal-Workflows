@@ -270,6 +270,7 @@ def db_counter(db_type: str, dump_file: str = None, **kwargs):
         )
 
         #load in dump file locally to get counts
+        print(f"Loading dump file {dump_file} into local database")
         command = ["mysql", "-u", "root", "-p", "count_db", "<", dump_file]
         subprocess.run(command, shell=False, check=True)
 
@@ -285,6 +286,7 @@ def db_counter(db_type: str, dump_file: str = None, **kwargs):
         raise ValueError("Invalid db_type. Use 'dump' or 'restore'.")
 
     # count columns and rows in the dump file
+    print("Counting columns and rows in the database...")
     try:
         conn = mysql.connector.connect(**config)
 
@@ -294,8 +296,11 @@ def db_counter(db_type: str, dump_file: str = None, **kwargs):
 
         stats = []
 
+        print(f"Tables in the database: {tables}")
+        # Iterate through each table
         for table in tables:
             # Count columns
+            print(f"Counting columns in table: {table}")
             cursor.execute("""
                 SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
                 WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s
@@ -303,6 +308,7 @@ def db_counter(db_type: str, dump_file: str = None, **kwargs):
             column_count = cursor.fetchone()[0]
 
             # Count rows
+            print(f"Counting rows in table: {table}")
             cursor.execute(f"SELECT COUNT(*) FROM `{table}`")
             row_count = cursor.fetchone()[0]
 
