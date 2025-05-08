@@ -253,7 +253,7 @@ def db_counter(db_type: str, dump_file: str = None, **kwargs):
     
         # make mock db to load in dump file to assess counts
         conn = mysql.connector.connect(
-            host='localhost',
+            host='127.0.0.1',
             user='root',
             password=''
         )
@@ -267,7 +267,7 @@ def db_counter(db_type: str, dump_file: str = None, **kwargs):
         subprocess.run(command, shell=False, check=True)
 
         config = {
-            'host': 'localhost',
+            'host': '127.0.0.1',
             'user': 'root',
             'password': '',
             'database': 'count_db'
