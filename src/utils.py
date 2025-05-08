@@ -270,7 +270,7 @@ def db_counter(db_type: str, dump_file: str = None, **kwargs):
         )
 
         #load in dump file locally to get counts
-        command = f"mysql -u root -p count_db < {dump_file}"
+        command = ["mysql", "-u", "root", "-p", "count_db", "<", dump_file]
         subprocess.run(command, shell=False, check=True)
 
         config = {
