@@ -262,9 +262,11 @@ def db_counter(db_type: str, dump_file: str = None, **kwargs):
         cursor.execute("CREATE DATABASE IF NOT EXISTS count_db")
         conn.close()"""
 
+        # create a new database for the dump file
+        print("Creating database for dump file...")
         sql = "CREATE DATABASE IF NOT EXISTS count_db;"
         subprocess.run(
-            ["mysql", "-u", "root", "-p", "", "-e", sql],
+            ["mysql", "-u", "root", "-e", sql],
             shell=False,
             check=True
         )
