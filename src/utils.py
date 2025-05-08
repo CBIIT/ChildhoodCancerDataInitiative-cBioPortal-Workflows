@@ -268,7 +268,7 @@ def db_counter(db_type: str, dump_file: str = None, **kwargs):
         #env["MYSQL_PWD"] = ""
         sql = "CREATE DATABASE IF NOT EXISTS count_db;"
         subprocess.run(
-            ["mysql", "-u", "root", "-p", "-e", sql],
+            ["mysql", "-u", "root", "--password=", "-e", sql],
             shell=False,
             check=True,
             #env=env,
