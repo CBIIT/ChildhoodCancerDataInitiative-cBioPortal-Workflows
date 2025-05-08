@@ -252,7 +252,7 @@ def db_counter(db_type: str, dump_file: str = None, **kwargs):
     if db_type == "dump": 
     
         # make mock db to load in dump file to assess counts
-        """conn = mysql.connector.connect(
+        conn = mysql.connector.connect(
             host='localhost',
             user='root',
             password=''
@@ -260,10 +260,10 @@ def db_counter(db_type: str, dump_file: str = None, **kwargs):
 
         cursor = conn.cursor()
         cursor.execute("CREATE DATABASE IF NOT EXISTS count_db")
-        conn.close()"""
+        conn.close()
 
         # create a new database for the dump file
-        print("Creating database for dump file...")
+        """print("Creating database for dump file...")
         #env = os.environ.copy()
         #env["MYSQL_PWD"] = ""
         sql = "CREATE DATABASE IF NOT EXISTS count_db;"
@@ -272,7 +272,7 @@ def db_counter(db_type: str, dump_file: str = None, **kwargs):
             shell=False,
             check=True,
             #env=env,
-        )
+        )"""
 
         #load in dump file locally to get counts
         print(f"Loading dump file {dump_file} into local database")
