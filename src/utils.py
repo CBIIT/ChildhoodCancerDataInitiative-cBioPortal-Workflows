@@ -347,7 +347,7 @@ def db_counter(db_type: str, dump_file: str = None, **kwargs):
     except mysql.connector.Error as err:
         print(f"Error: {err}")
         return pd.DataFrame()
-    finally:
+    """finally:
         if conn.is_connected():
             cursor.close()
-            conn.close()
+            conn.close()"""
