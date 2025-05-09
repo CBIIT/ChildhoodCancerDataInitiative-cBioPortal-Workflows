@@ -1,4 +1,4 @@
-import subprocess, os
+import subprocess, os, json
 from datetime import datetime
 from pytz import timezone
 from prefect import task, flow
@@ -252,7 +252,7 @@ def db_counter(db_type: str, dump_file: str = None, **kwargs):
     if db_type == "dump": 
     
         # make mock db to load in dump file to assess counts
-        conn = mysql.connector.connect(
+        """conn = mysql.connector.connect(
             host='localhost',
             user='root',
             password=''
@@ -260,7 +260,7 @@ def db_counter(db_type: str, dump_file: str = None, **kwargs):
 
         cursor = conn.cursor()
         cursor.execute("CREATE DATABASE IF NOT EXISTS count_db")
-        conn.close()
+        conn.close()"""
 
         # create a new database for the dump file
         """print("Creating database for dump file...")
@@ -275,7 +275,7 @@ def db_counter(db_type: str, dump_file: str = None, **kwargs):
         )"""
 
         #load in dump file locally to get counts
-        print(f"Loading dump file {dump_file} into local database")
+        """print(f"Loading dump file {dump_file} into local database")
         command = ["mysql", "-u", "root", "-p", "count_db", "<", dump_file]
         subprocess.run(command, shell=False, check=True)
 
@@ -284,7 +284,20 @@ def db_counter(db_type: str, dump_file: str = None, **kwargs):
             'user': 'root',
             'password': '',
             'database': 'count_db'
-            }
+            }"""
+        
+        dev_creds = get_secret("dev")
+        dev_creds = json.loads(dev_creds)
+
+        config = {
+            'host': dev_creds["host"],
+            'user': dev_creds["username"],
+            'password': dev_creds["password"],
+            'database': dev_creds["dbClusterIdentifier"]
+        }
+
+
+
     elif db_type == "restore":
         config = kwargs
     else:
