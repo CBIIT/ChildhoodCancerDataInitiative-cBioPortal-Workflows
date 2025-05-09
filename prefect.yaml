@@ -68,12 +68,6 @@ deployments:
   - prefect.deployments.steps.run_shell_script:
       script: apt-get install -y mariadb-client
       stream_output: true
-  - prefect.deployments.steps.run_shell_script:
-      id: start-mysql
-      script: |
-        echo "🔧 Starting MySQL service..."
-        sudo systemctl start mysql || sudo service mysql start || mysql.server start
-        echo "✅ MySQL should be running now."
   - prefect.deployments.steps.git_clone:
       id: clone-step
       repository: https://github.com/CBIIT/ChildhoodCancerDataInitiative-cBioPortal-Workflows.git
