@@ -326,7 +326,7 @@ def db_counter(db_type: str, dump_file: str = None, **kwargs):
             cursor.execute("""
                 SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
                 WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s
-            """, ('count_db', table))
+            """, (config['database'], table))
             column_count = cursor.fetchone()[0]
 
             # Count rows
