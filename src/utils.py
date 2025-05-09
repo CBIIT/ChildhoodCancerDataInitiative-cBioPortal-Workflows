@@ -297,9 +297,13 @@ def db_counter(db_type: str, dump_file: str = None, **kwargs):
         }
 
 
-
     elif db_type == "restore":
-        config = kwargs
+        config = {
+            'host': kwargs["host"],
+            'user': kwargs["username"],
+            'password': kwargs["password"],
+            'database': kwargs["dbClusterIdentifier"]
+        }
     else:
         raise ValueError("Invalid db_type. Use 'dump' or 'restore'.")
 
