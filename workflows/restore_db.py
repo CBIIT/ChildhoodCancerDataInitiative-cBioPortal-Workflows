@@ -76,9 +76,12 @@ def restore_db(
         # perform row and col counts on the dump database file
         dump_counts = db_counter("dump", dump_file=dump_file_name)
 
-        print(f"✅ Dump file counts: {dump_counts}")
+        print(f"✅ Dump db counts: {dump_counts}")
 
         # TODO: perform row and col counts on the restored database
+        restore_counts = db_counter("restore", **creds)
+
+        print(f"✅ Restore db counts: {restore_counts}")
 
         # TODO: validate the database restore
 
