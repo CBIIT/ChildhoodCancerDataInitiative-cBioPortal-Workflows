@@ -97,7 +97,7 @@ def restore_db(
         print(combined_counts)
 
         # save validation file and upload the validation file(s) to S3
-        validation_report_fname = f"{working_dir}/cbio_restore_database_{target_env_name}_{get_time}.tsv"
+        validation_report_fname = f"{working_dir}/cbio_restore_database_{target_env_name}_{get_time()}.tsv"
         combined_counts.to_csv(validation_report_fname, sep="\t", index=False)
 
         upload_to_s3(validation_report_fname, output_bucket, output_path="restore_validations")
