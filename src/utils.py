@@ -5,6 +5,7 @@ from prefect import task, flow
 import mysql.connector
 import pandas as pd
 import boto3
+import re
 from botocore.exceptions import ClientError
 
 
@@ -262,32 +263,42 @@ def db_counter(db_type: str, dump_file: str = None):
         with open(dump_file, "r") as file:
             dump_data = file.read()
 
-        # Use regex to find the CREATE TABLE statements and extract column names
-        table_info = {}
-        for line in dump_data.splitlines():
-            if line.startswith("CREATE TABLE"):
-                table_name = line.split("`")[1]
-                columns = []
-                for column_line in dump_data.splitlines():
-                    if column_line.startswith("`") and column_line.endswith("`"):
-                        column_name = column_line.split("`")[1]
-                        columns.append(column_name)
-                table_info[table_name] = columns
-        
-        # Count columns and rows
         stats = []
-        for table_name, columns in table_info.items():
-            column_count = len(columns)
-            # Count rows (this is a placeholder, actual row count would require parsing the INSERT statements)
-            row_count = dump_data.count(f"INSERT INTO `{table_name}`")
-            stats.append({
-                'table_name': table_name,
-                'column_count': column_count,
-                'row_count': row_count
-            })
+
+        # Use regex to find the CREATE TABLE statements and extract column names
+        table_column_counts = {}
+        
+        create_table_pattern = re.compile(r"CREATE TABLE `([^`]+)`\s?\((.*?)\)\s?;", re.DOTALL)
+        matches = create_table_pattern.findall(dump_data)
+    
+        for table_name, columns_definition in matches:
+            # Split columns by commas, ignoring newlines
+            columns = [col.strip() for col in re.split(r',\s*(?![^()]*\))', columns_definition) if col.strip() and not col.strip().startswith('PRIMARY') and not col.strip().startswith('FOREIGN')]
+            table_column_counts[table_name] = len(columns)
+
+        # Count rows in the dump file
+        table_row_counts = {}
+        
+        # Adjust regex to handle multiline INSERT INTO statements
+        insert_into_pattern = re.compile(r"INSERT INTO `([^`]+)` VALUES\s*(\(.*?\));", re.DOTALL)
+        matches = insert_into_pattern.findall(dump_data)
+    
+        for table_name, rows in matches:
+            # Split rows by parentheses, ignoring nested parentheses
+            row_count = len(re.findall(r'\((.*?)\)', rows, re.DOTALL))
+            if table_name in table_row_counts:
+                table_row_counts[table_name] += row_count
+            else:
+                table_row_counts[table_name] = row_count
+
+        for table in table_column_counts:
+            column_count = table_column_counts[table]
+            row_count = table_row_counts.get(table, "Unknown")  # In case the table isn't found
+            stats.append([table, column_count, row_count])
+        
         # Create DataFrame
         df = pd.DataFrame(stats)
-        
+
         return df
 
     elif db_type in ["dev", "qa", "stage", "prod"]: #adding dev for local testing or for count checks on dev db
@@ -335,8 +346,9 @@ def db_counter(db_type: str, dump_file: str = None):
                 'row_count': row_count
             })
 
-        # Create DataFrame
+        # Create DataFrame and name columns
         df = pd.DataFrame(stats)
+        df.columns = ['table_name', 'column_count', 'row_count']
         return df
 
     except mysql.connector.Error as err:

@@ -77,13 +77,15 @@ def restore_db(
         # perform row and col counts on the dump database file
         dump_counts = db_counter("dump", dump_file=dump_file_name)
 
-        print(f"✅ Dump db counts: {dump_counts}")
+        print(f"✅ Dump db counts:")
+        print(dump_counts)
 
         # TODO: perform row and col counts on the restored database
         # TESTING: performing against dev database until we have a qa database
         restore_counts = db_counter(target_env_name)
 
-        print(f"✅ Restore db counts: {restore_counts}")
+        print(f"✅ Restore db counts:")
+        print(restore_counts)
 
         # TODO: validate the database restore
 
