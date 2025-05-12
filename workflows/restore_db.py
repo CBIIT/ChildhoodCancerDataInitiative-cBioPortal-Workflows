@@ -67,6 +67,7 @@ def restore_db(
         print(f"✅ Downloaded dump file from S3: {dump_file_name}")
 
         # restore the database using the dump file
+        ## COMMENTED OUT UNTIL DB IS READY
         """if restore_dump(dump_file_path=file_name, **creds):
             print(f"✅ Restored database from dump file: {file_name}")
         else:
@@ -79,7 +80,8 @@ def restore_db(
         print(f"✅ Dump db counts: {dump_counts}")
 
         # TODO: perform row and col counts on the restored database
-        restore_counts = db_counter("restore", **creds)
+        # TESTING: performing against dev database until we have a qa database
+        restore_counts = db_counter("dev")
 
         print(f"✅ Restore db counts: {restore_counts}")
 

@@ -238,74 +238,69 @@ def restore_dump(
         raise err
     
 @flow(name="db_counter", log_prints=True)
-def db_counter(db_type: str, dump_file: str = None, **kwargs):
+def db_counter(db_type: str, dump_file: str = None):
     """Count columns and rows in a MySQL dump file.
 
     Args:
-        db_type (str): Type of database to count ('dump' or 'restore')
-        dump_file (str): Path to database dump file to perform 'expected' counts on. Optional if db_type is 'restore'.
-        **kwargs: database creds for restored database to perform 'observed' counts on
+        db_type (str): Type of database to count ('dump' or env speficied in ['dev', 'qa', 'stage', 'prod']).
+        dump_file (str): Path to database dump file to perform 'expected' counts on. Optional if db_type is not 'dump'.
 
     Returns:
         pd.DataFrame: DataFrame containing table names, column counts, and row counts.
     """
     if db_type == "dump": 
     
-        # make mock db to load in dump file to assess counts
-        """conn = mysql.connector.connect(
-            host='localhost',
-            user='root',
-            password=''
-        )
-
-        cursor = conn.cursor()
-        cursor.execute("CREATE DATABASE IF NOT EXISTS count_db")
-        conn.close()"""
-
-        # create a new database for the dump file
-        """print("Creating database for dump file...")
-        #env = os.environ.copy()
-        #env["MYSQL_PWD"] = ""
-        sql = "CREATE DATABASE IF NOT EXISTS count_db;"
-        subprocess.run(
-            ["mysql", "-u", "root", "--password=", "-e", sql],
-            shell=False,
-            check=True,
-            #env=env,
-        )"""
-
-        #load in dump file locally to get counts
-        """print(f"Loading dump file {dump_file} into local database")
-        command = ["mysql", "-u", "root", "-p", "count_db", "<", dump_file]
-        subprocess.run(command, shell=False, check=True)
-
-        config = {
-            'host': 'localhost',
-            'user': 'root',
-            'password': '',
-            'database': 'count_db'
-            }"""
+        # Check if dump_file is provided
+        if dump_file is None:
+            raise ValueError("dump_file must be provided when db_type is 'dump'.")
         
-        dev_creds = get_secret("dev")
-        dev_creds = json.loads(dev_creds)
+        # Check if the dump file exists
+        if not os.path.exists(dump_file):
+            raise FileNotFoundError(f"Dump file {dump_file} does not exist.")
+        
+        # read in dump file
+        with open(dump_file, "r") as file:
+            dump_data = file.read()
+
+        # Use regex to find the CREATE TABLE statements and extract column names
+        table_info = {}
+        for line in dump_data.splitlines():
+            if line.startswith("CREATE TABLE"):
+                table_name = line.split("`")[1]
+                columns = []
+                for column_line in dump_data.splitlines():
+                    if column_line.startswith("`") and column_line.endswith("`"):
+                        column_name = column_line.split("`")[1]
+                        columns.append(column_name)
+                table_info[table_name] = columns
+        
+        # Count columns and rows
+        stats = []
+        for table_name, columns in table_info.items():
+            column_count = len(columns)
+            # Count rows (this is a placeholder, actual row count would require parsing the INSERT statements)
+            row_count = dump_data.count(f"INSERT INTO `{table_name}`")
+            stats.append({
+                'table_name': table_name,
+                'column_count': column_count,
+                'row_count': row_count
+            })
+        # Create DataFrame
+        df = pd.DataFrame(stats)
+        
+        return df
+
+    elif db_type in ["dev", "qa", "stage", "prod"]: #adding dev for local testing or for count checks on dev db
+        restore_creds = json.loads(get_secret(db_type))
 
         config = {
-            'host': dev_creds["host"],
-            'user': dev_creds["username"],
-            'password': dev_creds["password"],
-            'database': dev_creds["dbClusterIdentifier"]
-        }
-
-
-    elif db_type == "restore":
-        config = {
-            'host': kwargs["host"],
-            'user': kwargs["username"],
-            'password': kwargs["password"],
-            'database': kwargs["dbClusterIdentifier"]
+            'host': restore_creds["host"],
+            'user': restore_creds["username"],
+            'password': restore_creds["password"],
+            'database': restore_creds["dbClusterIdentifier"]
         }
     else:
-        raise ValueError("Invalid db_type. Use 'dump' or 'restore'.")
+        raise ValueError("Invalid db_type. Use 'dump' for dump file or env in ['dev', 'qa', 'stage', 'prod'].")
 
     # count columns and rows in the dump file
     print("Counting columns and rows in the database...")
