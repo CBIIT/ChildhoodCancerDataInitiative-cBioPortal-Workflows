@@ -3,7 +3,7 @@
 import os
 import json
 from prefect import flow
-from src.utils import create_dump, get_secret, upload_to_s3, file_dl, restore_dump, db_counter
+from src.utils import get_secret, upload_to_s3, file_dl, restore_dump, db_counter, get_time
 from typing import Literal
 
 DropDownRunChoice = Literal["restore", "restore+validate", "clear_working_dir"]
@@ -80,14 +80,13 @@ def restore_db(
         print(f"✅ Dump db counts:")
         print(dump_counts)
 
-        # TODO: perform row and col counts on the restored database
+        # perform row and col counts on the restored database
         # TESTING: performing against dev database until we have a qa database
         restore_counts = db_counter(target_env_name)
 
         print(f"✅ Restore db counts:")
         print(restore_counts)
 
-        # TODO: validate the database restore
 
         # combined the two counts into a single dataframe and check if row and col counts match
         combined_counts = dump_counts.merge(restore_counts, on="table_name", suffixes=("_dump", "_restore"))
@@ -97,7 +96,11 @@ def restore_db(
         print(f"✅ Combined counts:")
         print(combined_counts)
 
-        # TODO: upload the validation file(s) to S3
+        # save validation file and upload the validation file(s) to S3
+        validation_report_fname = f"{working_dir}/cbio_restore_database_{target_env_name}_{get_time}.tsv"
+        combined_counts.to_csv(validation_report_fname, sep="\t", index=False)
+
+        upload_to_s3(validation_report_fname, output_bucket, output_path="restore_validations")
         
         # remove any files in the working directory
         for file in os.listdir(working_dir):

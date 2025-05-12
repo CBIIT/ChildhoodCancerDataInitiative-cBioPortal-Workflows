@@ -164,7 +164,7 @@ def create_dump(
         raise err
 
 @task(name="upload_to_s3", log_prints=True)
-def upload_to_s3(file_path : str, bucket_name: str, region_name="us-east-1"):
+def upload_to_s3(file_path : str, bucket_name: str, output_path="dump_folder", region_name="us-east-1"):
     """
     Uploads a file to an S3 bucket.
 
@@ -179,7 +179,7 @@ def upload_to_s3(file_path : str, bucket_name: str, region_name="us-east-1"):
 
     s3 = boto3.client("s3", region_name=region_name)
     file_name = file_path.split("/")[-1]
-    s3_key = f"dump_folder/{file_name}"
+    s3_key = f"{output_path}/{file_name}"
 
     try:
         s3.upload_file(file_path, bucket_name, s3_key)
