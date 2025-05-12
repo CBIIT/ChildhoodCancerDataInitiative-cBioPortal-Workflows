@@ -268,16 +268,20 @@ def db_counter(db_type: str, dump_file: str = None):
         # Use regex to find the CREATE TABLE statements and extract column names
         table_column_counts = {}
         
-        create_table_pattern = re.compile(r"CREATE TABLE `([^`]+)`\s?\((.*?)\)\s?;", re.DOTALL)
-        matches = create_table_pattern.findall(dump_data)
-    
-        for table_name, columns_definition in matches:
-            # Split columns by commas, ignoring nested parentheses and constraints
-            columns = [
-                col.strip() for col in re.split(r',\s*(?![^()]*\))', columns_definition)
-                if col.strip() and not re.match(r'^(PRIMARY|FOREIGN|UNIQUE|KEY)', col.strip(), re.IGNORECASE)
+        create_table_blocks = re.findall(
+            r'CREATE TABLE\s+`?(\w+)`?\s*\((.*?)\)[^;]*;', 
+            dump_data, 
+            re.DOTALL | re.IGNORECASE
+        )
+
+        for table_name, columns_block in create_table_blocks:
+            # Split lines and filter out keys and constraints
+            lines = columns_block.strip().splitlines()
+            column_lines = [
+                line for line in lines
+                if not re.search(r'^\s*(PRIMARY|UNIQUE|KEY|CONSTRAINT|FOREIGN)', line.strip(), re.IGNORECASE)
             ]
-            table_column_counts[table_name] = len(columns)
+            table_column_counts[table_name] = len(column_lines)
 
         # Count rows in the dump file
         table_row_counts = {}
@@ -296,7 +300,7 @@ def db_counter(db_type: str, dump_file: str = None):
 
         for table in table_column_counts:
             column_count = table_column_counts[table]
-            row_count = table_row_counts.get(table, "Unknown")  # In case the table isn't found
+            row_count = table_row_counts.get(table, 0)  # In case the table isn't found
             stats.append([table, column_count, row_count])
         
         # Create DataFrame
