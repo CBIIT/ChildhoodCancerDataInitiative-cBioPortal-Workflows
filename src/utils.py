@@ -284,13 +284,60 @@ def db_counter(db_type: str, dump_file: str = None):
         # Count rows in the dump file
         table_row_counts = {}
         
-        # Adjust regex to handle multiline INSERT INTO statements
-        insert_into_pattern = re.compile(r"INSERT INTO `([^`]+)` VALUES\s*\((.*?)\);", re.DOTALL)
+        """# Adjust regex to handle multiline INSERT INTO statements
+        insert_into_pattern = re.compile(r"INSERT INTO `([^`]+)` VALUES\s*(\(.*?\));", re.DOTALL)
         matches = insert_into_pattern.findall(dump_data)
     
         for table_name, rows in matches:
             # Split rows by parentheses, ignoring nested parentheses
             row_count = len(re.findall(r'\((.*?)\)', rows, re.DOTALL))
+            if table_name in table_row_counts:
+                table_row_counts[table_name] += row_count
+            else:
+                table_row_counts[table_name] = row_count"""
+        
+        def split_rows(value_string):
+            """Split a VALUES string into individual rows without breaking on inner parentheses or commas."""
+            rows = []
+            current = ''
+            parens = 0
+            in_string = False
+            escape = False
+
+            for char in value_string:
+                current += char
+                if char == "'" and not escape:
+                    in_string = not in_string
+                elif char == "\\" and in_string:
+                    escape = not escape
+                    continue
+                elif not in_string:
+                    if char == '(':
+                        parens += 1
+                    elif char == ')':
+                        parens -= 1
+                        if parens == 0:
+                            rows.append(current.strip().rstrip(','))
+                            current = ''
+                escape = False
+            return rows
+
+        # Match full INSERT INTO blocks with multiple rows possibly spanning lines
+        insert_into_pattern = re.compile(
+            r"INSERT INTO `([^`]+)` VALUES\s*(.*?);", re.DOTALL
+        )
+        matches = insert_into_pattern.findall(dump_data)
+
+        for table_name, values_block in matches:
+            # Strip outer wrapping
+            values_block = values_block.strip()
+            if not values_block.startswith("("):
+                continue
+
+            # Split only at top-level commas between row entries
+            rows = split_rows(values_block)
+            row_count = len(rows)
+
             if table_name in table_row_counts:
                 table_row_counts[table_name] += row_count
             else:
