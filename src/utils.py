@@ -268,11 +268,6 @@ def db_counter(db_type: str, dump_file: str = None):
         # Use regex to find the CREATE TABLE statements and extract column names
         table_column_counts = {}
         
-        """create_table_blocks = re.findall(
-            r'CREATE TABLE\s+`?(\w+)`?\s*\((.*?)\)[^;]*;', 
-            dump_data, 
-            re.DOTALL | re.IGNORECASE
-        )"""
 
         table_pattern = re.compile(r"CREATE TABLE\s+`(\w+)`\s+\((.*?)\)\s+ENGINE=", re.DOTALL)
         matches = table_pattern.findall(dump_data)
@@ -290,7 +285,7 @@ def db_counter(db_type: str, dump_file: str = None):
         table_row_counts = {}
         
         # Adjust regex to handle multiline INSERT INTO statements
-        insert_into_pattern = re.compile(r"INSERT INTO `([^`]+)` VALUES\s*(\(.*?\));", re.DOTALL)
+        insert_into_pattern = re.compile(r"INSERT INTO `([^`]+)` VALUES\s*\((.*?)\);", re.DOTALL)
         matches = insert_into_pattern.findall(dump_data)
     
         for table_name, rows in matches:

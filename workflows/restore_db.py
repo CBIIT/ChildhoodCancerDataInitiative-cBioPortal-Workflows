@@ -89,9 +89,9 @@ def restore_db(
 
 
         # combined the two counts into a single dataframe and check if row and col counts match
-        combined_counts = dump_counts.merge(restore_counts, on="table_name", suffixes=("_dump", "_restore"))
-        combined_counts["columm_count_match"] = combined_counts["column_count_dump"] == combined_counts["column_count_restore"]
-        combined_counts["row_count_match"] = combined_counts["row_count_dump"] == combined_counts["row_count_restore"]
+        combined_counts = dump_counts.merge(restore_counts, on="table_name", suffixes=("_dump", f"_{target_env_name}"))
+        combined_counts["columm_count_match"] = combined_counts["column_count_dump"] == combined_counts[f"column_count_{target_env_name}"]
+        combined_counts["row_count_match"] = combined_counts["row_count_dump"] == combined_counts[f"row_count_{target_env_name}"]
         
         print(f"✅ Combined counts:")
         print(combined_counts)
