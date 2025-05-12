@@ -272,8 +272,11 @@ def db_counter(db_type: str, dump_file: str = None):
         matches = create_table_pattern.findall(dump_data)
     
         for table_name, columns_definition in matches:
-            # Split columns by commas, ignoring newlines
-            columns = [col.strip() for col in re.split(r',\s*(?![^()]*\))', columns_definition) if col.strip() and not col.strip().startswith('PRIMARY') and not col.strip().startswith('FOREIGN')]
+            # Split columns by commas, ignoring nested parentheses and constraints
+            columns = [
+                col.strip() for col in re.split(r',\s*(?![^()]*\))', columns_definition)
+                if col.strip() and not re.match(r'^(PRIMARY|FOREIGN|UNIQUE|KEY)', col.strip(), re.IGNORECASE)
+            ]
             table_column_counts[table_name] = len(columns)
 
         # Count rows in the dump file
