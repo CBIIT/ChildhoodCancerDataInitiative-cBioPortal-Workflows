@@ -298,6 +298,7 @@ def db_counter(db_type: str, dump_file: str = None):
         
         # Create DataFrame
         df = pd.DataFrame(stats)
+        df.columns = ['table_name', 'column_count', 'row_count']
 
         return df
 
