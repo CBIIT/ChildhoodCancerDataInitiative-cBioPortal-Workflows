@@ -56,7 +56,7 @@ def get_secret(env_name: str):
     elif env_name == "qa":
         secret_name = "ccdicbio-qa-rds"
     else:
-        raise ValueError("Invalid environment name. Please use one of: ['dev', 'qa'].")
+        raise ValueError("Invalid environment name. Please use one of: ['dev', 'qa', 'stage', 'prod'].")
         
     # Create a Secrets Manager client
     session = boto3.session.Session()
@@ -268,13 +268,16 @@ def db_counter(db_type: str, dump_file: str = None):
         # Use regex to find the CREATE TABLE statements and extract column names
         table_column_counts = {}
         
-        create_table_blocks = re.findall(
+        """create_table_blocks = re.findall(
             r'CREATE TABLE\s+`?(\w+)`?\s*\((.*?)\)[^;]*;', 
             dump_data, 
             re.DOTALL | re.IGNORECASE
-        )
+        )"""
 
-        for table_name, columns_block in create_table_blocks:
+        table_pattern = re.compile(r"CREATE TABLE\s+`(\w+)`\s+\((.*?)\)\s+ENGINE=", re.DOTALL)
+        matches = table_pattern.findall(dump_data)
+
+        for table_name, columns_block in matches:
             # Split lines and filter out keys and constraints
             lines = columns_block.strip().splitlines()
             column_lines = [
