@@ -7,7 +7,7 @@ from src.utils import create_dump, get_secret, upload_to_s3, file_dl, restore_du
 from typing import Literal
 
 DropDownRunChoice = Literal["restore", "restore+validate", "clear_working_dir"]
-DropDownEnvChoice = Literal["qa", "stage", "prod"]
+DropDownEnvChoice = Literal["dev", "qa", "stage", "prod"]
 
 @flow(name="cbio-restore-flow", log_prints=True)
 def restore_db(
@@ -81,7 +81,7 @@ def restore_db(
 
         # TODO: perform row and col counts on the restored database
         # TESTING: performing against dev database until we have a qa database
-        restore_counts = db_counter("dev")
+        restore_counts = db_counter(target_env_name)
 
         print(f"✅ Restore db counts: {restore_counts}")
 
