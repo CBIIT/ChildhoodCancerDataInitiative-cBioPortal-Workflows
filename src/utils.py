@@ -290,7 +290,7 @@ def db_counter(db_type: str, dump_file: str = None):
     
         for table_name, rows in matches:
             # Split rows by parentheses, ignoring nested parentheses
-            row_count = len(re.findall(r'\((.*?)\)', rows, re.DOTALL))
+            row_count = len(re.findall(r'\((?:[^()]*|\([^()]*\))*?\)', rows, re.DOTALL))
             if table_name in table_row_counts:
                 table_row_counts[table_name] += row_count
             else:
