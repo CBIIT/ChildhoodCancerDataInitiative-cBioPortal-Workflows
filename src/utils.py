@@ -16,43 +16,6 @@ def get_time() -> str:
     dt_string = now.strftime("%Y%m%d_T%H%M%S")
     return dt_string
 
-def split_top_level_values(values_str):
-    """Splits a VALUES string into individual row strings while ignoring nested commas and parentheses."""
-    rows = []
-    depth = 0
-    in_string = False
-    current = []
-
-    i = 0
-    while i < len(values_str):
-        char = values_str[i]
-
-        if char == "'" and (i == 0 or values_str[i-1] != "\\"):
-            in_string = not in_string
-            current.append(char)
-        elif not in_string:
-            if char == '(':
-                depth += 1
-                current.append(char)
-            elif char == ')':
-                depth -= 1
-                current.append(char)
-                if depth == 0:
-                    rows.append(''.join(current).strip())
-                    current = []
-                    # skip the comma after the closing parenthesis
-                    if i + 1 < len(values_str) and values_str[i + 1] == ',':
-                        i += 1
-            else:
-                current.append(char)
-        else:
-            current.append(char)
-        i += 1
-
-    return rows
-
-
-
 def set_s3_resource():
     """This method sets the s3_resource object to either use localstack
     for local development if the LOCALSTACK_ENDPOINT_URL variable is
@@ -327,14 +290,11 @@ def db_counter(db_type: str, dump_file: str = None):
     
         for table_name, rows in matches:
             # Split rows by parentheses, ignoring nested parentheses
-            # = len(re.findall(r'\((.*?)\)', rows, re.DOTALL))
-            row_entries = split_top_level_values(rows)
-            table_row_counts[table_name] = len(row_entries)
-
-            """if table_name in table_row_counts:
+            row_count = len(re.findall(r'\((.*?)\)', rows, re.DOTALL))
+            if table_name in table_row_counts:
                 table_row_counts[table_name] += row_count
             else:
-                table_row_counts[table_name] = row_count"""
+                table_row_counts[table_name] = row_count
 
         for table in table_column_counts:
             column_count = table_column_counts[table]
