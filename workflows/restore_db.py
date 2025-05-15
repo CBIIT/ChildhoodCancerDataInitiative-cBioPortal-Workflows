@@ -3,10 +3,10 @@
 import os
 import json
 from prefect import flow
-from src.utils import get_secret, upload_to_s3, file_dl, restore_dump, db_counter, get_time
+from src.utils import get_secret, upload_to_s3, file_dl, db_counter, get_time
 from typing import Literal
 
-DropDownRunChoice = Literal["restore", "restore+validate", "clear_working_dir"]
+DropDownRunChoice = Literal["restore", "clear_working_dir"]
 DropDownEnvChoice = Literal["dev", "qa", "stage", "prod"]
 
 @flow(name="cbio-restore-flow", log_prints=True)
@@ -21,7 +21,7 @@ def restore_db(
     """Execute database restore and upload to S3.
 
     Args:
-        run_type (str): Type of run for workflow (e.g., , stage, prod)
+        run_type (str): Type of run for workflow (i.e. restore db + validate restore, or clear working dir)
         target_env_name (str): Environment to restore database to (e.g., qa, stage, prod)
         source_bucket (str): S3 bucket name to download from (e.g. cbio-backup-dev)
         sql_dump_path (str): Path to the SQL dump file in the S3 bucket
@@ -33,8 +33,11 @@ def restore_db(
     working_dir = "/usr/local/data/dumps"
 
     if run_type == "clear_working_dir":
+
+        # change to working directory
         os.chdir(working_dir)
 
+        # remove any files in the working directory
         for file in os.listdir(working_dir):
             file_path = os.path.join(working_dir, file)
             if os.path.isfile(file_path):
@@ -46,6 +49,8 @@ def restore_db(
         print(f"✅ Removed all files in working directory: {working_dir}")
     
     else:
+
+        # grab creds from secrets manager
         creds_string = get_secret(target_env_name)
         creds = json.loads(creds_string)
 
@@ -87,7 +92,6 @@ def restore_db(
         print(f"✅ Restore db counts:")
         print(restore_counts)
 
-
         # combined the two counts into a single dataframe and check if row and col counts match
         combined_counts = dump_counts.merge(restore_counts, on="table_name", suffixes=("_dump", f"_{target_env_name}"))
         combined_counts["columm_count_match"] = combined_counts["column_count_dump"] == combined_counts[f"column_count_{target_env_name}"]
@@ -103,8 +107,8 @@ def restore_db(
         upload_to_s3(validation_report_fname, output_bucket, output_path="restore_validations")
         
         # remove any files in the working directory
-        for file in os.listdir(working_dir):
-            file_path = os.path.join(working_dir, file)
+        for f in os.listdir(working_dir):
+            file_path = os.path.join(working_dir, f)
             if os.path.isfile(file_path):
                 os.remove(file_path)
                 print(f"✅ Removed file: {file_path}")
