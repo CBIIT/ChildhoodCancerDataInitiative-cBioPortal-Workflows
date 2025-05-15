@@ -268,7 +268,6 @@ def db_counter(db_type: str, dump_file: str = None):
         # Use regex to find the CREATE TABLE statements and extract column names
         table_column_counts = {}
         
-
         table_pattern = re.compile(r"CREATE TABLE\s+`(\w+)`\s+\((.*?)\)\s+ENGINE=", re.DOTALL)
         matches = table_pattern.findall(dump_data)
 
@@ -284,17 +283,19 @@ def db_counter(db_type: str, dump_file: str = None):
         # Count rows in the dump file
         table_row_counts = {}
         
-        # Adjust regex to handle multiline INSERT INTO statements
-        insert_into_pattern = re.compile(r"INSERT INTO `([^`]+)` VALUES\s*(\(.*?\));", re.DOTALL)
-        matches = insert_into_pattern.findall(dump_data)
-    
-        for table_name, rows in matches:
-            # Split rows by parentheses, ignoring nested parentheses
-            row_count = len(re.findall(r'\((.*?)\)\s*$', rows, re.DOTALL))
-            if table_name in table_row_counts:
-                table_row_counts[table_name] += row_count
-            else:
-                table_row_counts[table_name] = row_count
+        # different handling due to complex nature of row entries dump file
+        # read file line by line
+        # record the number of rows in each table
+        # this method may not be as efficient but handles nested parantheses, ad hoc semi-colons and other
+        # unforeseen syntax issues that may arise in the dump file in the future that cannot be handled by regex
+        for line in dump_data.splitlines():
+            if line.startswith("INSERT INTO"):
+                # Extract table name and row count
+                table_name = re.search(r'INSERT INTO `(\w+)`', line).group(1)
+                if table_name not in table_row_counts.keys():
+                    table_row_counts[table_name] = 0
+            elif line.startswith("("):
+                table_row_counts[table_name] += 1  
 
         for table in table_column_counts:
             column_count = table_column_counts[table]
