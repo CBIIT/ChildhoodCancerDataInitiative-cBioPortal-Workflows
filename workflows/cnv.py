@@ -150,6 +150,7 @@ def download_cnv(manifest_df: pd.DataFrame, logger) -> None:
 
     # throttle submission of tasks to avoid overwhelming the system
     time.sleep(2)
+
     #setup with list of dicts to iterate over and then run with map
     submit_list = []
 
@@ -177,6 +178,84 @@ def download_cnv(manifest_df: pd.DataFrame, logger) -> None:
 
 # task to read in and transform cnv file's data
 # parse segments with significant p-value and add to a new dataframe
+@task(
+    name="cnv-segment-parser",
+    log_prints=True,
+    tags=["cnv-json-downloader-tag"],
+    retries=3,
+    retry_delay_seconds=1,
+)
+def parse_segments(file_path, logger):
+    """Parse out relevant segments from the data."""
+    # Load the data
+    # check of file exists
+    if not os.path.exists(file_path):
+        logger.error(f"File at path {file_path} does not exist. Not parsing")
+
+        return [''] * 12
+
+    with open(file_path, 'r') as f:
+        data = json.load(f)
+
+    # Extract relevant segments
+    segments = []
+    
+    participant = data['metadata']['sample_name'].split("-")[0]
+    sample_id = data['metadata']['sample_name'].split("-")[1]
+
+    for segment in data['segments']:
+        chrom = segment['position']['chrom']
+        start = segment['position']['start']
+        end = segment['position']['end']
+        length = segment['position']['length']
+        log2ratio = segment['cnv']['log2_copy_ratio']
+        num_points = segment['cnv']['cnv_supporting_points']
+        num_reads = segment['cnv']['cnv_supporting_reads']
+        log2_p_value = segment['cnv']['log2_pval']
+        log2_ci_low = segment['cnv']['log2_copy_ratio_90per_ci_low']
+        log2_ci_high = segment['cnv']['log2_copy_ratio_90per_ci_high']
+
+        segments.append([
+            participant,
+            sample_id,
+            chrom,
+            start,
+            end,
+            length,
+            log2ratio,
+            num_points,
+            num_reads,
+            log2_p_value,
+            log2_ci_low,
+            log2_ci_high
+        ])
+
+    return pd.DataFrame(segments)
+
+
+# flow to parse segments
+@flow(name="parse_segments_flow", task_runner=ConcurrentTaskRunner(), log_prints=True)
+def parse_segments_flow(manifest_df: pd.DataFrame, logger) -> None:
+    """Parse segments from copy number files
+
+    Args:
+        manifest_df (pd.DataFrame): Dataframe of the manifest file
+        bucket (str): S3 bucket name
+    """
+    # download cnv files from S3
+    runner_logger = get_run_logger()
+
+    # throttle submission of tasks to avoid overwhelming the system
+    time.sleep(2)
+
+    #setup with list of file_names
+    submit_list = manifest_df['file_name'].to_list()
+
+    file_downloads = json_dl.map(submit_list, unmapped(logger))
+    
+    segment_data =  file_downloads.result()
+
+    return pd.concat(segment_data)
 
 
 # task to perform gene mappings to segement location for continuous data
@@ -199,6 +278,8 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, flow_type: 
     """
 
     runner_logger = get_run_logger()
+
+    dt = get_time()
     
     if flow_type == "cleanup":
         
@@ -222,6 +303,7 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, flow_type: 
         # change working directory to mounted drive
         output_path = os.path.join("/usr/local/data/cnv", "cnv_run_"+get_time())
         os.makedirs(output_path, exist_ok=True)
+
         # change working directory to output path
         runner_logger.info(f"Output path: {output_path}")
         os.chdir(output_path)
@@ -230,7 +312,6 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, flow_type: 
         log_filename = f"{output_path}/cbio_cnv_transform.log"
         logger = get_logger(f"{output_path}/cbio_cnv_transform", "info")
         logger.info(f"Output path: {output_path}")
-
 
         logger.info(f"Logs beginning at {get_time()}")
 
@@ -246,7 +327,13 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, flow_type: 
 
         # download cnv files from S3
         runner_logger.info(f"Downloading cnv files from S3 bucket")
-        #download_cnv(manifest_df, logger)
+        download_cnv(manifest_df, logger)
+
+
+        # parse segement data from cnv files
+        segment_data = parse_segments_flow(manifest_df, logger)
+
+        segment_data.to_csv(f"segment_data_{dt}.tsv", sep="\t", index=False)
         
         if not os.path.exists(log_filename):
             print(f"Log file does not exist: {log_filename}")
@@ -255,7 +342,7 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, flow_type: 
             print(f"Permissions for {output_path}: {oct(os.stat(output_path).st_mode)}")
 
 
-        os.rename(log_filename, log_filename.replace(".log", "_"+get_time()+".log"))
+        os.rename(log_filename, log_filename.replace(".log", "_"+dt+".log"))
 
         #upload output directory to S3
         upload_folder_to_s3(
@@ -269,4 +356,5 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, flow_type: 
 
 if __name__ == "__main__":
     # testing
-    cnv_flow()
+    #cnv_flow(bucket="cbioportal-data", manifest_path="cnv/manifest.txt", destination_path="cnv", flow_type="segment")
+    pass
