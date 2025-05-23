@@ -341,9 +341,10 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, flow_type: 
 
         # read in manifest file
         runner_logger.info(f"Reading in manifest file")
-        manifest_df = read_manifest(os.path.basename(manifest_path))[:10]
+        manifest_df = read_manifest(os.path.basename(manifest_path))
 
         logger.info(f"Expected number of files to download: {len(manifest_df)}")
+        runner_logger.info(f"Expected number of files to download: {len(manifest_df)}")
 
         # download cnv files from S3
         runner_logger.info(f"Downloading cnv files from S3 bucket")
@@ -355,6 +356,7 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, flow_type: 
         # count number of files downloaded
         num_files = len(os.listdir(download_path))
         logger.info(f"Actual number of files downloaded: {num_files}")
+        runner_logger.info(f"Actual number of files downloaded: {num_files}")
 
         # change back to output path
         os.chdir(output_path)
