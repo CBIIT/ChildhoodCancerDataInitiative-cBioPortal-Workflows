@@ -68,7 +68,7 @@ deployments:
     destination_path: ""
     flow_type: "segment_and_cnv_gene"
   work_pool:
-    name: cbio-8gb-prefect-3.2.14-python3.9
+    name: ccdi-curation-16gb-prefect-3.2.14-python3.9
     work_queue_name:
     job_variables: {}
   schedules: []
