@@ -255,7 +255,24 @@ def parse_segments_flow(manifest_df: pd.DataFrame, logger) -> None:
     
     segment_data =  parse_segments_map.result()
 
-    return pd.concat(segment_data)
+    seg_df = pd.concat(segment_data)
+
+    seg_df.columns = [
+        'participant',
+        'sample_id',
+        'chrom',
+        'start',
+        'end',
+        'length',
+        'log2ratio',
+        'num_points',
+        'num_reads',
+        'log2_p_value',
+        'log2_ci_low',
+        'log2_ci_high'
+    ]
+
+    return seg_df
 
 
 # task to perform gene mappings to segement location for continuous data
@@ -339,10 +356,16 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, flow_type: 
             print(f"Log file does not exist: {log_filename}")
         else:
             print(f"Log file exists: {log_filename}")
-            print(f"Permissions for {output_path}: {oct(os.stat(output_path).st_mode)}")
-
 
         os.rename(log_filename, log_filename.replace(".log", "_"+dt+".log"))
+
+        # remove downloaded JSON files
+        for f_name in manifest_df['file_name'].to_list():
+            if os.path.exists(f_name):
+                os.remove(f_name)
+                runner_logger.info(f"Removed file: {f_name}")
+            else:
+                runner_logger.info(f"File not found: {f_name}")
 
         #upload output directory to S3
         upload_folder_to_s3(
