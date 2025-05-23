@@ -251,9 +251,9 @@ def parse_segments_flow(manifest_df: pd.DataFrame, logger) -> None:
     #setup with list of file_names
     submit_list = manifest_df['file_name'].to_list()
 
-    file_downloads = json_dl.map(submit_list, unmapped(logger))
+    parse_segments_map = parse_segments.map(submit_list, unmapped(logger))
     
-    segment_data =  file_downloads.result()
+    segment_data =  parse_segments_map.result()
 
     return pd.concat(segment_data)
 
