@@ -235,7 +235,7 @@ def parse_segments(file_path, logger):
 
 # flow to parse segments
 @flow(name="parse_segments_flow", task_runner=ConcurrentTaskRunner(), log_prints=True)
-def parse_segments_flow(manifest_df: pd.DataFrame, logger) -> None:
+def parse_segments_flow(manifest_df: pd.DataFrame, download_path: str, logger) -> None:
     """Parse segments from copy number files
 
     Args:
@@ -249,7 +249,7 @@ def parse_segments_flow(manifest_df: pd.DataFrame, logger) -> None:
     time.sleep(2)
 
     #setup with list of file_names
-    submit_list = manifest_df['file_name'].to_list()
+    submit_list = [os.path.join(download_path, i) for i in manifest_df['file_name'].to_list()]
 
     parse_segments_map = parse_segments.map(submit_list, unmapped(logger))
     
@@ -318,8 +318,11 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, flow_type: 
         runner_logger.info(f"Running cnv_flow with bucket: {bucket}, manifest_path: {manifest_path}, destination_path: {destination_path}, flow_type: {flow_type}")
         
         # change working directory to mounted drive
-        output_path = os.path.join("/usr/local/data/cnv", "cnv_run_"+get_time())
+        output_path = os.path.join("/usr/local/data/cnv", "cnv_run_"+dt)
         os.makedirs(output_path, exist_ok=True)
+
+        download_path = os.path.join(output_path, "cnv_downloads_"+dt)
+        os.makedirs(download_path, exist_ok=True)
 
         # change working directory to output path
         runner_logger.info(f"Output path: {output_path}")
@@ -340,17 +343,29 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, flow_type: 
         runner_logger.info(f"Reading in manifest file")
         manifest_df = read_manifest(os.path.basename(manifest_path))[:10]
 
-        logger.info(f"Number of files to download: {len(manifest_df)}")
+        logger.info(f"Expected number of files to download: {len(manifest_df)}")
 
         # download cnv files from S3
         runner_logger.info(f"Downloading cnv files from S3 bucket")
+
+        # change working directory to download path
+        os.chdir(download_path)
         download_cnv(manifest_df, logger)
 
+        # count number of files downloaded
+        num_files = len(os.listdir(download_path))
+        logger.info(f"Actual number of files downloaded: {num_files}")
+
+        # change back to output path
+        os.chdir(output_path)
 
         # parse segement data from cnv files
-        segment_data = parse_segments_flow(manifest_df, logger)
+        segment_data = parse_segments_flow(manifest_df, download_path, logger)
 
         segment_data.to_csv(f"segment_data_{dt}.tsv", sep="\t", index=False)
+
+        runner_logger.info(f"Generated segment data file segment_data_{dt}.tsv")
+        logger.info(f"Generated segment data file segment_data_{dt}.tsv")
         
         if not os.path.exists(log_filename):
             print(f"Log file does not exist: {log_filename}")
@@ -359,13 +374,9 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, flow_type: 
 
         os.rename(log_filename, log_filename.replace(".log", "_"+dt+".log"))
 
-        # remove downloaded JSON files
-        for f_name in manifest_df['file_name'].to_list():
-            if os.path.exists(f_name):
-                os.remove(f_name)
-                runner_logger.info(f"Removed file: {f_name}")
-            else:
-                runner_logger.info(f"File not found: {f_name}")
+        # remove downloaded JSON files by removing download path
+        shutil.rmtree(download_path)
+        runner_logger.info(f"Removed downloaded JSON files from {download_path}")
 
         #upload output directory to S3
         upload_folder_to_s3(
