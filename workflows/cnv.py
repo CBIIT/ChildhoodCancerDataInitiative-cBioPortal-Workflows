@@ -215,20 +215,34 @@ def parse_segments(file_path, logger):
         log2_ci_low = segment['cnv']['log2_copy_ratio_90per_ci_low']
         log2_ci_high = segment['cnv']['log2_copy_ratio_90per_ci_high']
 
-        segments.append([
-            participant,
-            sample_id,
-            chrom,
-            start,
-            end,
-            length,
-            log2ratio,
-            num_points,
-            num_reads,
-            log2_p_value,
-            log2_ci_low,
-            log2_ci_high
-        ])
+        for subseg in segment['cnv']['cnv_supporting_subsegments']:
+            subseg_chrom = subseg['chrom']
+            subseg_start = subseg['start']
+            subseg_end = subseg['end']
+            subseg_len = subseg['length']
+            subseg_reads = subseg['reads']
+            subseg_log2 = subseg['log2_copy_ratio']
+
+            segments.append([
+                participant,
+                sample_id,
+                chrom,
+                start,
+                end,
+                length,
+                log2ratio,
+                num_points,
+                num_reads,
+                log2_p_value,
+                log2_ci_low,
+                log2_ci_high,
+                subseg_chrom,
+                subseg_start,
+                subseg_end,
+                subseg_len,
+                subseg_reads, 
+                subseg_log2
+            ])
 
     return pd.DataFrame(segments)
 
@@ -270,6 +284,12 @@ def parse_segments_flow(manifest_df: pd.DataFrame, download_path: str, logger) -
         'log2_p_value',
         'log2_ci_low',
         'log2_ci_high'
+        'subseg_chrom',
+        'subseg_start',
+        'subseg_end',
+        'subseg_len',
+        'subseg_reads', 
+        'subseg_log2',
     ]
 
     return seg_df
