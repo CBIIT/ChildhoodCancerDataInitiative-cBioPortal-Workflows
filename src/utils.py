@@ -194,9 +194,9 @@ def restore_dump(
     username: str,
     password: str,
     dbClusterIdentifier: str,
+    dump_file: str,
     engine: str = "mysql",
     port=3306,
-    dump_file: str = None,
 ):
     """Creates a dump of the database using mysqldump.
 
