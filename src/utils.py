@@ -230,7 +230,7 @@ def restore_dump(
 
     try:
         # Run the MySQL command using subprocess
-        subprocess.run(" ".join(command), shell=False, check=True)
+        subprocess.run(" ".join(command), shell=True, check=True)
 
         print(f"✅ Dump successful: {dump_file}")
         return True
