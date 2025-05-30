@@ -228,7 +228,9 @@ def restore_dump(
         dump_file,
     ]
 
-    try:
+    subprocess.run(" ".join(command), shell=False, check=False, stderr=subprocess.PIPE)
+    
+    """try:
         # Run the MySQL command using subprocess
         process = subprocess.run(" ".join(command), shell=False, check=False, stderr=subprocess.PIPE)
 
@@ -241,7 +243,7 @@ def restore_dump(
             return True
     except Exception as err:
         print(f"❌ Error importing dump file: {err}")
-        raise err
+        raise err"""
     
 @flow(name="db_counter", log_prints=True)
 def db_counter(db_type: str, dump_file: str = None):
