@@ -6,6 +6,7 @@ from prefect import flow
 from src.utils import get_secret, upload_to_s3, file_dl, db_counter, get_time, restore_dump
 from typing import Literal
 import re
+from prefect_shell import ShellOperation
 
 DropDownRunChoice = Literal["restore", "clear_working_dir"]
 DropDownEnvChoice = Literal["dev", "qa", "stage", "prod"]
@@ -83,6 +84,14 @@ def restore_db(
                     outfile.write(line)
         outfile.close()
         print(f"✅ Processed dump file: {raw_dump_file_name} -> {dump_file_name}")
+
+        print(
+            ShellOperation(
+                commands=[
+                    "ls -l /usr/local/data/dumps",  
+                ]
+            ).run()
+        )
 
         # restore the database using the dump file
         if restore_dump(dump_file=f"{working_dir}/{dump_file_name}", **creds):
