@@ -3,7 +3,7 @@
 import os
 import json
 from prefect import flow
-from src.utils import get_secret, upload_to_s3, file_dl, db_counter, get_time
+from src.utils import get_secret, upload_to_s3, file_dl, db_counter, get_time, restore_dump
 from typing import Literal
 import re
 
@@ -81,14 +81,15 @@ def restore_db(
             for line in infile:
                 if not pattern.search(line):
                     outfile.write(line)
+        outfile.close()
+        print(f"✅ Processed dump file: {raw_dump_file_name} -> {dump_file_name}")
 
         # restore the database using the dump file
-        ## COMMENTED OUT UNTIL DB IS READY
-        """if restore_dump(dump_file_path=file_name, **creds):
-            print(f"✅ Restored database from dump file: {file_name}")
+        if restore_dump(dump_file_path=dump_file_name, **creds):
+            print(f"✅ Restored database from dump file: {dump_file_name}")
         else:
-            print(f"❌ Failed to restore database from dump file: {file_name}")
-            raise Exception(f"Failed to restore database from dump file: {file_name}")"""
+            print(f"❌ Failed to restore database from dump file: {dump_file_name}")
+            raise Exception(f"Failed to restore database from dump file: {dump_file_name}")
 
         # perform row and col counts on the dump database file
         dump_counts = db_counter("dump", dump_file=dump_file_name)
