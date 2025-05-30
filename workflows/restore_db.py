@@ -85,7 +85,7 @@ def restore_db(
         print(f"✅ Processed dump file: {raw_dump_file_name} -> {dump_file_name}")
 
         # restore the database using the dump file
-        if restore_dump(dump_file=dump_file_name, **creds):
+        if restore_dump(dump_file=f"{working_dir}/{dump_file_name}", **creds):
             print(f"✅ Restored database from dump file: {dump_file_name}")
         else:
             print(f"❌ Failed to restore database from dump file: {dump_file_name}")
