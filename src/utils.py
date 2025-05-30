@@ -230,10 +230,15 @@ def restore_dump(
 
     try:
         # Run the MySQL command using subprocess
-        subprocess.run(" ".join(command), shell=True, check=True)
+        process = subprocess.run(" ".join(command), shell=False, check=False, stderr=subprocess.PIPE)
 
-        print(f"✅ Dump successful: {dump_file}")
-        return True
+        if process.returncode != 0:
+            print(f"Error code: {process.returncode}")
+            print(f"Error message: {process.stderr.decode()}")
+            raise subprocess.CalledProcessError(process.returncode, command, process.stderr)
+        else:
+
+            return True
     except Exception as err:
         print(f"❌ Error importing dump file: {err}")
         raise err
