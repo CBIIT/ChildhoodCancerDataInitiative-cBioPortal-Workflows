@@ -5,6 +5,7 @@ import json
 from prefect import flow
 from src.utils import get_secret, upload_to_s3, file_dl, db_counter, get_time
 from typing import Literal
+import re
 
 DropDownRunChoice = Literal["restore", "clear_working_dir"]
 DropDownEnvChoice = Literal["dev", "qa", "stage", "prod"]
@@ -70,6 +71,16 @@ def restore_db(
             raise FileNotFoundError(f"File {dump_file_name} does not exist.")
         
         print(f"✅ Downloaded dump file from S3: {dump_file_name}")
+
+        #remove CREATE DATABASE AND USE statements to exclude source db schema calls
+        #rename dump file to raw_{dump_file_name}
+        raw_dump_file_name = f"raw_{dump_file_name}" 
+        os.rename(dump_file_name, raw_dump_file_name)
+        pattern = re.compile(r"USE |CREATE DATABASE ")
+        with open(raw_dump_file_name, "r") as infile, open(dump_file_name, "w+") as outfile:
+            for line in infile:
+                if not pattern.search(line):
+                    outfile.write(line)
 
         # restore the database using the dump file
         ## COMMENTED OUT UNTIL DB IS READY
