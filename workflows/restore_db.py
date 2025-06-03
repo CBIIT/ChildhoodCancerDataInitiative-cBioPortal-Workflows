@@ -10,7 +10,7 @@ from typing import Literal
 from prefect_shell import ShellOperation
 
 DropDownRunChoice = Literal["restore", "clear_working_dir"]
-DropDownEnvChoice = Literal["dev", "qa", "stage", "prod"]
+DropDownEnvChoice = Literal["dev", "qa"]
 
 @flow(name="cbio-restore-flow", log_prints=True)
 def restore_db(
