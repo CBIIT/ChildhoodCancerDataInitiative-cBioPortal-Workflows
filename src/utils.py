@@ -224,13 +224,37 @@ def restore_dump(
         f"--password={password}",
         "--database",
         dbClusterIdentifier,
-        "<",
-        dump_file,
+        #"<",
+        #dump_file,
     ]
 
     #subprocess.run(command, shell=True, check=False, stderr=subprocess.PIPE)
 
     try:
+        with open(dump_file, "rb") as f:
+            process = subprocess.run(
+                command,
+                stdin=f,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=True,
+                shell=False
+            )
+        
+        if process.returncode != 0:
+            print(f"Error code: {process.returncode}")
+            print(f"Error message: {process.stderr.decode()}")
+            raise subprocess.CalledProcessError(process.returncode, command, process.stderr)
+        else:
+            print("Restore completed successfully.")
+            return True
+    except subprocess.CalledProcessError as e:
+        print("Restore failed.")
+        print("STDOUT:", e.stdout.decode())
+        print("STDERR:", e.stderr.decode())
+        raise
+
+    """try:
         # Run the MySQL command using subprocess
         process = subprocess.run(command, shell=True, check=False, stderr=subprocess.PIPE)
 
@@ -243,7 +267,7 @@ def restore_dump(
             return True
     except Exception as err:
         print(f"❌ Error importing dump file: {err}")
-        raise err
+        raise err"""
     
     
 @flow(name="db_counter", log_prints=True)
