@@ -87,7 +87,7 @@ def restore_db(
         print(f"✅ Processed dump file: {raw_dump_file_name} -> {dump_file_name}")"""
 
         ## CHECK FOR DUMP FILE IN WORKING DIRECTORY
-        print(
+        """ print(
             ShellOperation(
                 commands=[
                     "ls -l /usr/local/data/dumps",  
@@ -102,14 +102,14 @@ def restore_db(
                     "mysql --version",  
                 ]
             ).run()
-        )
+        )"""
 
         # restore the database using the dump file
-        """if restore_dump(dump_file=f"{working_dir}/{dump_file_name}", **creds):
+        if restore_dump(dump_file=f"{working_dir}/{dump_file_name}", **creds):
             print(f"✅ Restored database from dump file: {dump_file_name}")
         else:
             print(f"❌ Failed to restore database from dump file: {dump_file_name}")
-            raise Exception(f"Failed to restore database from dump file: {dump_file_name}")"""
+            raise Exception(f"Failed to restore database from dump file: {dump_file_name}")
 
         # perform row and col counts on the dump database file
         dump_counts = db_counter("dump", dump_file=dump_file_name)

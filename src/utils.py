@@ -222,13 +222,14 @@ def restore_dump(
         f"--port={port}",
         f"--user={username}",
         f"--password={password}",
-        "--databases",
+        "--database",
         dbClusterIdentifier,
         "<",
         dump_file,
     ]
 
-    subprocess.run(" ".join(command), shell=False, check=False, stderr=subprocess.PIPE)
+    subprocess.run(command, shell=True, check=False, stderr=subprocess.PIPE)
+
 
     
     """try:
