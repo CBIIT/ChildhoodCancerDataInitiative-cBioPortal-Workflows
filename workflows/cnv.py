@@ -364,7 +364,46 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, flow_type: 
         # parse segement data from cnv files
         segment_data = parse_segments_flow(manifest_df, download_path, logger)
 
-        segment_data.to_csv(f"segment_data_{dt}.tsv", sep="\t", index=False)
+        cols_parse = [
+            'sample_id',
+            'chrom',
+            'start',
+            'end',
+            'num_points'
+            'log2ratio',
+            ]
+
+        segment_data.to_csv(f"segment_data_raw_{dt}.tsv", sep="\t", index=False)
+
+        segment_data_parse = segment_data[cols_parse]
+
+        segment_data_parse.columns = [
+            'ID',
+            'chrom',
+            'loc.start',
+            'loc.end',
+            'num.mark',
+            'seg.mean'
+        ]
+
+        segment_data_parse.to_csv(f"data_cna_hg19_{dt}.seg", sep="\t", index=False)
+
+        #filter out segments with log2_p_value < 0.05 and CI not overlapping 0
+        segement_data_filter = segment_data[
+            (segment_data['log2_p_value'] < 0.05) &
+            ~((segment_data['log2_ci_low'] < 0) & (segment_data['log2_ci_high'] > 0))
+        ][cols_parse]
+
+        segement_data_filter.columns = [
+            'ID',
+            'chrom',
+            'loc.start',
+            'loc.end',
+            'num.mark',
+            'seg.mean'
+        ]
+
+        segement_data_filter.to_csv(f"data_cna_hg19_filter_{dt}.seg", sep="\t", index=False)
 
         runner_logger.info(f"Generated segment data file segment_data_{dt}.tsv")
         logger.info(f"Generated segment data file segment_data_{dt}.tsv")
