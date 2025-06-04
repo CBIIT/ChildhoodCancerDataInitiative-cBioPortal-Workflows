@@ -369,7 +369,7 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, flow_type: 
             'chrom',
             'start',
             'end',
-            'num_points'
+            'num_points',
             'log2ratio',
             ]
 
