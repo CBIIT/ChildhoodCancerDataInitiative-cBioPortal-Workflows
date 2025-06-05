@@ -272,6 +272,9 @@ def parse_segments_flow(manifest_df: pd.DataFrame, download_path: str, logger) -
         'log2_ci_high'
     ]
 
+    #replace 'chr' with '' in chrom column
+    seg_df['chrom'] = seg_df['chrom'].str.replace('chr', '', regex=False)
+
     return seg_df
 
 
