@@ -386,7 +386,7 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, flow_type: 
             'seg.mean'
         ]
 
-        segment_data_parse.to_csv(f"data_cna_hg19_{dt}.seg", sep="\t", index=False)
+        segment_data_parse.to_csv(f"data_cna_hg38_{dt}.seg", sep="\t", index=False)
 
         #filter out segments with log2_p_value < 0.05 and CI not overlapping 0
         segement_data_filter = segment_data[
@@ -403,7 +403,7 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, flow_type: 
             'seg.mean'
         ]
 
-        segement_data_filter.to_csv(f"data_cna_hg19_filter_{dt}.seg", sep="\t", index=False)
+        segement_data_filter.to_csv(f"data_cna_hg38_filter_{dt}.seg", sep="\t", index=False)
 
         runner_logger.info(f"Generated segment data file segment_data_{dt}.tsv")
         logger.info(f"Generated segment data file segment_data_{dt}.tsv")
