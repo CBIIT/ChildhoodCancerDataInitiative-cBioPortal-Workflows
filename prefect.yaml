@@ -47,6 +47,12 @@ pull:
     repository: https://github.com/CBIIT/ChildhoodCancerDataInitiative-cBioPortal-Workflows.git
     branch: CBIO-172_CNA_workflow
 
+- prefect.deployments.steps.run_shell_script:
+    script: apt-get update
+    stream_output: true
+- prefect.deployments.steps.run_shell_script:
+    script: apt-get install -y curl
+    stream_output: true
 - prefect.deployments.steps.pip_install_requirements:
     requirements_file: requirements.txt
     directory: '{{ clone-step.directory }}'

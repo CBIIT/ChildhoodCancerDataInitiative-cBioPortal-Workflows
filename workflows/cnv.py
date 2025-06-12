@@ -280,6 +280,23 @@ def parse_segments_flow(manifest_df: pd.DataFrame, download_path: str, logger) -
 
 # task to perform gene mappings to segement location for continuous data
 # and create new dataframe with gene names and their corresponding log2 ratios
+@task(name="download_genocde_file", log_prints=True)
+def download_gencode_file(gencode_version: int):
+
+    #download gene annotations GTF file from gencode
+    # URL structure https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_48/gencode.v48.annotation.gtf.gz
+    print(ShellOperation(
+    commands=[f"curl -L -o gencode_genes_{gencode_version}.gtf https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_{gencode_version}/gencode.v{gencode_version}.annotation.gtf.gz"],
+    name="Download file with curl"
+    ))
+    
+    # check if file downloaded
+    if not os.path.exists(f"gencode_genes_{gencode_version}.gtf"):
+        raise ValueError(f"File gencode_genes_{gencode_version}.gtf NOT downloaded")
+    else:
+        print(f"✅ File gencode_genes_{gencode_version}.gtf downloaded!")
+        return f"gencode_genes_{gencode_version}.gtf"
+
 
 
 
@@ -295,6 +312,7 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, flow_type: 
         manifest_path (str): Path to the manifest file in specified S3 bucket
         destination_path (str): Destination path at specified S3 bucket for the output/transformed data files and log file
         flow_type (DropDownChoices): Type of flow to run. Options are "segment", "cnv-gene", "segment_and_cnv-gene", "cleanup"
+        gencode_version (int): Gencode version to use for gene mappings. Default is "48" for hg38.
     """
 
     runner_logger = get_run_logger()
@@ -408,8 +426,6 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, flow_type: 
 
         segement_data_filter.to_csv(f"data_cna_hg38_filter_{dt}.seg", sep="\t", index=False)
 
-        runner_logger.info(f"Generated segment data file segment_data_{dt}.tsv")
-        logger.info(f"Generated segment data file segment_data_{dt}.tsv")
         
         if not os.path.exists(log_filename):
             print(f"Log file does not exist: {log_filename}")
