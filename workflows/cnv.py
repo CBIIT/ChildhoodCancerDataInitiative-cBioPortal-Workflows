@@ -285,17 +285,18 @@ def download_gencode_file(gencode_version: int):
 
     #download gene annotations GTF file from gencode
     # URL structure https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_48/gencode.v48.annotation.gtf.gz
-    print(ShellOperation(
-    commands=[f"curl -L -O gencode_genes_{gencode_version}.gtf https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_{gencode_version}/gencode.v{gencode_version}.annotation.gtf.gz"],
-    name="Download file with curl"
-    ))
+    download = ShellOperation(
+    commands=[f"curl -L -o gencode_genes_{gencode_version}.gtf.gz https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_{gencode_version}/gencode.v{gencode_version}.annotation.gtf.gz"],
+    stream_output=True)
+
+    download()
     
     # check if file downloaded
-    if not os.path.exists(f"gencode_genes_{gencode_version}.gtf"):
-        raise ValueError(f"File gencode_genes_{gencode_version}.gtf NOT downloaded")
+    if not os.path.exists(f"gencode_genes_{gencode_version}.gtf.gz"):
+        raise ValueError(f"File gencode_genes_{gencode_version}.gtf.gz NOT downloaded")
     else:
-        print(f"✅ File gencode_genes_{gencode_version}.gtf downloaded!")
-        return f"gencode_genes_{gencode_version}.gtf"
+        print(f"✅ File gencode_genes_{gencode_version}.gtf.gz downloaded!")
+        return f"gencode_genes_{gencode_version}.gtf.gz"
 
 
 
