@@ -385,6 +385,7 @@ def bedtools_intersect(segment_bed_file: str, mapping_file: str, output_file: st
         stream_output=True
     )
     result = intersect_operation.run()
+    print(result)
     save_output_to_file(result, output_file)
 
 DropDownChoices = Literal["segment_and_cnv_gene", "cleanup"]
@@ -537,7 +538,7 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, gencode_ver
             runner_logger.info(f"Output file {intersect_output_file} was created successfully")
 
         #format for cbio input file
-        
+
 
         # validate that all samples and segments have had gene level mappings performed
     
