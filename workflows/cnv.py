@@ -374,21 +374,12 @@ def bedtools_intersect(segment_bed_file: str, mapping_file: str, output_file: st
     )
     bedtools_check.run()
 
-    @task
-    def save_output_to_file(output: str, filename: str = "result.bed"):
-        with open(filename, "w") as f:
-            f.write(output)
-        print(f"Output saved to {filename}")
-
     # run bedtools intersect command
     intersect_command = f"bedtools intersect -a {segment_bed_file} -b {mapping_file} -wo -f 0.5 > {output_file}"
     intersect_operation = ShellOperation(
         commands=[intersect_command],
         stream_output=True
     )
-    result = intersect_operation.run()
-    print(result)
-    save_output_to_file(result, output_file)
 
 DropDownChoices = Literal["segment_and_cnv_gene", "cleanup"]
 
@@ -540,6 +531,7 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, gencode_ver
             runner_logger.info(f"Output file {intersect_output_file} was created successfully")
 
         #format for cbio input file
+        #cnv_gene_mappings = pd.read_csv(intersect_output_file, sep="\t", header=None)
 
 
         # validate that all samples and segments have had gene level mappings performed
