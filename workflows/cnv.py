@@ -304,7 +304,7 @@ DropDownChoices = Literal["segment_and_cnv_gene", "cleanup"]
 
 #main flow to orchestrate the tasks
 @flow(name="cbio-cnv-flow", log_prints=True)
-def cnv_flow(bucket: str, manifest_path: str, destination_path: str, genocode_version: int, flow_type: DropDownChoices):
+def cnv_flow(bucket: str, manifest_path: str, destination_path: str, gencode_version: int, flow_type: DropDownChoices):
     """Prefect workflow to download, parse and transform cnv data for ingestion into cBioPortal.
 
     Args:
