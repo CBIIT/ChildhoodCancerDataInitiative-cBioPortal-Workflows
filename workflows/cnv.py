@@ -345,7 +345,7 @@ def gene_list_format(file_name: str):
 @task(name="segment_file_format", log_prints=True)
 def segment_file_format(file_name: str):
 
-    df = pd.read_csv(segment_file_format, sep="\t")
+    df = pd.read_csv(file_name, sep="\t")
 
     # drop num.mark column, reorder columns
     df = df.drop('num.mark', axis=1)[['chrom', 'loc.start', 'loc.end', 'ID', 'seg.mean']]
