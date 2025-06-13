@@ -472,10 +472,43 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, gencode_ver
         # format GTF file to BED format
         mapping_file = gene_list_format(genocode_file_name)
 
+        #check if mapping file was created
+        if not os.path.exists(mapping_file):
+            raise ValueError(f"Mapping file {mapping_file} was not created. Please check the gene list formatting task.")
+        else:
+            runner_logger.info(f"Mapping file {mapping_file} was created successfully")
+        
+        #remove gencode file to save space
+        if os.path.exists(genocode_file_name):
+            os.remove(genocode_file_name)
+            runner_logger.info(f"Removed gencode file {genocode_file_name} to save space")
+        else:
+            runner_logger.warning(f"Gencode file {genocode_file_name} does not exist. Not removing file.")
+
         # format seg file to BED format
         segment_bed_file = segment_file_format(seg_data_file_name)
 
         #perform bedtools intersect
+        interset_output_file = f"cnv_gene_mappings_{dt}.tsv"
+
+        runner_logger.info(f"Performing bedtools intersect on {segment_bed_file} and {mapping_file}")
+        # check if bedtools is installed
+        if not shutil.which("bedtools"):
+            raise EnvironmentError("bedtools is not installed. Please install bedtools to run this flow.")
+        # run bedtools intersect command
+
+        intersect_command = f"bedtools intersect -a {segment_bed_file} -b {mapping_file} -wa -wb > {interset_output_file}"
+        intersect_operation = ShellOperation(
+            commands=[intersect_command],
+            stream_output=True
+        )
+        intersect_operation.run()
+
+        # check if output file was created
+        if not os.path.exists(interset_output_file):
+            raise ValueError(f"Output file {interset_output_file} was not created. Please check the bedtools command.")
+        else:
+            runner_logger.info(f"Output file {interset_output_file} was created successfully")
 
         #format for cbio input file
 
