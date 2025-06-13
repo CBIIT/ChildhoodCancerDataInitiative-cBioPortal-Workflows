@@ -337,10 +337,10 @@ def gene_list_format(file_name: str):
     df_gene_protein['start'] = df_gene_protein['start'] - 1
 
     #drop tags and save to BED file
-    df_gene_protein.drop('tags', axis=1).to_csv(f"{file_name.replace("gtf", "bed")}", sep="\t", index=False, quoting=csv.QUOTE_NONE, escapechar='\\')
+    df_gene_protein.drop('tags', axis=1).to_csv(f"{file_name.replace('gtf', 'bed')}", sep="\t", index=False, quoting=csv.QUOTE_NONE, escapechar='\\')
 
     # return name of mapping file
-    return f"{file_name.replace("gtf", "bed")}"
+    return f"{file_name.replace('gtf', 'bed')}"
 
 @task(name="segment_file_format", log_prints=True)
 def segment_file_format(file_name: str):
@@ -352,9 +352,9 @@ def segment_file_format(file_name: str):
 
     df.columns = ['chrom', 'start', 'end', 'sample_id', 'log2_ratio']
 
-    df.to_csv(f"{file_name.replace(".seg", ".bed")}", sep="\t", index=False)
+    df.to_csv(f'{file_name.replace(".seg", ".bed")}', sep="\t", index=False)
 
-    return f"{file_name.replace(".seg", ".bed")}"
+    return f'{file_name.replace(".seg", ".bed")}'
 
 DropDownChoices = Literal["segment_and_cnv_gene", "cleanup"]
 
