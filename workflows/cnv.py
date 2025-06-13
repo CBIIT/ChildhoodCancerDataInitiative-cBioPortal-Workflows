@@ -285,21 +285,31 @@ def download_gencode_file(gencode_version: int):
 
     #download gene annotations GTF file from gencode
     # URL structure https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_48/gencode.v48.annotation.gtf.gz
-    download = ShellOperation(
-    commands=[f"curl -L -o gencode_genes_{gencode_version}.gtf.gz https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_{gencode_version}/gencode.v{gencode_version}.annotation.gtf.gz"],
-    stream_output=True)
+    url = f"https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_{gencode_version}/gencode.v{gencode_version}.annotation.gtf.gz"
+    rename_file = f"gencode_genes_{gencode_version}.gtf.gz"
+    download = ShellOperation(commands=[f"curl -L -o {rename_file} {url}"], stream_output=True)
 
     download.run()
     
     # check if file downloaded
-    if not os.path.exists(f"gencode_genes_{gencode_version}.gtf.gz"):
-        raise ValueError(f"File gencode_genes_{gencode_version}.gtf.gz NOT downloaded")
+    if not os.path.exists(rename_file):
+        raise ValueError(f"File {rename_file} NOT downloaded")
     else:
-        print(f"✅ File gencode_genes_{gencode_version}.gtf.gz downloaded!")
-        return f"gencode_genes_{gencode_version}.gtf.gz"
+        print(f"✅ File {rename_file} downloaded!")
 
+        #unzip file
+        ShellOperation(
+            commands=[f"gunzip -f {rename_file}"],  # -f forces overwrite if needed
+            stream_output=True
+        ).run()
+        return f"{rename_file.replace('.gz', '')}"
 
-
+def extract_genes(cell):
+	gene_names = [i.strip().replace("gene_name", "").replace('"', '').strip() for i in cell.split(";") if 'gene_name' in i]
+	if len(gene_names) > 1:
+		return ";".join(gene_names)
+	else:
+		return gene_names[0]
 
 DropDownChoices = Literal["segment_and_cnv_gene", "cleanup"]
 
@@ -410,7 +420,16 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, gencode_ver
 
         segment_data_parse.to_csv(f"data_cna_hg38_{dt}.seg", sep="\t", index=False)
 
-        download_gencode_file(gencode_version)
+        genocode_file_name = download_gencode_file(gencode_version)
+
+        genocode_df = pd.read_csv(genocode_file_name, sep="\t", header=None, comment="#")
+
+        #filter only genes that are protein_coding, exclude readthrough genes and mitochondrial DNA annotationsqq
+        df_gene_protein = genocode_df[(genocode_df[2] == 'gene') & (genocode_df[8].str.contains('protein_coding')) & ~(genocode_df[8].str.contains('readthrough_gene')) & (genocode_df[0] != 'chrM')][[0, 3, 4, 8]]
+
+        df_gene_protein['gene_names'] = df_gene_protein[8].apply(extract_genes)
+
+        
         
         if not os.path.exists(log_filename):
             print(f"Log file does not exist: {log_filename}")
