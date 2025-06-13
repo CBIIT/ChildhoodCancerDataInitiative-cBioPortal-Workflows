@@ -289,7 +289,7 @@ def download_gencode_file(gencode_version: int):
     commands=[f"curl -L -o gencode_genes_{gencode_version}.gtf.gz https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_{gencode_version}/gencode.v{gencode_version}.annotation.gtf.gz"],
     stream_output=True)
 
-    download()
+    download.run()
     
     # check if file downloaded
     if not os.path.exists(f"gencode_genes_{gencode_version}.gtf.gz"):
