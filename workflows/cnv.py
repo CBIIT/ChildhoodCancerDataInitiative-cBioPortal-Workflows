@@ -521,7 +521,7 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, gencode_ver
         bedtools_intersect(
             segment_bed_file=segment_bed_file,
             mapping_file=mapping_file,
-            output_file=f"cnv_gene_mappings_{dt}.tsv"
+            output_file=intersect_output_file
         )
 
         # check if output file was created
