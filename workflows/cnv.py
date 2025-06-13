@@ -381,6 +381,8 @@ def bedtools_intersect(segment_bed_file: str, mapping_file: str, output_file: st
         stream_output=True
     )
 
+    intersect_operation.run()
+
 DropDownChoices = Literal["segment_and_cnv_gene", "cleanup"]
 
 #main flow to orchestrate the tasks
