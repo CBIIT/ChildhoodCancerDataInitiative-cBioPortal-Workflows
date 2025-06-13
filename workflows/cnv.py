@@ -489,15 +489,24 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, gencode_ver
         segment_bed_file = segment_file_format(seg_data_file_name)
 
         #perform bedtools intersect
-        interset_output_file = f"cnv_gene_mappings_{dt}.tsv"
+        intersect_output_file = f"cnv_gene_mappings_{dt}.tsv"
 
         runner_logger.info(f"Performing bedtools intersect on {segment_bed_file} and {mapping_file}")
-        # check if bedtools is installed
-        if not shutil.which("bedtools"):
-            raise EnvironmentError("bedtools is not installed. Please install bedtools to run this flow.")
+        # check if bedtools is installed by running bedtools --version
+        bedtools_check = ShellOperation(
+            commands=["bedtools --version"],
+            stream_output=True
+        )
+        bedtools_check.run()
+        if bedtools_check.is_successful():
+            runner_logger.info("Bedtools is installed and available")
+        else:
+            raise ValueError("Bedtools is not installed or not available in the PATH. Please install bedtools and try again.")
+
+
         # run bedtools intersect command
 
-        intersect_command = f"bedtools intersect -a {segment_bed_file} -b {mapping_file} -wa -wb > {interset_output_file}"
+        intersect_command = f"bedtools intersect -a {segment_bed_file} -b {mapping_file} -wo -f 0.5 > {intersect_output_file}"
         intersect_operation = ShellOperation(
             commands=[intersect_command],
             stream_output=True
