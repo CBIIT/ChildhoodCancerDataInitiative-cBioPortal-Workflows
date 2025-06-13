@@ -356,6 +356,37 @@ def segment_file_format(file_name: str):
 
     return f'{file_name.replace(".seg", ".bed")}'
 
+@task(name="bedtools_intersect", log_prints=True)
+def bedtools_intersect(segment_bed_file: str, mapping_file: str, output_file: str):
+    """Perform bedtools intersect on segment and mapping files
+
+    Args:
+        segment_bed_file (str): Path to the segment BED file
+        mapping_file (str): Path to the mapping BED file
+        output_file (str): Path to the output file
+    """
+    # check if bedtools is installed by running bedtools --version
+    bedtools_check = ShellOperation(
+        commands=["bedtools --version"],
+        stream_output=True
+    )
+    bedtools_check.run()
+
+    @task
+    def save_output_to_file(output: str, filename: str = "result.bed"):
+        with open(filename, "w") as f:
+            f.write(output)
+        print(f"Output saved to {filename}")
+
+    # run bedtools intersect command
+    intersect_command = f"bedtools intersect -a {segment_bed_file} -b {mapping_file} -wo -f 0.5 > {output_file}"
+    intersect_operation = ShellOperation(
+        commands=[intersect_command],
+        stream_output=True
+    )
+    result = intersect_operation.run()
+    save_output_to_file(result, output_file)
+
 DropDownChoices = Literal["segment_and_cnv_gene", "cleanup"]
 
 #main flow to orchestrate the tasks
@@ -489,29 +520,15 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, gencode_ver
         segment_bed_file = segment_file_format(seg_data_file_name)
 
         #perform bedtools intersect
+        runner_logger.info(f"Performing bedtools intersect on {segment_bed_file} and {mapping_file}")
+
         intersect_output_file = f"cnv_gene_mappings_{dt}.tsv"
 
-        runner_logger.info(f"Performing bedtools intersect on {segment_bed_file} and {mapping_file}")
-        # check if bedtools is installed by running bedtools --version
-        bedtools_check = ShellOperation(
-            commands=["bedtools --version"],
-            stream_output=True
+        bedtools_intersect(
+            segment_bed_file=segment_bed_file,
+            mapping_file=mapping_file,
+            output_file=f"cnv_gene_mappings_{dt}.tsv"
         )
-        bedtools_check.run()
-        if bedtools_check.is_successful():
-            runner_logger.info("Bedtools is installed and available")
-        else:
-            raise ValueError("Bedtools is not installed or not available in the PATH. Please install bedtools and try again.")
-
-
-        # run bedtools intersect command
-
-        intersect_command = f"bedtools intersect -a {segment_bed_file} -b {mapping_file} -wo -f 0.5 > {intersect_output_file}"
-        intersect_operation = ShellOperation(
-            commands=[intersect_command],
-            stream_output=True
-        )
-        intersect_operation.run()
 
         # check if output file was created
         if not os.path.exists(intersect_output_file):
@@ -520,9 +537,10 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, gencode_ver
             runner_logger.info(f"Output file {intersect_output_file} was created successfully")
 
         #format for cbio input file
+        
 
         # validate that all samples and segments have had gene level mappings performed
-
+    
 
         if not os.path.exists(log_filename):
             print(f"Log file does not exist: {log_filename}")
