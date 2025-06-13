@@ -286,7 +286,7 @@ def download_gencode_file(gencode_version: int):
     #download gene annotations GTF file from gencode
     # URL structure https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_48/gencode.v48.annotation.gtf.gz
     print(ShellOperation(
-    commands=[f"curl -L -o gencode_genes_{gencode_version}.gtf https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_{gencode_version}/gencode.v{gencode_version}.annotation.gtf.gz"],
+    commands=[f"curl -L -O gencode_genes_{gencode_version}.gtf https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_{gencode_version}/gencode.v{gencode_version}.annotation.gtf.gz"],
     name="Download file with curl"
     ))
     
@@ -362,7 +362,7 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, flow_type: 
 
         # read in manifest file
         runner_logger.info(f"Reading in manifest file")
-        manifest_df = read_manifest(os.path.basename(manifest_path))
+        manifest_df = read_manifest(os.path.basename(manifest_path))[:10]
 
         logger.info(f"Expected number of files to download: {len(manifest_df)}")
         runner_logger.info(f"Expected number of files to download: {len(manifest_df)}")
