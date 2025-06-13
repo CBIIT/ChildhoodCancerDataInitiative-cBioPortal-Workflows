@@ -408,24 +408,6 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, flow_type: 
         ]
 
         segment_data_parse.to_csv(f"data_cna_hg38_{dt}.seg", sep="\t", index=False)
-
-        #filter out segments with log2_p_value < 0.05 and CI not overlapping 0
-        segement_data_filter = segment_data[
-            (segment_data['log2_p_value'] < 0.05) &
-            ~((segment_data['log2_ci_low'] < 0) & (segment_data['log2_ci_high'] > 0))
-        ][cols_parse]
-
-        segement_data_filter.columns = [
-            'ID',
-            'chrom',
-            'loc.start',
-            'loc.end',
-            'num.mark',
-            'seg.mean'
-        ]
-
-        segement_data_filter.to_csv(f"data_cna_hg38_filter_{dt}.seg", sep="\t", index=False)
-
         
         if not os.path.exists(log_filename):
             print(f"Log file does not exist: {log_filename}")
