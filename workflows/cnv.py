@@ -429,7 +429,7 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, gencode_ver
 
         df_gene_protein['gene_names'] = df_gene_protein[8].apply(extract_genes)
 
-        
+        print(df_gene_protein)
         
         if not os.path.exists(log_filename):
             print(f"Log file does not exist: {log_filename}")
