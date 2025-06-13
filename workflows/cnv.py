@@ -300,19 +300,19 @@ def download_gencode_file(gencode_version: int):
 
 
 
-DropDownChoices = Literal["segment", "cnv_gene", "segment_and_cnv_gene", "cleanup"]
+DropDownChoices = Literal["segment_and_cnv_gene", "cleanup"]
 
 #main flow to orchestrate the tasks
 @flow(name="cbio-cnv-flow", log_prints=True)
-def cnv_flow(bucket: str, manifest_path: str, destination_path: str, flow_type: DropDownChoices):
+def cnv_flow(bucket: str, manifest_path: str, destination_path: str, genocode_version: int, flow_type: DropDownChoices):
     """Prefect workflow to download, parse and transform cnv data for ingestion into cBioPortal.
 
     Args:
         bucket (str): S3 bucket name of location of manifest and to direct output files
         manifest_path (str): Path to the manifest file in specified S3 bucket
         destination_path (str): Destination path at specified S3 bucket for the output/transformed data files and log file
-        flow_type (DropDownChoices): Type of flow to run. Options are "segment", "cnv-gene", "segment_and_cnv-gene", "cleanup"
         gencode_version (int): Gencode version to use for gene mappings. Default is "48" for hg38.
+        flow_type (DropDownChoices): Type of flow to run. Options are "segment_and_cnv-gene", "cleanup"
     """
 
     runner_logger = get_run_logger()
@@ -408,6 +408,8 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, flow_type: 
         ]
 
         segment_data_parse.to_csv(f"data_cna_hg38_{dt}.seg", sep="\t", index=False)
+
+        download_gencode_file(gencode_version)
         
         if not os.path.exists(log_filename):
             print(f"Log file does not exist: {log_filename}")
