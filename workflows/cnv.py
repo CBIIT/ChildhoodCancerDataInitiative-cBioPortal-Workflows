@@ -352,6 +352,8 @@ def segment_file_format(file_name: str):
 
     df.columns = ['chrom', 'start', 'end', 'sample_id', 'log2_ratio']
 
+    df['chrom'] = 'chr' + df['chrom'].astype(str)
+
     df.to_csv(f'{file_name.replace(".seg", ".bed")}', sep="\t", index=False)
 
     return f'{file_name.replace(".seg", ".bed")}'
