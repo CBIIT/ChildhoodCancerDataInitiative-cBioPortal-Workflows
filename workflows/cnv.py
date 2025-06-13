@@ -533,8 +533,17 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, gencode_ver
             runner_logger.info(f"Output file {intersect_output_file} was created successfully")
 
         #format for cbio input file
-        #cnv_gene_mappings = pd.read_csv(intersect_output_file, sep="\t", header=None)
+        cnv_gene_map_cbio = pd.read_csv(intersect_output_file, sep="\t", header=None)[[3, 8, 4]]
 
+        cnv_gene_map_cbio.columns = ['sample_id', 'Hugo_Symbol', 'log2']
+
+        cnv_gene_map_cbio_pivot = cnv_gene_map_cbio.pivot(
+            index='Hugo_Symbol',
+            columns='sample_id',
+            values='log2'
+        ).reset_index().fillna("")
+
+        cnv_gene_map_cbio_pivot.to_csv(f"data_log2_cna_{dt}.txt", sep="\t", index=False, quoting=csv.QUOTE_NONE, escapechar='\\')
 
         # validate that all samples and segments have had gene level mappings performed
     
