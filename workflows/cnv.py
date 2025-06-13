@@ -1,4 +1,5 @@
 import json
+import csv
 import os
 import time
 import pandas as pd
@@ -304,12 +305,56 @@ def download_gencode_file(gencode_version: int):
         ).run()
         return f"{rename_file.replace('.gz', '')}"
 
-def extract_genes(cell):
-	gene_names = [i.strip().replace("gene_name", "").replace('"', '').strip() for i in cell.split(";") if 'gene_name' in i]
-	if len(gene_names) > 1:
-		return ";".join(gene_names)
-	else:
-		return gene_names[0]
+
+
+@task(name="gencode_gene_list_format", log_prints=True)
+def gene_list_format(file_name: str):
+    gencode_df = pd.read_csv(file_name, sep="\t", header=None, comment="#")
+
+    #filter only genes that are protein_coding, exclude readthrough genes and mitochondrial DNA annotationsqq
+    df_gene_protein = gencode_df[(gencode_df[2] == 'gene') & (gencode_df[8].str.contains('protein_coding')) & ~(gencode_df[8].str.contains('readthrough_gene')) & (gencode_df[0] != 'chrM')][[0, 3, 4, 8]]
+
+    df_gene_protein.columns = ['chrom', 'start', 'end', 'tags']
+
+    def extract_genes(cell):
+        gene_names = [i.strip().replace("gene_name", "").replace('"', '').strip() for i in cell.split(";") if 'gene_name' in i]
+        if len(gene_names) > 1:
+            return ";".join(gene_names)
+        else:
+            return gene_names[0]
+    
+    # extract gene names
+    df_gene_protein['gene_names'] = df_gene_protein['tags'].apply(extract_genes)
+
+    print(df_gene_protein)
+
+    # genes that share same location in genome and transcribed from same transcript, pick first annotation
+    # since the overlap in genome
+    df_gene_protein = df_gene_protein.sort_values(['chrom', 'start', 'end']).drop_duplicates(subset=['chrom', 'start', 'end'], keep='first')
+
+    #update positions to 0-based indexing BED format
+    # see for more details https://bedtools.readthedocs.io/en/latest/content/general-usage.html
+    df_gene_protein['start'] = df_gene_protein['start'] - 1
+
+    #drop tags and save to BED file
+    df_gene_protein.drop('tags', axis=1).to_csv(f"{file_name.replace("gtf", "bed")}", sep="\t", index=False, quoting=csv.QUOTE_NONE, escapechar='\\')
+
+    # return name of mapping file
+    return f"{file_name.replace("gtf", "bed")}"
+
+@task(name="segment_file_format", log_prints=True)
+def segment_file_format(file_name: str):
+
+    df = pd.read_csv(segment_file_format, sep="\t")
+
+    # drop num.mark column, reorder columns
+    df = df.drop('num.mark', axis=1)[['chrom', 'loc.start', 'loc.end', 'ID', 'seg.mean']]
+
+    df.columns = ['chrom', 'start', 'end', 'sample_id', 'log2_ratio']
+
+    df.to_csv(f"{file_name.replace(".seg", ".bed")}", sep="\t", index=False)
+
+    return f"{file_name.replace(".seg", ".bed")}"
 
 DropDownChoices = Literal["segment_and_cnv_gene", "cleanup"]
 
@@ -418,19 +463,25 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, gencode_ver
             'seg.mean'
         ]
 
-        segment_data_parse.to_csv(f"data_cna_hg38_{dt}.seg", sep="\t", index=False)
+        seg_data_file_name = f"data_cna_hg38_{dt}.seg"
+
+        segment_data_parse.to_csv(seg_data_file_name, sep="\t", index=False)
 
         genocode_file_name = download_gencode_file(gencode_version)
 
-        genocode_df = pd.read_csv(genocode_file_name, sep="\t", header=None, comment="#")
+        # format GTF file to BED format
+        mapping_file = gene_list_format(genocode_file_name)
 
-        #filter only genes that are protein_coding, exclude readthrough genes and mitochondrial DNA annotationsqq
-        df_gene_protein = genocode_df[(genocode_df[2] == 'gene') & (genocode_df[8].str.contains('protein_coding')) & ~(genocode_df[8].str.contains('readthrough_gene')) & (genocode_df[0] != 'chrM')][[0, 3, 4, 8]]
+        # format seg file to BED format
+        segment_bed_file = segment_file_format(seg_data_file_name)
 
-        df_gene_protein['gene_names'] = df_gene_protein[8].apply(extract_genes)
+        #perform bedtools intersect
 
-        print(df_gene_protein)
-        
+        #format for cbio input file
+
+        # validate that all samples and segments have had gene level mappings performed
+
+
         if not os.path.exists(log_filename):
             print(f"Log file does not exist: {log_filename}")
         else:
