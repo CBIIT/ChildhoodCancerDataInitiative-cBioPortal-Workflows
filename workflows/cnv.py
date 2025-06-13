@@ -514,10 +514,10 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, gencode_ver
         intersect_operation.run()
 
         # check if output file was created
-        if not os.path.exists(interset_output_file):
-            raise ValueError(f"Output file {interset_output_file} was not created. Please check the bedtools command.")
+        if not os.path.exists(intersect_output_file):
+            raise ValueError(f"Output file {intersect_output_file} was not created. Please check the bedtools command.")
         else:
-            runner_logger.info(f"Output file {interset_output_file} was created successfully")
+            runner_logger.info(f"Output file {intersect_output_file} was created successfully")
 
         #format for cbio input file
 
