@@ -546,8 +546,27 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, gencode_ver
         cnv_gene_map_cbio_pivot.to_csv(f"data_log2_cna_{dt}.txt", sep="\t", index=False, quoting=csv.QUOTE_NONE, escapechar='\\')
 
         # validate that all samples and segments have had gene level mappings performed
-    
+        segment_data_validate = segment_data.groupby(['sample_id', 'chrom', 'start', 'end']).size().reset_index(name='exp_counts')
 
+        gene_data_validate = pd.read_csv(intersect_output_file, sep="\t", header=None)[[3, 0, 1, 2]].rename(columns={3: 'sample_id', 0: 'chrom', 1: 'start', 2: 'end'}).groupby(['sample_id', 'chrom', 'start', 'end']).size().reset_index(name='gene_counts')
+
+        # merge the two dataframes on sample_id, chrom, start, end
+        validate_df = pd.merge(segment_data_validate, gene_data_validate, on=['sample_id', 'chrom', 'start', 'end'], how='outer').fillna(0)
+
+        # parse data where expected counts do not match gene counts
+        validate_df['mismatch'] = validate_df['exp_counts'] != validate_df['gene_counts']
+        validate_df_mismatch = validate_df[validate_df['mismatch']]
+        if not validate_df_mismatch.empty:
+            runner_logger.error(f"Mismatch found in expected counts and gene counts for {len(validate_df_mismatch)} segments")
+            logger.error(f"Mismatch found in expected counts and gene counts for {len(validate_df_mismatch)} segments")
+            logger.error(f"Please check the mismatch validation file for more details")
+            validate_df_mismatch.to_csv(f"validate_df_mismatch_{dt}.tsv", sep="\t", index=False)
+        else:
+            runner_logger.info("No mismatches found in expected counts and gene counts")
+
+        #save the validate_df to a file
+        validate_df.to_csv(f"validate_df_{dt}.tsv", sep="\t", index=False)
+    
         if not os.path.exists(log_filename):
             print(f"Log file does not exist: {log_filename}")
         else:
