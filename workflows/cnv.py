@@ -300,7 +300,7 @@ def download_gencode_file(gencode_version: int, logger):
         raise ValueError(f"File {rename_file} NOT downloaded")
     else:
         print(f"✅ File {rename_file} downloaded!")
-        logger.info(f"✅ File {rename_file} downloaded!")
+        logger.info(f"File {rename_file} downloaded!")
 
         #unzip file
         try: 
@@ -367,8 +367,8 @@ def segment_file_format(file_name: str, logger):
 
     df.to_csv(f'{file_name.replace(".seg", ".bed")}', sep="\t", index=False)
 
-    print(f"✅ Segment file formatting complete. File saved to {file_name.replace('.seg', '.bed')}")
-    logger.info(f"Segment file formatting complete. File saved to {file_name.replace('.seg', '.bed')}")
+    print(f"✅ Segment BED file formatting complete. File saved to {file_name.replace('.seg', '.bed')}")
+    logger.info(f"Segment BED file formatting complete. File saved to {file_name.replace('.seg', '.bed')}")
 
     return f'{file_name.replace(".seg", ".bed")}'
 
@@ -492,6 +492,8 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, gencode_ver
             ]
 
         segment_data.to_csv(f"segment_data_raw_{dt}.tsv", sep="\t", index=False)
+        logger.info(f"Raw segment data parsed. File saved to segment_data_raw_{dt}.tsv")
+        runner_logger.info(f"Segment data parsed. File saved to segment_data_raw_{dt}.tsv")
 
         segment_data_parse = segment_data[cols_parse]
 
@@ -507,6 +509,8 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, gencode_ver
         seg_data_file_name = f"data_cna_hg38_{dt}.seg"
 
         segment_data_parse.to_csv(seg_data_file_name, sep="\t", index=False)
+        logger.info(f"Segment data for cBio ingestion. File saved to {seg_data_file_name}")
+        runner_logger.info(f"Segment data parsed for cBio ingestion. File saved to {seg_data_file_name}")
 
         genocode_file_name = download_gencode_file(gencode_version, logger)
 
@@ -565,6 +569,7 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, gencode_ver
         # validate that all samples and segments have had gene level mappings performed
         print(f"Validating that all samples and segments have had gene level mappings performed")
         segment_data_validate = segment_data.groupby(['sample_id', 'chrom', 'start', 'end']).size().reset_index(name='exp_counts')
+        segment_data_validate['chrom'] = 'chr' + segment_data_validate['chrom'].astype(str)
 
         gene_data_validate = pd.read_csv(intersect_output_file, sep="\t", header=None)[[3, 0, 1, 2]].drop_duplicates().rename(columns={3: 'sample_id', 0: 'chrom', 1: 'start', 2: 'end'}).groupby(['sample_id', 'chrom', 'start', 'end']).size().reset_index(name='gene_counts')
 
