@@ -114,7 +114,6 @@ def json_dl(dl_parameter: dict, logger, runner_logger):
     # check if file was downloaded successfully
     if os.path.exists(filename):
         runner_logger.info(f"File {filename} downloaded successfully")
-        logger.info(f"File {filename} downloaded successfully")
     else:
         runner_logger.error(f"File {filename} not downloaded successfully")
         logger.error(f"File {filename} not downloaded successfully")
@@ -130,7 +129,6 @@ def json_dl(dl_parameter: dict, logger, runner_logger):
         raise ValueError(f"MD5 checksum does not match for file {filename}")
     else:
         runner_logger.info(f"MD5 checksum matches for file {filename}")
-        logger.info(f"MD5 checksum matches for file {filename}")
     
     return "completed"
 
@@ -164,9 +162,9 @@ def download_cnv(manifest_df: pd.DataFrame, logger) -> None:
             runner_logger.error(
                 f"Expected file name {row['file_name']} does not match observed file name in s3 url, {f_name}, not downloading file"
             )
-            #logger.error(
-            #    f"Expected file name {row['file_name']} does not match observed file name in s3 url, {f_name}, not downloading file"
-            #)
+            logger.error(
+                f"Expected file name {row['file_name']} does not match observed file name in s3 url, {f_name}, not downloading file"
+            )
         else:
             submit_list.append(row.to_dict())
 
@@ -254,7 +252,12 @@ def parse_segments_flow(manifest_df: pd.DataFrame, download_path: str, logger) -
 
     parse_segments_map = parse_segments.map(submit_list, unmapped(logger))
     
-    segment_data =  parse_segments_map.result()
+    try:
+        segment_data =  parse_segments_map.result()
+    except Exception as e:
+        runner_logger.error(f"Error parsing segments: {e}")
+        logger.error(f"Error parsing segments: {e}")
+        raise
 
     seg_df = pd.concat(segment_data)
 
@@ -282,7 +285,7 @@ def parse_segments_flow(manifest_df: pd.DataFrame, download_path: str, logger) -
 # task to perform gene mappings to segement location for continuous data
 # and create new dataframe with gene names and their corresponding log2 ratios
 @task(name="download_genocde_file", log_prints=True)
-def download_gencode_file(gencode_version: int):
+def download_gencode_file(gencode_version: int, logger):
 
     #download gene annotations GTF file from gencode
     # URL structure https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_48/gencode.v48.annotation.gtf.gz
@@ -297,18 +300,24 @@ def download_gencode_file(gencode_version: int):
         raise ValueError(f"File {rename_file} NOT downloaded")
     else:
         print(f"✅ File {rename_file} downloaded!")
+        logger.info(f"✅ File {rename_file} downloaded!")
 
         #unzip file
-        ShellOperation(
-            commands=[f"gunzip -f {rename_file}"],  # -f forces overwrite if needed
-            stream_output=True
-        ).run()
-        return f"{rename_file.replace('.gz', '')}"
+        try: 
+            ShellOperation(
+                commands=[f"gunzip -f {rename_file}"],  # -f forces overwrite if needed
+                stream_output=True
+            ).run()
+            
+            return f"{rename_file.replace('.gz', '')}"
+        except Exception as e:
+            logger.error(f"Error unzipping file {rename_file}: {e}")
+            raise ValueError(f"Error unzipping file {rename_file}: {e}")
 
 
 
 @task(name="gencode_gene_list_format", log_prints=True)
-def gene_list_format(file_name: str):
+def gene_list_format(file_name: str, logger):
     gencode_df = pd.read_csv(file_name, sep="\t", header=None, comment="#")
 
     #filter only genes that are protein_coding, exclude readthrough genes and mitochondrial DNA annotationsqq
@@ -326,8 +335,6 @@ def gene_list_format(file_name: str):
     # extract gene names
     df_gene_protein['gene_names'] = df_gene_protein['tags'].apply(extract_genes)
 
-    print(df_gene_protein)
-
     # genes that share same location in genome and transcribed from same transcript, pick first annotation
     # since the overlap in genome
     df_gene_protein = df_gene_protein.sort_values(['chrom', 'start', 'end']).drop_duplicates(subset=['chrom', 'start', 'end'], keep='first')
@@ -339,11 +346,15 @@ def gene_list_format(file_name: str):
     #drop tags and save to BED file
     df_gene_protein.drop('tags', axis=1).to_csv(f"{file_name.replace('gtf', 'bed')}", sep="\t", index=False, quoting=csv.QUOTE_NONE, escapechar='\\')
 
+    # log that gene list formatting is complete
+    logger.info(f"Gene list formatting complete. File saved to {file_name.replace('gtf', 'bed')}")
+    print(f"✅ Gene list formatting complete. File saved to {file_name.replace('gtf', 'bed')}")
+
     # return name of mapping file
     return f"{file_name.replace('gtf', 'bed')}"
 
 @task(name="segment_file_format", log_prints=True)
-def segment_file_format(file_name: str):
+def segment_file_format(file_name: str, logger):
 
     df = pd.read_csv(file_name, sep="\t")
 
@@ -355,6 +366,9 @@ def segment_file_format(file_name: str):
     df['chrom'] = 'chr' + df['chrom'].astype(str)
 
     df.to_csv(f'{file_name.replace(".seg", ".bed")}', sep="\t", index=False)
+
+    print(f"✅ Segment file formatting complete. File saved to {file_name.replace('.seg', '.bed')}")
+    logger.info(f"Segment file formatting complete. File saved to {file_name.replace('.seg', '.bed')}")
 
     return f'{file_name.replace(".seg", ".bed")}'
 
@@ -494,10 +508,10 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, gencode_ver
 
         segment_data_parse.to_csv(seg_data_file_name, sep="\t", index=False)
 
-        genocode_file_name = download_gencode_file(gencode_version)
+        genocode_file_name = download_gencode_file(gencode_version, logger)
 
         # format GTF file to BED format
-        mapping_file = gene_list_format(genocode_file_name)
+        mapping_file = gene_list_format(genocode_file_name, logger)
 
         #check if mapping file was created
         if not os.path.exists(mapping_file):
@@ -513,7 +527,7 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, gencode_ver
             runner_logger.warning(f"Gencode file {genocode_file_name} does not exist. Not removing file.")
 
         # format seg file to BED format
-        segment_bed_file = segment_file_format(seg_data_file_name)
+        segment_bed_file = segment_file_format(seg_data_file_name, logger)
 
         #perform bedtools intersect
         runner_logger.info(f"Performing bedtools intersect on {segment_bed_file} and {mapping_file}")
@@ -528,9 +542,10 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, gencode_ver
 
         # check if output file was created
         if not os.path.exists(intersect_output_file):
-            raise ValueError(f"Output file {intersect_output_file} was not created. Please check the bedtools command.")
+            raise ValueError(f"Output file of raw intersections {intersect_output_file} was not created. Please check the bedtools command.")
         else:
-            runner_logger.info(f"Output file {intersect_output_file} was created successfully")
+            runner_logger.info(f"Output file of raw intersections {intersect_output_file} was created successfully")
+            logger.info(f"Output file of raw intersections {intersect_output_file} was created successfully")
 
         #format for cbio input file
         cnv_gene_map_cbio = pd.read_csv(intersect_output_file, sep="\t", header=None)[[3, 8, 4]]
@@ -544,11 +559,14 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, gencode_ver
         ).reset_index().fillna("")
 
         cnv_gene_map_cbio_pivot.to_csv(f"data_log2_cna_{dt}.txt", sep="\t", index=False, quoting=csv.QUOTE_NONE, escapechar='\\')
+        logger.info(f"Gene level mappings complete. File saved to data_log2_cna_{dt}.txt")
+        runner_logger.info(f"Gene level mappings complete. File saved to data_log2_cna_{dt}.txt")
 
         # validate that all samples and segments have had gene level mappings performed
+        print(f"Validating that all samples and segments have had gene level mappings performed")
         segment_data_validate = segment_data.groupby(['sample_id', 'chrom', 'start', 'end']).size().reset_index(name='exp_counts')
 
-        gene_data_validate = pd.read_csv(intersect_output_file, sep="\t", header=None)[[3, 0, 1, 2]].rename(columns={3: 'sample_id', 0: 'chrom', 1: 'start', 2: 'end'}).groupby(['sample_id', 'chrom', 'start', 'end']).size().reset_index(name='gene_counts')
+        gene_data_validate = pd.read_csv(intersect_output_file, sep="\t", header=None)[[3, 0, 1, 2]].drop_duplicates().rename(columns={3: 'sample_id', 0: 'chrom', 1: 'start', 2: 'end'}).groupby(['sample_id', 'chrom', 'start', 'end']).size().reset_index(name='gene_counts')
 
         # merge the two dataframes on sample_id, chrom, start, end
         validate_df = pd.merge(segment_data_validate, gene_data_validate, on=['sample_id', 'chrom', 'start', 'end'], how='outer').fillna(0)
