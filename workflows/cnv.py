@@ -556,15 +556,20 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, gencode_ver
 
         cnv_gene_map_cbio.columns = ['sample_id', 'Hugo_Symbol', 'log2']
 
-        cnv_gene_map_cbio_pivot = cnv_gene_map_cbio.pivot(
-            index='Hugo_Symbol',
-            columns='sample_id',
-            values='log2'
-        ).reset_index().fillna("")
+        try:
+            cnv_gene_map_cbio_pivot = cnv_gene_map_cbio.pivot(
+                index='Hugo_Symbol',
+                columns='sample_id',
+                values='log2'
+            ).reset_index().fillna("")
 
-        cnv_gene_map_cbio_pivot.to_csv(f"data_log2_cna_{dt}.txt", sep="\t", index=False, quoting=csv.QUOTE_NONE, escapechar='\\')
-        logger.info(f"Gene level mappings complete. File saved to data_log2_cna_{dt}.txt")
-        runner_logger.info(f"Gene level mappings complete. File saved to data_log2_cna_{dt}.txt")
+            cnv_gene_map_cbio_pivot.to_csv(f"data_log2_cna_{dt}.txt", sep="\t", index=False, quoting=csv.QUOTE_NONE, escapechar='\\')
+            logger.info(f"Gene level mappings complete. File saved to data_log2_cna_{dt}.txt")
+            runner_logger.info(f"Gene level mappings complete. File saved to data_log2_cna_{dt}.txt")
+        except ValueError as e:
+            runner_logger.error(f"Error pivoting cnv_gene_map_cbio: {e}")
+            logger.error(f"Error pivoting cnv_gene_map_cbio: {e}")
+            
 
         # validate that all samples and segments have had gene level mappings performed
         print(f"Validating that all samples and segments have had gene level mappings performed")
