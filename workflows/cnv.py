@@ -389,7 +389,7 @@ def bedtools_intersect(segment_bed_file: str, mapping_file: str, output_file: st
     bedtools_check.run()
 
     # run bedtools intersect command
-    intersect_command = f"bedtools intersect -a {segment_bed_file} -b {mapping_file} -wo -f 0.5 > {output_file}"
+    intersect_command = f"bedtools intersect -a {mapping_file} -b {segment_bed_file} -wo -f 0.5 > {output_file}"
     intersect_operation = ShellOperation(
         commands=[intersect_command],
         stream_output=True
