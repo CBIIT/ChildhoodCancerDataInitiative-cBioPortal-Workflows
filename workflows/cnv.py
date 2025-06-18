@@ -552,7 +552,7 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, gencode_ver
             logger.info(f"Output file of raw intersections {intersect_output_file} was created successfully")
 
         #format for cbio input file
-        """cnv_gene_map_cbio = pd.read_csv(intersect_output_file, sep="\t", header=None)[[3, 8, 4]]
+        '''cnv_gene_map_cbio = pd.read_csv(intersect_output_file, sep="\t", header=None)[[3, 8, 4]]
 
         cnv_gene_map_cbio.columns = ['sample_id', 'Hugo_Symbol', 'log2']
 
@@ -568,7 +568,7 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, gencode_ver
             runner_logger.info(f"Gene level mappings complete. File saved to data_log2_cna_{dt}.txt")
         except ValueError as e:
             runner_logger.error(f"Error pivoting cnv_gene_map_cbio: {e}")
-            logger.error(f"Error pivoting cnv_gene_map_cbio: {e}")"""
+            logger.error(f"Error pivoting cnv_gene_map_cbio: {e}")
             
 
         # validate that all samples and segments have had gene level mappings performed
@@ -593,7 +593,7 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, gencode_ver
             runner_logger.info("No mismatches found in expected counts and gene counts")
 
         #save the validate_df to a file
-        validate_df.to_csv(f"validate_df_{dt}.tsv", sep="\t", index=False)
+        validate_df.to_csv(f"validate_df_{dt}.tsv", sep="\t", index=False)'''
     
         if not os.path.exists(log_filename):
             print(f"Log file does not exist: {log_filename}")
