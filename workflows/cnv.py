@@ -552,11 +552,11 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, gencode_ver
             logger.info(f"Output file of raw intersections {intersect_output_file} was created successfully")
 
         #format for cbio input file
-        cnv_gene_map_cbio = pd.read_csv(intersect_output_file, sep="\t", header=None)[[3, 8, 4]]
+        """cnv_gene_map_cbio = pd.read_csv(intersect_output_file, sep="\t", header=None)[[3, 8, 4]]
 
         cnv_gene_map_cbio.columns = ['sample_id', 'Hugo_Symbol', 'log2']
 
-        """try:
+        try:
             cnv_gene_map_cbio_pivot = cnv_gene_map_cbio.pivot(
                 index='Hugo_Symbol',
                 columns='sample_id',
