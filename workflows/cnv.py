@@ -339,6 +339,12 @@ def gene_list_format(file_name: str, logger):
     # since the overlap in genome
     df_gene_protein = df_gene_protein.sort_values(['chrom', 'start', 'end']).drop_duplicates(subset=['chrom', 'start', 'end'], keep='first')
 
+    # for genes that have multiple positions, pick instance with longest length
+    df_gene_protein['length'] = df_gene_protein['end'] - df_gene_protein['start']
+    df_gene_protein = df_gene_protein.sort_values(['chrom', 'start', 'length'], ascending=[True, True, False]).drop_duplicates(subset=['chrom', 'gene_names'], keep='first')
+    # drop length column
+    df_gene_protein = df_gene_protein.drop('length', axis=1)
+
     #update positions to 0-based indexing BED format
     # see for more details https://bedtools.readthedocs.io/en/latest/content/general-usage.html
     df_gene_protein['start'] = df_gene_protein['start'] - 1
@@ -396,6 +402,24 @@ def bedtools_intersect(segment_bed_file: str, mapping_file: str, output_file: st
     )
 
     intersect_operation.run()
+
+def gistic_like_calls(val):
+    # log2 bins that are gistic like are as follows:
+    # > 1.0 AMP (> CN 4.0)
+    # > 0.3 Gain (>CN 2.4)
+    # >= -0.3 to <= 0.3 Copy Neutral (1.62 to 2.46 CN)
+    # < -0.3 Hemizy Loss (< 1.62) 
+    # < -1.0 Homozy Loss (< 1)
+    if val > 1.0:
+        return 2
+    elif val > 0.3:
+        return 1
+    elif val < -1.0:
+        return -2
+    elif val < -0.3:
+        return  -1 
+    else:
+        return 0
 
 DropDownChoices = Literal["segment_and_cnv_gene", "cleanup"]
 
@@ -459,7 +483,7 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, gencode_ver
 
         # read in manifest file
         runner_logger.info(f"Reading in manifest file")
-        manifest_df = read_manifest(os.path.basename(manifest_path))
+        manifest_df = read_manifest(os.path.basename(manifest_path))[:5]
 
         logger.info(f"Expected number of files to download: {len(manifest_df)}")
         runner_logger.info(f"Expected number of files to download: {len(manifest_df)}")
@@ -551,8 +575,58 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, gencode_ver
             runner_logger.info(f"Output file of raw intersections {intersect_output_file} was created successfully")
             logger.info(f"Output file of raw intersections {intersect_output_file} was created successfully")
 
+        # cut out fields 4, 8, and 9 from the output file using bash command since so large
+        cnv_gene_map_file = f"cnv_gene_map_{dt}.tsv"
+        command = f"cut -f 4,8,9 {intersect_output_file} | sed 's/\"//g' | sed 's/;//g' | sed 's/ //g' > {cnv_gene_map_file}"
+        runner_logger.info(f"Running command: {command}")
+        cut_operation = ShellOperation(
+            commands=[command],
+            stream_output=True
+        )
+        cut_operation.run()
+        # check if output file was created
+        
+        if not os.path.exists(cnv_gene_map_file):
+            raise ValueError(f"Output file of cut command {cnv_gene_map_file} was not created. Please check the cut command.")
+        else:
+            runner_logger.info(f"Output file of cut command {cnv_gene_map_file} was created successfully")
+            logger.info(f"Output file of cut command {cnv_gene_map_file} was created successfully")
+
+
+        # cut fields 5,6,7,8 for later validation of mapping
+        validation_mapping = f"cnv_gene_map_validation_{dt}.tsv"
+        command_validation = f"cut -f 5,6,7,8 {intersect_output_file} | sort | uniq > {validation_mapping}"
+        runner_logger.info(f"Running command: {command_validation}")
+        cut_validation_operation = ShellOperation(
+            commands=[command_validation],
+            stream_output=True
+        )
+        cut_validation_operation.run()
+
+        # check if output file was created
+        if not os.path.exists(validation_mapping):
+            raise ValueError(f"Output file of cut command {validation_mapping} was not created. Please check the cut command.")
+        else:
+            runner_logger.info(f"Output file of cut command {validation_mapping} was created successfully")
+            logger.info(f"Output file of cut command {validation_mapping} was created successfully")
+
+        # gzip the original intersect output file to save space
+        command_gzip = f"gzip -f {intersect_output_file}"
+        runner_logger.info(f"Running command: {command_gzip}")
+        gzip_operation = ShellOperation(
+            commands=[command_gzip],
+            stream_output=True
+        )
+        gzip_operation.run()
+        # check if output file was gzipped
+        if not os.path.exists(intersect_output_file + ".gz"):
+            raise ValueError(f"Output file of gzip command {intersect_output_file}.gz was not created. Please check the gzip command.")
+        else:
+            runner_logger.info(f"Output file of gzip command {intersect_output_file}.gz was created successfully")
+            logger.info(f"Output file of gzip command {intersect_output_file}.gz was created successfully")
+
         #format for cbio input file
-        '''cnv_gene_map_cbio = pd.read_csv(intersect_output_file, sep="\t", header=None)[[3, 8, 4]]
+        cnv_gene_map_cbio = pd.read_csv(cnv_gene_map_file, sep="\t", header=None)
 
         cnv_gene_map_cbio.columns = ['sample_id', 'Hugo_Symbol', 'log2']
 
@@ -561,28 +635,43 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, gencode_ver
                 index='Hugo_Symbol',
                 columns='sample_id',
                 values='log2'
-            ).reset_index().fillna("")
+            ).reset_index().fillna("NA")
 
             cnv_gene_map_cbio_pivot.to_csv(f"data_log2_cna_{dt}.txt", sep="\t", index=False, quoting=csv.QUOTE_NONE, escapechar='\\')
-            logger.info(f"Gene level mappings complete. File saved to data_log2_cna_{dt}.txt")
-            runner_logger.info(f"Gene level mappings complete. File saved to data_log2_cna_{dt}.txt")
+            logger.info(f"Continuous gene level mappings complete. File saved to data_log2_cna_{dt}.txt")
+            runner_logger.info(f"Continuous gene level mappings complete. File saved to data_log2_cna_{dt}.txt")
         except ValueError as e:
             runner_logger.error(f"Error pivoting cnv_gene_map_cbio: {e}")
             logger.error(f"Error pivoting cnv_gene_map_cbio: {e}")
-            
+        
+        # format for gistic like calls
+        try:
+            cnv_gene_map_cbio['gistic_like'] = cnv_gene_map_cbio['log2'].apply(gistic_like_calls)
+            cnv_gene_map_cbio_gistic = cnv_gene_map_cbio.pivot(
+                index='Hugo_Symbol',
+                columns='sample_id',
+                values='gistic_like'
+            ).reset_index().fillna(0)
+            cnv_gene_map_cbio_gistic.to_csv(f"data_cna_{dt}.txt", sep="\t", index=False, quoting=csv.QUOTE_NONE, escapechar='\\')
+            logger.info(f"GISTIC-like discrete gene level mappings complete. File saved to data_cna_{dt}.txt")
+            runner_logger.info(f"GISTIC-like discrete gene level mappings complete. File saved to data_cna_{dt}.txt")
+        except ValueError as e:
+            runner_logger.error(f"Error pivoting cnv_gene_map_cbio for gistic like calls: {e}")
+            logger.error(f"Error pivoting cnv_gene_map_cbio for gistic like calls: {e}")
 
         # validate that all samples and segments have had gene level mappings performed
+        # original file so big, might need to run in terminal/command line
         print(f"Validating that all samples and segments have had gene level mappings performed")
         segment_data_validate = segment_data.groupby(['sample_id', 'chrom', 'start', 'end']).size().reset_index(name='exp_counts')
         segment_data_validate['chrom'] = 'chr' + segment_data_validate['chrom'].astype(str)
 
-        gene_data_validate = pd.read_csv(intersect_output_file, sep="\t", header=None)[[3, 0, 1, 2]].drop_duplicates().rename(columns={3: 'sample_id', 0: 'chrom', 1: 'start', 2: 'end'}).groupby(['sample_id', 'chrom', 'start', 'end']).size().reset_index(name='gene_counts')
+        gene_data_validate = pd.read_csv(validation_mapping, sep="\t", header=None).drop_duplicates().rename(columns={0: 'chrom', 1: 'start', 2: 'end', 3: 'sample_id'}).groupby(['sample_id', 'chrom', 'start', 'end']).size().reset_index(name='obs_counts')
 
         # merge the two dataframes on sample_id, chrom, start, end
         validate_df = pd.merge(segment_data_validate, gene_data_validate, on=['sample_id', 'chrom', 'start', 'end'], how='outer').fillna(0)
 
         # parse data where expected counts do not match gene counts
-        validate_df['mismatch'] = validate_df['exp_counts'] != validate_df['gene_counts']
+        validate_df['mismatch'] = validate_df['exp_counts'] != validate_df['obs_counts']
         validate_df_mismatch = validate_df[validate_df['mismatch']]
         if not validate_df_mismatch.empty:
             runner_logger.error(f"Mismatch found in expected counts and gene counts for {len(validate_df_mismatch)} segments")
@@ -593,7 +682,7 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, gencode_ver
             runner_logger.info("No mismatches found in expected counts and gene counts")
 
         #save the validate_df to a file
-        validate_df.to_csv(f"validate_df_{dt}.tsv", sep="\t", index=False)'''
+        validate_df.to_csv(f"validate_df_{dt}.tsv", sep="\t", index=False)
     
         if not os.path.exists(log_filename):
             print(f"Log file does not exist: {log_filename}")
