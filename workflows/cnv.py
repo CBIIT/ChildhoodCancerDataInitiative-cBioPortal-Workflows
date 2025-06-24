@@ -433,6 +433,7 @@ def bedtools_intersect(segment_bed_file: str, mapping_file: str, output_file: st
 
     intersect_operation.run()
 
+@task(name="process_gene_mappings", log_prints=True)
 def process_gene_mappings(intersect_output_file: str, dt: str, logger, runner_logger):
 
     # cut out fields 4, 8, and 9 from the output file using bash command since so large
