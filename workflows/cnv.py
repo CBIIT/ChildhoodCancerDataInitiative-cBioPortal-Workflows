@@ -433,7 +433,7 @@ def bedtools_intersect(segment_bed_file: str, mapping_file: str, output_file: st
 
     intersect_operation.run()
 
-def process_gene_mappings(intersect_output_file: str, logger, runner_logger):
+def process_gene_mappings(intersect_output_file: str, dt: str, logger, runner_logger):
 
     # cut out fields 4, 8, and 9 from the output file using bash command since so large
     cnv_gene_map_file = f"cnv_gene_map_{dt}.tsv"
@@ -600,7 +600,7 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, gencode_ver
         # process gene-segment mappings
         logger.info(f"Processing gene-segment mappings from {intersect_output_file}")
 
-        cnv_gene_map_file = process_gene_mappings(intersect_output_file, logger, runner_logger)
+        cnv_gene_map_file = process_gene_mappings(intersect_output_file, dt, logger, runner_logger)
 
         # cut fields 5,6,7,8 for later validation of mapping
         validation_mapping = f"cnv_gene_map_validation_{dt}.tsv"
