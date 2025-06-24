@@ -628,7 +628,7 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, gencode_ver
         #format for cbio input file
         cnv_gene_map_cbio = pd.read_csv(cnv_gene_map_file, sep="\t", header=None)
 
-        cnv_gene_map_cbio.columns = ['sample_id', 'Hugo_Symbol', 'log2']
+        cnv_gene_map_cbio.columns = ['Hugo_Symbol', 'sample_id', 'log2']
 
         try:
             cnv_gene_map_cbio_pivot = cnv_gene_map_cbio.pivot(
