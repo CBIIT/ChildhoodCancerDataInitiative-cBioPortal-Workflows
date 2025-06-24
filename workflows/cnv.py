@@ -234,7 +234,7 @@ def parse_segments(file_path, logger):
 
 # flow to parse segments
 @flow(name="parse_segments_flow", task_runner=ConcurrentTaskRunner(), log_prints=True)
-def parse_segments_flow(manifest_df: pd.DataFrame, download_path: str, logger) -> None:
+def parse_segments_flow(manifest_df: pd.DataFrame, dt: str, download_path: str, logger) -> None:
     """Parse segments from copy number files
 
     Args:
@@ -279,7 +279,37 @@ def parse_segments_flow(manifest_df: pd.DataFrame, download_path: str, logger) -
     #replace 'chr' with '' in chrom column
     seg_df['chrom'] = seg_df['chrom'].str.replace('chr', '', regex=False)
 
-    return seg_df
+    seg_df.to_csv(f"segment_data_raw_{dt}.tsv", sep="\t", index=False)
+    logger.info(f"Raw segment data parsed. File saved to segment_data_raw_{dt}.tsv")
+    runner_logger.info(f"Segment data parsed. File saved to segment_data_raw_{dt}.tsv")
+
+    cols_parse = [
+            'sample_id',
+            'chrom',
+            'start',
+            'end',
+            'num_points',
+            'log2ratio',
+            ]
+
+    segment_data_parse = seg_df[cols_parse]
+
+    segment_data_parse.columns = [
+        'ID',
+        'chrom',
+        'loc.start',
+        'loc.end',
+        'num.mark',
+        'seg.mean'
+    ]
+
+    seg_data_file_name = f"data_cna_hg38_{dt}.seg"
+
+    segment_data_parse.to_csv(seg_data_file_name, sep="\t", index=False)
+    logger.info(f"Segment data for cBio ingestion. File saved to {seg_data_file_name}")
+    runner_logger.info(f"Segment data parsed for cBio ingestion. File saved to {seg_data_file_name}")
+
+    return seg_df, seg_data_file_name
 
 
 # task to perform gene mappings to segement location for continuous data
@@ -403,6 +433,27 @@ def bedtools_intersect(segment_bed_file: str, mapping_file: str, output_file: st
 
     intersect_operation.run()
 
+def process_gene_mappings(intersect_output_file: str, logger, runner_logger):
+
+    # cut out fields 4, 8, and 9 from the output file using bash command since so large
+    cnv_gene_map_file = f"cnv_gene_map_{dt}.tsv"
+    command = f"cut -f 4,8,9 {intersect_output_file} | sed 's/\"//g' | sed 's/;//g' | sed 's/ //g' > {cnv_gene_map_file}"
+    runner_logger.info(f"Running command: {command}")
+    cut_operation = ShellOperation(
+        commands=[command],
+        stream_output=True
+    )
+    cut_operation.run()
+    # check if output file was created
+    
+    if not os.path.exists(cnv_gene_map_file):
+        raise ValueError(f"Output file of cut command {cnv_gene_map_file} was not created. Please check the cut command.")
+    else:
+        runner_logger.info(f"Output file of cut command {cnv_gene_map_file} was created successfully")
+        logger.info(f"Output file of cut command {cnv_gene_map_file} was created successfully")
+    return cnv_gene_map_file
+
+
 def gistic_like_calls(val):
     # log2 bins that are gistic like are as follows:
     # > 1.0 AMP (> CN 4.0)
@@ -504,38 +555,9 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, gencode_ver
         os.chdir(output_path)
 
         # parse segement data from cnv files
-        segment_data = parse_segments_flow(manifest_df, download_path, logger)
+        segment_data, seg_data_file_name = parse_segments_flow(manifest_df, download_path, logger)
 
-        cols_parse = [
-            'sample_id',
-            'chrom',
-            'start',
-            'end',
-            'num_points',
-            'log2ratio',
-            ]
-
-        segment_data.to_csv(f"segment_data_raw_{dt}.tsv", sep="\t", index=False)
-        logger.info(f"Raw segment data parsed. File saved to segment_data_raw_{dt}.tsv")
-        runner_logger.info(f"Segment data parsed. File saved to segment_data_raw_{dt}.tsv")
-
-        segment_data_parse = segment_data[cols_parse]
-
-        segment_data_parse.columns = [
-            'ID',
-            'chrom',
-            'loc.start',
-            'loc.end',
-            'num.mark',
-            'seg.mean'
-        ]
-
-        seg_data_file_name = f"data_cna_hg38_{dt}.seg"
-
-        segment_data_parse.to_csv(seg_data_file_name, sep="\t", index=False)
-        logger.info(f"Segment data for cBio ingestion. File saved to {seg_data_file_name}")
-        runner_logger.info(f"Segment data parsed for cBio ingestion. File saved to {seg_data_file_name}")
-
+        # download gencode gene mappings
         genocode_file_name = download_gencode_file(gencode_version, logger)
 
         # format GTF file to BED format
@@ -575,23 +597,10 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, gencode_ver
             runner_logger.info(f"Output file of raw intersections {intersect_output_file} was created successfully")
             logger.info(f"Output file of raw intersections {intersect_output_file} was created successfully")
 
-        # cut out fields 4, 8, and 9 from the output file using bash command since so large
-        cnv_gene_map_file = f"cnv_gene_map_{dt}.tsv"
-        command = f"cut -f 4,8,9 {intersect_output_file} | sed 's/\"//g' | sed 's/;//g' | sed 's/ //g' > {cnv_gene_map_file}"
-        runner_logger.info(f"Running command: {command}")
-        cut_operation = ShellOperation(
-            commands=[command],
-            stream_output=True
-        )
-        cut_operation.run()
-        # check if output file was created
-        
-        if not os.path.exists(cnv_gene_map_file):
-            raise ValueError(f"Output file of cut command {cnv_gene_map_file} was not created. Please check the cut command.")
-        else:
-            runner_logger.info(f"Output file of cut command {cnv_gene_map_file} was created successfully")
-            logger.info(f"Output file of cut command {cnv_gene_map_file} was created successfully")
+        # process gene-segment mappings
+        logger.info(f"Processing gene-segment mappings from {intersect_output_file}")
 
+        cnv_gene_map_file = process_gene_mappings(intersect_output_file, logger, runner_logger)
 
         # cut fields 5,6,7,8 for later validation of mapping
         validation_mapping = f"cnv_gene_map_validation_{dt}.tsv"
@@ -605,10 +614,10 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, gencode_ver
 
         # check if output file was created
         if not os.path.exists(validation_mapping):
-            raise ValueError(f"Output file of cut command {validation_mapping} was not created. Please check the cut command.")
+            raise ValueError(f"Validation check file {validation_mapping} was not created. Please check the cut command.")
         else:
-            runner_logger.info(f"Output file of cut command {validation_mapping} was created successfully")
-            logger.info(f"Output file of cut command {validation_mapping} was created successfully")
+            runner_logger.info(f"Validation check file  {validation_mapping} was created successfully")
+            logger.info(f"Validation check file {validation_mapping} was created successfully")
 
         # gzip the original intersect output file to save space
         command_gzip = f"gzip -f {intersect_output_file}"
