@@ -670,6 +670,8 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, gencode_ver
         # merge the two dataframes on sample_id, chrom, start, end
         validate_df = pd.merge(segment_data_validate, gene_data_validate, on=['sample_id', 'chrom', 'start', 'end'], how='outer').fillna(0)
 
+        validate_df['length'] = validate_df['end'] - validate_df['start']
+
         # parse data where expected counts do not match gene counts
         validate_df['mismatch'] = validate_df['exp_counts'] != validate_df['obs_counts']
         validate_df_mismatch = validate_df[validate_df['mismatch']]
