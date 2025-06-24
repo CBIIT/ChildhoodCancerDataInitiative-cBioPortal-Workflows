@@ -555,7 +555,7 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, gencode_ver
         os.chdir(output_path)
 
         # parse segement data from cnv files
-        segment_data, seg_data_file_name = parse_segments_flow(manifest_df, download_path, logger)
+        segment_data, seg_data_file_name = parse_segments_flow(manifest_df, dt, download_path, logger)
 
         # download gencode gene mappings
         genocode_file_name = download_gencode_file(gencode_version, logger)
