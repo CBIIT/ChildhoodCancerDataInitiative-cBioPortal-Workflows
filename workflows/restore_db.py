@@ -62,7 +62,6 @@ def restore_db(
             "host": creds["host"],
             "username": creds["username"],
             "password": creds["password"],
-            "database": creds["dbname"],
             "dbClusterIdentifier": creds["dbClusterIdentifier"],
             "engine": creds["engine"],
             "port": creds["port"],
