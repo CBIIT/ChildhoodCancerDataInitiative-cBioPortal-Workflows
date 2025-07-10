@@ -75,3 +75,39 @@ deployments:
       requirements_file: requirements.txt
       directory: "{{ clone-step.directory }}"
       stream_output: False
+
+- name: cbio-mysql-restore-upper-tier
+  version: null
+  tags:
+  - mysql
+  - cbioportal
+  - V3
+  description: Restore the family table or entire cbioportal DB using mysql
+  entrypoint: workflows/restore_db.py:restore_db
+  parameters:
+    run_type: "restore"
+    target_env_name: "stage"
+    source_bucket: "cbio-backup-dev"
+    sql_dump_path: ""
+    output_bucket: "cbio-backup-stage"
+    output_path: ""
+  work_pool:
+    name: cbio-8gb-prod-prefect-3.2.14-python3.9
+    work_queue_name:
+    job_variables: {}
+  schedules: []
+  pull:
+  - prefect.deployments.steps.run_shell_script:
+      script: apt-get update
+      stream_output: true
+  - prefect.deployments.steps.run_shell_script:
+      script: apt-get install -y mariadb-client
+      stream_output: true
+  - prefect.deployments.steps.git_clone:
+      id: clone-step
+      repository: https://github.com/CBIIT/ChildhoodCancerDataInitiative-cBioPortal-Workflows.git
+      branch: CBIO-272_upper_tier_data_load
+  - prefect.deployments.steps.pip_install_requirements:
+      requirements_file: requirements.txt
+      directory: "{{ clone-step.directory }}"
+      stream_output: False
