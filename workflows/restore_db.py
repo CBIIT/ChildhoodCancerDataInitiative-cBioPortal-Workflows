@@ -65,6 +65,7 @@ def restore_db(
             "database": creds["dbname"],
             "dbClusterIdentifier": creds["dbClusterIdentifier"],
             "engine": creds["engine"],
+            "port": creds["port"],
         }
 
         # create working directory
