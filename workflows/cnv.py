@@ -318,8 +318,8 @@ def parse_segments_flow(manifest_df: pd.DataFrame, dt: str, download_path: str, 
 def download_gencode_file(gencode_version: int, logger):
 
     #download gene annotations GTF file from gencode
-    # URL structure https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_48/gencode.v48.annotation.gtf.gz
-    url = f"https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_{gencode_version}/gencode.v{gencode_version}.annotation.gtf.gz"
+    # URL structure https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_48/gencode.v48.basic.annotation.gtf.gz
+    url = f"https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_{gencode_version}/gencode.v{gencode_version}.basic.annotation.gtf.gz"
     rename_file = f"gencode_genes_{gencode_version}.gtf.gz"
     download = ShellOperation(commands=[f"curl -L -o {rename_file} {url}"], stream_output=True)
 
@@ -662,6 +662,9 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, gencode_ver
                 columns='sample_id',
                 values='gistic_like'
             ).reset_index().fillna(0)
+
+            # convert all values to int
+            cnv_gene_map_cbio_gistic[cnv_gene_map_cbio_gistic.columns[1:]] = cnv_gene_map_cbio_gistic[cnv_gene_map_cbio_gistic.columns[1:]].astype(int)
             cnv_gene_map_cbio_gistic.to_csv(f"data_cna_{dt}.txt", sep="\t", index=False, quoting=csv.QUOTE_NONE, escapechar='\\')
             logger.info(f"GISTIC-like discrete gene level mappings complete. File saved to data_cna_{dt}.txt")
             runner_logger.info(f"GISTIC-like discrete gene level mappings complete. File saved to data_cna_{dt}.txt")
