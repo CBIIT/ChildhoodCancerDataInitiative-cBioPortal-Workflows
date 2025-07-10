@@ -56,6 +56,16 @@ def restore_db(
         # grab creds from secrets manager
         creds_string = get_secret(target_env_name)
         creds = json.loads(creds_string)
+        
+        # parse the creds to get the database connection parameters
+        creds = {
+            "host": creds["host"],
+            "username": creds["username"],
+            "password": creds["password"],
+            "database": creds["dbname"],
+            "dbClusterIdentifier": creds["dbClusterIdentifier"],
+            "engine": creds["engine"],
+        }
 
         # create working directory
         os.makedirs(working_dir, exist_ok=True)
