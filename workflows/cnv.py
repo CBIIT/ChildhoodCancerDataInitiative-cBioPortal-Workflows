@@ -13,6 +13,7 @@ from botocore.exceptions import ClientError
 from prefect import flow, task, get_run_logger, unmapped
 from src.utils import get_time, file_dl, get_logger, upload_folder_to_s3, set_s3_resource
 
+SEGMENT_COLUMNS_COUNT = 12
 
 # task to read in manifest file to dataframe and check columns
 @task(name="read_manifest", log_prints=True)
@@ -191,7 +192,7 @@ def parse_segments(file_path, logger):
     if not os.path.exists(file_path):
         logger.error(f"File at path {file_path} does not exist. Not parsing")
 
-        return [''] * 12
+        return [''] * SEGMENT_COLUMNS_COUNT
 
     with open(file_path, 'r') as f:
         data = json.load(f)
@@ -559,10 +560,10 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, gencode_ver
         segment_data, seg_data_file_name = parse_segments_flow(manifest_df, dt, download_path, logger)
 
         # download gencode gene mappings
-        genocode_file_name = download_gencode_file(gencode_version, logger)
+        gencode_file_name = download_gencode_file(gencode_version, logger)
 
         # format GTF file to BED format
-        mapping_file = gene_list_format(genocode_file_name, logger)
+        mapping_file = gene_list_format(gencode_file_name, logger)
 
         #check if mapping file was created
         if not os.path.exists(mapping_file):
@@ -571,11 +572,11 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, gencode_ver
             runner_logger.info(f"Mapping file {mapping_file} was created successfully")
         
         #remove gencode file to save space
-        if os.path.exists(genocode_file_name):
-            os.remove(genocode_file_name)
-            runner_logger.info(f"Removed gencode file {genocode_file_name} to save space")
+        if os.path.exists(gencode_file_name):
+            os.remove(gencode_file_name)
+            runner_logger.info(f"Removed gencode file {gencode_file_name} to save space")
         else:
-            runner_logger.warning(f"Gencode file {genocode_file_name} does not exist. Not removing file.")
+            runner_logger.warning(f"Gencode file {gencode_file_name} does not exist. Not removing file.")
 
         # format seg file to BED format
         segment_bed_file = segment_file_format(seg_data_file_name, logger)
