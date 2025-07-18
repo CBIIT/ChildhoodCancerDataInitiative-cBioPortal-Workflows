@@ -80,7 +80,7 @@ pull:
 - prefect.deployments.steps.git_clone:
     id: clone-step
     repository: https://github.com/CBIIT/ChildhoodCancerDataInitiative-cBioPortal-Workflows.git
-    branch: main
+    branch: CBIO172_CNA
 
 - prefect.deployments.steps.run_shell_script:
     script: apt-get update
@@ -97,12 +97,13 @@ pull:
     stream_output: false
 
 deployments:
-- name: cbio-cnv-transform
+- name: TEST-cbio-cnv-transform
   version: null
   tags:
   - mysql
   - cbioportal
   - V3
+  - TEST
   description: CNV transformation workflow for cBioPortal data ingestion
   entrypoint: workflows/cnv.py:cnv_flow
   parameters: 
