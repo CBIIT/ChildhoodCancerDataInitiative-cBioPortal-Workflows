@@ -1,7 +1,7 @@
 import subprocess, os, json
 from datetime import datetime
 from pytz import timezone
-from prefect import task, flow
+from prefect import task, flow, task
 import mysql.connector
 import pandas as pd
 import boto3
