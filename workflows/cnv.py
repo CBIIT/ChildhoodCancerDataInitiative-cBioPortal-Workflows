@@ -462,7 +462,7 @@ def gistic_like_calls(val):
     # >= -0.3 to <= 0.3 Copy Neutral (1.62 to 2.46 CN)
     # < -0.3 Hemizy Loss (< 1.62) 
     # < -1.0 Homozy Loss (< 1)
-    if val > 1.0:
+    if val > 2.0:
         return 2
     elif val > 0.3:
         return 1
@@ -719,8 +719,3 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, gencode_ver
         )
 
 
-
-if __name__ == "__main__":
-    # testing
-    #cnv_flow(bucket="cbioportal-data", manifest_path="cnv/manifest.txt", destination_path="cnv", flow_type="segment")
-    pass
