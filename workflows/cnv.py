@@ -609,9 +609,10 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, gencode_ver
 
         cnv_gene_map_file = process_gene_mappings(intersect_output_file, dt, logger, runner_logger)
 
-        # cut fields 5,6,7,8 for later validation of mapping
+        # cut specific fields for later validation of mapping
+        FIELD_NUMBERS_FOR_VALIDATION = "5,6,7,8"
         validation_mapping = f"cnv_gene_map_validation_{dt}.tsv"
-        command_validation = f"cut -f 5,6,7,8 {intersect_output_file} | sort | uniq > {validation_mapping}"
+        command_validation = f"cut -f {FIELD_NUMBERS_FOR_VALIDATION} {intersect_output_file} | sort | uniq > {validation_mapping}"
         runner_logger.info(f"Running command: {command_validation}")
         cut_validation_operation = ShellOperation(
             commands=[command_validation],
