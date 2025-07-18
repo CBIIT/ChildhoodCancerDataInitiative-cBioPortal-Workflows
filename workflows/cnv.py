@@ -457,7 +457,7 @@ def process_gene_mappings(intersect_output_file: str, dt: str, logger, runner_lo
 
 def gistic_like_calls(val):
     # log2 bins that are gistic like are as follows:
-    # > 1.0 AMP (> CN 4.0)
+    # > 2.0 AMP (> CN 8.0)
     # > 0.3 Gain (>CN 2.4)
     # >= -0.3 to <= 0.3 Copy Neutral (1.62 to 2.46 CN)
     # < -0.3 Hemizy Loss (< 1.62) 
