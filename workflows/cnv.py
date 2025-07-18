@@ -53,6 +53,7 @@ def read_manifest(manifest_name: str) -> pd.DataFrame:
     return manifest_df
 
 # task to calculate md5sum of file
+@task(name="get_md5", log_prints=True)
 def get_md5(file_path):
     """Get md5sum of file
 
