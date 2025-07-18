@@ -437,9 +437,14 @@ def bedtools_intersect(segment_bed_file: str, mapping_file: str, output_file: st
 @task(name="process_gene_mappings", log_prints=True)
 def process_gene_mappings(intersect_output_file: str, dt: str, logger, runner_logger):
 
-    # cut out fields 4, 8, and 9 from the output file using bash command since so large
+    # Define field indices for cut command
+    FIELD_SAMPLE_ID = 4
+    FIELD_GENE_NAME = 8
+    FIELD_LOG2_RATIO = 9
+
+    # cut out fields using defined constants
     cnv_gene_map_file = f"cnv_gene_map_{dt}.tsv"
-    command = f"cut -f 4,8,9 {intersect_output_file} | sed 's/\"//g' | sed 's/;//g' | sed 's/ //g' > {cnv_gene_map_file}"
+    command = f"cut -f {FIELD_SAMPLE_ID},{FIELD_GENE_NAME},{FIELD_LOG2_RATIO} {intersect_output_file} | sed 's/\"//g' | sed 's/;//g' | sed 's/ //g' > {cnv_gene_map_file}"
     runner_logger.info(f"Running command: {command}")
     cut_operation = ShellOperation(
         commands=[command],
