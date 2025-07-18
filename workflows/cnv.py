@@ -54,6 +54,7 @@ def read_manifest(manifest_name: str) -> pd.DataFrame:
     return manifest_df
 
 # task to calculate md5sum of file
+@task(name="get_md5", log_prints=True)
 def get_md5(file_path):
     """Get md5sum of file
 
@@ -437,9 +438,14 @@ def bedtools_intersect(segment_bed_file: str, mapping_file: str, output_file: st
 @task(name="process_gene_mappings", log_prints=True)
 def process_gene_mappings(intersect_output_file: str, dt: str, logger, runner_logger):
 
-    # cut out fields 4, 8, and 9 from the output file using bash command since so large
+    # Define field indices for cut command
+    FIELD_SAMPLE_ID = 4
+    FIELD_GENE_NAME = 8
+    FIELD_LOG2_RATIO = 9
+
+    # cut out fields using defined constants
     cnv_gene_map_file = f"cnv_gene_map_{dt}.tsv"
-    command = f"cut -f 4,8,9 {intersect_output_file} | sed 's/\"//g' | sed 's/;//g' | sed 's/ //g' > {cnv_gene_map_file}"
+    command = f"cut -f {FIELD_SAMPLE_ID},{FIELD_GENE_NAME},{FIELD_LOG2_RATIO} {intersect_output_file} | sed 's/\"//g' | sed 's/;//g' | sed 's/ //g' > {cnv_gene_map_file}"
     runner_logger.info(f"Running command: {command}")
     cut_operation = ShellOperation(
         commands=[command],
@@ -604,9 +610,10 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, gencode_ver
 
         cnv_gene_map_file = process_gene_mappings(intersect_output_file, dt, logger, runner_logger)
 
-        # cut fields 5,6,7,8 for later validation of mapping
+        # cut specific fields for later validation of mapping
+        FIELD_NUMBERS_FOR_VALIDATION = "5,6,7,8"
         validation_mapping = f"cnv_gene_map_validation_{dt}.tsv"
-        command_validation = f"cut -f 5,6,7,8 {intersect_output_file} | sort | uniq > {validation_mapping}"
+        command_validation = f"cut -f {FIELD_NUMBERS_FOR_VALIDATION} {intersect_output_file} | sort | uniq > {validation_mapping}"
         runner_logger.info(f"Running command: {command_validation}")
         cut_validation_operation = ShellOperation(
             commands=[command_validation],
