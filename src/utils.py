@@ -1,12 +1,13 @@
 import subprocess, os, json
 from datetime import datetime
 from pytz import timezone
-from prefect import task, flow
+from prefect import task, flow, task
 import mysql.connector
 import pandas as pd
 import boto3
 import re
 from botocore.exceptions import ClientError
+import logging
 
 
 def get_time() -> str:
@@ -378,3 +379,60 @@ def db_counter(db_type: str, dump_file: str = None):
         if conn.is_connected():
             cursor.close()
             conn.close()"""
+    
+def get_logger(loggername: str, log_level: str):
+    """Returns a basic logger with a logger name using a std format
+    log level can be set using one of the values in log_levels.
+    """
+    log_levels = {  # sorted level
+        "notset": logging.NOTSET,  # 00
+        "debug": logging.DEBUG,  # 10
+        "info": logging.INFO,  # 20
+        "warning": logging.WARNING,  # 30
+        "error": logging.ERROR,  # 40
+    }
+
+    logger_filename = loggername + ".log"
+    logger = logging.getLogger(loggername)
+    logger.setLevel(log_levels[log_level])
+
+    # set the file handler
+    file_FORMAT = "%(asctime)s - %(levelname)s - %(message)s"
+    file_handler = logging.FileHandler(logger_filename, mode="w")
+    file_handler.setFormatter(logging.Formatter(file_FORMAT, "%H:%M:%S"))
+    file_handler.setLevel(log_levels["info"])
+
+    # set the stream handler
+    # stream_handler = logging.StreamHandler(sys.stdout)
+    # stream_handler.setFormatter(logging.Formatter(file_FORMAT, "%H:%M:%S"))
+    # stream_handler.setLevel(log_levels["info"])
+
+    # logger.addHandler(stream_handler)
+    logger.addHandler(file_handler)
+
+    return logger
+
+@task(name="Upload folder", task_run_name="upload_folder_{local_folder}", log_prints=True)
+def upload_folder_to_s3(
+    local_folder: str, bucket: str, destination: str, sub_folder: str
+) -> None:
+    """This function uploads all the files from a folder
+    and preserves the original folder structure
+    """
+    s3 = set_s3_resource()
+    source = s3.Bucket(bucket)
+    folder_basename = os.path.basename(local_folder)
+    for root, _, files in os.walk(local_folder):
+        for filename in files:
+            # construct local path
+            local_path = os.path.join(root, filename)
+
+            # construct the full dst path
+            relative_path = os.path.relpath(local_path, local_folder)
+            s3_path = os.path.join(
+                destination, sub_folder, folder_basename, relative_path
+            )
+
+            # upload file
+            # this should overwrite file if file exists in the bucket
+            source.upload_file(local_path, s3_path)
