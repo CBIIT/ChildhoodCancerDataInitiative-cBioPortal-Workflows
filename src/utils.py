@@ -57,6 +57,8 @@ def get_secret(env_name: str):
         secret_name = "ccdicbio-qa-rds"
     elif env_name == "stage":
         secret_name = "ccdicbiostage-db-credentials"
+    elif env_name == "prod":
+        secret_name = "ccdicbioprod-db-credentials"
     else:
         raise ValueError("Invalid environment name. Please use one of: ['dev', 'qa', 'stage', 'prod'].")
         
