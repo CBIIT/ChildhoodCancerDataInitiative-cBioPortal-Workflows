@@ -106,7 +106,7 @@ deployments:
   - prefect.deployments.steps.git_clone:
       id: clone-step
       repository: https://github.com/CBIIT/ChildhoodCancerDataInitiative-cBioPortal-Workflows.git
-      branch: CBIO-272_upper_tier_data_load
+      branch: main
   - prefect.deployments.steps.pip_install_requirements:
       requirements_file: requirements.txt
       directory: "{{ clone-step.directory }}"
