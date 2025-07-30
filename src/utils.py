@@ -56,6 +56,10 @@ def get_secret(env_name: str):
         secret_name = "ccdicbio-dev-rds"
     elif env_name == "qa":
         secret_name = "ccdicbio-qa-rds"
+    elif env_name == "stage":
+        secret_name = "ccdicbiostage-db-credentials"
+    elif env_name == "prod":
+        secret_name = "ccdicbioprod-db-credentials"
     else:
         raise ValueError("Invalid environment name. Please use one of: ['dev', 'qa', 'stage', 'prod'].")
         
@@ -436,3 +440,4 @@ def upload_folder_to_s3(
             # upload file
             # this should overwrite file if file exists in the bucket
             source.upload_file(local_path, s3_path)
+

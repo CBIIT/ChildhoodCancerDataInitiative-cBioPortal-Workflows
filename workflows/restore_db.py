@@ -10,7 +10,7 @@ from typing import Literal
 from prefect_shell import ShellOperation
 
 DropDownRunChoice = Literal["restore", "clear_working_dir"]
-DropDownEnvChoice = Literal["dev", "qa"]
+DropDownEnvChoice = Literal["dev", "qa", "stage", "prod"]
 
 @flow(name="cbio-restore-flow", log_prints=True)
 def restore_db(
@@ -56,6 +56,16 @@ def restore_db(
         # grab creds from secrets manager
         creds_string = get_secret(target_env_name)
         creds = json.loads(creds_string)
+        
+        # parse the creds to get the database connection parameters
+        creds = {
+            "host": creds["host"],
+            "username": creds["username"],
+            "password": creds["password"],
+            "dbClusterIdentifier": creds["dbClusterIdentifier"],
+            "engine": creds["engine"],
+            "port": creds["port"],
+        }
 
         # create working directory
         os.makedirs(working_dir, exist_ok=True)
