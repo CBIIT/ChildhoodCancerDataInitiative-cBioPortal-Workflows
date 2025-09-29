@@ -166,7 +166,14 @@ deployments:
     job_variables: {}
   schedules: []
   pull:
+  - prefect.deployments.steps.run_shell_script:
+      script: apt-get update
+      stream_output: true
   - prefect.deployments.steps.git_clone:
       id: clone-step
       repository: https://github.com/CBIIT/ChildhoodCancerDataInitiative-cBioPortal-Workflows.git
       branch: restart-ecs
+  - prefect.deployments.steps.pip_install_requirements:
+      requirements_file: requirements.txt
+      directory: "{{ clone-step.directory }}"
+      stream_output: False
