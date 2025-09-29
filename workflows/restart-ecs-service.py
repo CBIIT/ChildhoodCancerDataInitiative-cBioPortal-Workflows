@@ -24,12 +24,12 @@ def restart_ecs_service(cluster_name: str, service_name: str):
         raise
 
 @flow
-def restart_backend_ecs_service():
+def restart_backend_ecs_service(env_name: str="dev"):
     """
     A flow that orchestrates the restart of a specific ECS service.
     """
-    cluster = "cbio-dev-Cluster" 
-    service = "cbio-dev-Fargate-Service" 
+    cluster = f"cbio-{env_name}-Cluster" 
+    service = f"cbio-{env_name}-Fargate-Service" 
     
     restart_ecs_service(cluster, service)
 
