@@ -149,3 +149,24 @@ deployments:
       requirements_file: requirements.txt
       directory: '{{ clone-step.directory }}'
       stream_output: false
+
+- name: restart-ecs-deployment
+  version: null
+  tags:
+  - ecs
+  - cbioportal
+  - V3
+  concurrency_limit: null
+  description: A flow that orchestrates the restart of a specific ECS service.
+  entrypoint: workflows/restart-ecs-service.py:restart_backend_ecs_service
+  parameters: {}
+  work_pool:
+    name: cbio-8gb-prefect-3.2.14-python3.9
+    work_queue_name:
+    job_variables: {}
+  schedules: []
+  pull:
+  - prefect.deployments.steps.git_clone:
+      id: clone-step
+      repository: https://github.com/CBIIT/ChildhoodCancerDataInitiative-cBioPortal-Workflows.git
+      branch: restart-ecs
