@@ -441,3 +441,26 @@ def upload_folder_to_s3(
             # this should overwrite file if file exists in the bucket
             source.upload_file(local_path, s3_path)
 
+@task(name="Restart ECS service")
+def restart_ecs_service(env_name: str):
+    """
+    Forces a new deployment of an ECS service to restart its tasks.
+    """
+    
+    cluster_name = f"cbio-{env_name}-Cluster" 
+    service_name = f"cbio-{env_name}-Fargate-Service" 
+
+    # Initialize the Boto3 client for ECS
+    ecs_client = boto3.client("ecs")
+
+    try:
+        # Call update_service with force_new_deployment=True
+        ecs_client.update_service(
+            cluster=cluster_name,
+            service=service_name,
+            forceNewDeployment=True
+        )
+        print(f"Successfully triggered new deployment for service '{service_name}'.")
+    except Exception as e:
+        print(f"Failed to restart service '{service_name}': {e}")
+        raise
