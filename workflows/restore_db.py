@@ -4,7 +4,7 @@ import os
 import json
 import shutil
 from prefect import flow
-from src.utils import get_secret, upload_to_s3, file_dl, db_counter, get_time, restore_dump
+from src.utils import get_secret, upload_to_s3, file_dl, db_counter, get_time, restore_dump, restart_ecs_service
 import re
 from typing import Literal
 from prefect_shell import ShellOperation
@@ -140,3 +140,6 @@ def restore_db(
                 shutil.rmtree(file_path)
                 print(f"✅ Removed directory: {file_path}")
         print(f"✅ Removed all files in working directory: {working_dir}")
+
+
+    restart_ecs_service(target_env_name)

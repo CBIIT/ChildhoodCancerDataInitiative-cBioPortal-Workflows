@@ -1,7 +1,7 @@
 import subprocess, os, json
 from datetime import datetime
 from pytz import timezone
-from prefect import task, flow, task
+from prefect import task, flow, get_run_logger
 import mysql.connector
 import pandas as pd
 import boto3
@@ -441,3 +441,40 @@ def upload_folder_to_s3(
             # this should overwrite file if file exists in the bucket
             source.upload_file(local_path, s3_path)
 
+@task(name="Restart ECS Service Task", retries=3, retry_delay_seconds=30)
+def restart_ecs_service(env_name: str):
+    logger = get_run_logger()
+    
+    cluster_name = f"cbio-{env_name}-Cluster"
+    service_name = f"cbio-{env_name}-Fargate-Service"
+    
+    ecs_client = boto3.client('ecs')
+    
+    logger.info(f"Attempting to force new deployment (restart) for: {service_name} on Cluster: {cluster_name}")
+    
+    ecs_client.update_service(
+        cluster=cluster_name,
+        service=service_name,
+        forceNewDeployment=True 
+    )
+    
+    logger.info("Deployment command submitted. Waiting for service to become stable...")
+    
+    waiter = ecs_client.get_waiter('services_stable')
+    
+    try:
+        waiter.wait(
+            cluster=cluster_name, 
+            services=[service_name],
+            WaiterConfig={
+                'Delay': 15,    # Check every 15 seconds
+                'MaxAttempts': 60 # Check up to 60 times (15 minutes total)
+            }
+        )
+        
+        logger.info(f"✅ ECS Service '{service_name}' deployment is **STABLE and COMPLETE**.")
+        return True
+        
+    except ClientError as e:
+        logger.error(f"❌ ECS Service '{service_name}' failed to become stable: {e}")
+        raise
