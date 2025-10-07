@@ -476,6 +476,6 @@ def restart_ecs_service(env_name: str):
         logger.info(f"✅ ECS Service '{service_name}' deployment is **STABLE and COMPLETE**.")
         return True
         
-    except botocore.exceptions.WaitError as e:
+    except ClientError as e:
         logger.error(f"❌ ECS Service '{service_name}' failed to become stable: {e}")
         raise
