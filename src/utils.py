@@ -284,7 +284,7 @@ def db_counter(db_type: str, dump_file: str = None):
         table_row_counts = {}
         
         # Process file in chunks to handle large files
-        chunk_size = 100000  # Process 100,000 lines at a time
+        chunk_size = 10000  # Process 10,000 lines at a time
         table_pattern = re.compile(r"CREATE TABLE\s+`(\w+)`\s+\((.*?)\)\s+ENGINE=", re.DOTALL)
         
         # First pass: collect CREATE TABLE statements for column counting
