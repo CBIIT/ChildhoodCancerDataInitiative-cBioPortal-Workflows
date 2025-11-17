@@ -277,43 +277,68 @@ def db_counter(db_type: str, dump_file: str = None):
         if not os.path.exists(dump_file):
             raise FileNotFoundError(f"Dump file {dump_file} does not exist.")
         
-        # read in dump file
-        with open(dump_file, "r") as file:
-            dump_data = file.read()
-
         stats = []
 
         # Use regex to find the CREATE TABLE statements and extract column names
         table_column_counts = {}
-        
-        table_pattern = re.compile(r"CREATE TABLE\s+`(\w+)`\s+\((.*?)\)\s+ENGINE=", re.DOTALL)
-        matches = table_pattern.findall(dump_data)
-
-        for table_name, columns_block in matches:
-            # Split lines and filter out keys and constraints
-            lines = columns_block.strip().splitlines()
-            column_lines = [
-                line for line in lines
-                if not re.search(r'^\s*(PRIMARY|UNIQUE|KEY|CONSTRAINT|FOREIGN)', line.strip(), re.IGNORECASE)
-            ]
-            table_column_counts[table_name] = len(column_lines)
-
-        # Count rows in the dump file
         table_row_counts = {}
         
-        # different handling due to complex nature of row entries dump file
-        # read file line by line
-        # record the number of rows in each table
-        # this method may not be as efficient but handles nested parantheses, ad hoc semi-colons and other
-        # unforeseen syntax issues that may arise in the dump file in the future that cannot be handled by regex
-        for line in dump_data.splitlines():
-            if line.startswith("INSERT INTO"):
-                # Extract table name and row count
-                table_name = re.search(r'INSERT INTO `(\w+)`', line).group(1)
-                if table_name not in table_row_counts.keys():
-                    table_row_counts[table_name] = 0
-            elif line.startswith("("):
-                table_row_counts[table_name] += 1  
+        # Process file in chunks to handle large files
+        chunk_size = 100000  # Process 100,000 lines at a time
+        table_pattern = re.compile(r"CREATE TABLE\s+`(\w+)`\s+\((.*?)\)\s+ENGINE=", re.DOTALL)
+        
+        # First pass: collect CREATE TABLE statements for column counting
+        create_table_buffer = ""
+        current_table = None
+        
+        with open(dump_file, "r") as file:
+            line_count = 0
+            for line in file:
+                line_count += 1
+                create_table_buffer += line
+                
+                # Process chunk when we reach chunk_size lines
+                if line_count % chunk_size == 0:
+                    matches = table_pattern.findall(create_table_buffer)
+                    for table_name, columns_block in matches:
+                        # Split lines and filter out keys and constraints
+                        lines = columns_block.strip().splitlines()
+                        column_lines = [
+                            line for line in lines
+                            if not re.search(r'^\s*(PRIMARY|UNIQUE|KEY|CONSTRAINT|FOREIGN)', line.strip(), re.IGNORECASE)
+                        ]
+                        table_column_counts[table_name] = len(column_lines)
+                    
+                    # Keep only the last part of buffer in case CREATE TABLE spans chunks
+                    lines_in_buffer = create_table_buffer.splitlines()
+                    if len(lines_in_buffer) > 50:  # Keep last 50 lines as buffer
+                        create_table_buffer = "\n".join(lines_in_buffer[-50:])
+            
+            # Process remaining buffer
+            matches = table_pattern.findall(create_table_buffer)
+            for table_name, columns_block in matches:
+                lines = columns_block.strip().splitlines()
+                column_lines = [
+                    line for line in lines
+                    if not re.search(r'^\s*(PRIMARY|UNIQUE|KEY|CONSTRAINT|FOREIGN)', line.strip(), re.IGNORECASE)
+                ]
+                table_column_counts[table_name] = len(column_lines)
+
+        # Second pass: count rows by processing file line by line
+        # This method handles nested parentheses, ad hoc semi-colons and other
+        # unforeseen syntax issues that may arise in the dump file
+        with open(dump_file, "r") as file:
+            for line in file:
+                line = line.strip()
+                if line.startswith("INSERT INTO"):
+                    # Extract table name and initialize row count
+                    match = re.search(r'INSERT INTO `(\w+)`', line)
+                    if match:
+                        current_table = match.group(1)
+                        if current_table not in table_row_counts:
+                            table_row_counts[current_table] = 0
+                elif line.startswith("(") and current_table:
+                    table_row_counts[current_table] += 1  
 
         for table in table_column_counts:
             column_count = table_column_counts[table]
