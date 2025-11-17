@@ -503,3 +503,29 @@ def restart_ecs_service(env_name: str):
     except ClientError as e:
         logger.error(f"❌ ECS Service '{service_name}' failed to become stable: {e}")
         raise
+    
+@task(name="Process Dump File", log_prints=True)
+def process_dump_file(dump_file_name: str) -> bool:
+    """Reads the dump file and process to exclude CREATE DATABASE and USE statements
+    to exclude source db schema calls.
+
+    Args:
+        dump_file (str): Path to the dump file.
+    Returns:
+        bool: Whether processing was successful.
+    """
+    #remove CREATE DATABASE AND USE statements to exclude source db schema calls
+    #rename dump file to raw_{dump_file_name}
+    raw_dump_file_name = f"raw_{dump_file_name}" 
+    os.rename(dump_file_name, raw_dump_file_name)
+    pattern = re.compile(r"USE |CREATE DATABASE ")
+    try:
+        with open(raw_dump_file_name, "r") as infile, open(dump_file_name, "w+") as outfile:
+            for line in infile:
+                if not pattern.search(line):
+                    outfile.write(line)
+        outfile.close()
+        return True
+    except Exception as e:
+        print(f"❌ Failed to process dump file: {e}")
+        return False
