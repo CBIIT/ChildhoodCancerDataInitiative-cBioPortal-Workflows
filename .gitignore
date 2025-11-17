@@ -8,8 +8,8 @@ prep.sh
 prefect-local.yaml
 
 # Byte-compiled / optimized / DLL files
-**/__pycache__
-__pycache__/
+**/__pycache__/*
+__pycache__/*
 *.py[cod]
 *$py.class
 
