@@ -4,7 +4,7 @@ import os
 import json
 import shutil
 from prefect import flow
-from src.utils import get_secret, upload_to_s3, file_dl, db_counter, get_time, restore_dump, restart_ecs_service
+from src.utils import get_secret, upload_to_s3, file_dl, db_counter, get_time, restore_dump, restart_ecs_service, process_dump_file
 import re
 from typing import Literal
 from prefect_shell import ShellOperation
@@ -84,17 +84,12 @@ def restore_db(
         
         print(f"✅ Downloaded dump file from S3: {dump_file_name}")
 
-        #remove CREATE DATABASE AND USE statements to exclude source db schema calls
-        #rename dump file to raw_{dump_file_name}
-        raw_dump_file_name = f"raw_{dump_file_name}" 
-        os.rename(dump_file_name, raw_dump_file_name)
-        pattern = re.compile(r"USE |CREATE DATABASE ")
-        with open(raw_dump_file_name, "r") as infile, open(dump_file_name, "w+") as outfile:
-            for line in infile:
-                if not pattern.search(line):
-                    outfile.write(line)
-        outfile.close()
-        print(f"✅ Processed dump file: {raw_dump_file_name} -> {dump_file_name}")
+        # process the raw dump file to remove any unwanted lines 
+        if process_dump_file(dump_file_name):
+            print(f"✅ Processed dump file: {dump_file_name}")
+        else:
+            print(f"❌ Failed to process dump file: {dump_file_name}")
+            raise Exception(f"Failed to process dump file: {dump_file_name}")
 
         # restore the database using the dump file
         if restore_dump(dump_file=f"{working_dir}/{dump_file_name}", **creds):
