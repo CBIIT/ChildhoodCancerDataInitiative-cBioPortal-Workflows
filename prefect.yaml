@@ -40,7 +40,7 @@ deployments:
     job_variables: {}
   schedules: []
 
-- name: TEST-cbio-mysql-restore
+- name: cbio-mysql-restore
   version: null
   tags:
   - mysql
@@ -70,7 +70,7 @@ deployments:
   - prefect.deployments.steps.git_clone:
       id: clone-step
       repository: https://github.com/CBIIT/ChildhoodCancerDataInitiative-cBioPortal-Workflows.git
-      branch: CBIO-422_validation_fix
+      branch: main
   - prefect.deployments.steps.pip_install_requirements:
       requirements_file: requirements.txt
       directory: "{{ clone-step.directory }}"
