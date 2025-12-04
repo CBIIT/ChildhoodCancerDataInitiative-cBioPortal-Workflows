@@ -28,7 +28,7 @@ def install_nexus():
             "cp genome-nexus-annotation-pipeline/annotationPipeline/src/main/resources/log4j.properties.console.EXAMPLE genome-nexus-annotation-pipeline/annotationPipeline/src/main/resources/log4j.properties",
             "cd genome-nexus-annotation-pipeline/",
             "mvn clean install -DskipTests -X",
-            "ls -l .",
+            "ls -l ./annotationPipeline/target/",
             "cd .."
         ]
     )
