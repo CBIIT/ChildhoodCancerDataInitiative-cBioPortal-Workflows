@@ -44,8 +44,8 @@ def install_nexus():
     logger.info("Installing Genome Nexus Annotation tool...")
     shell_op = ShellOperation(
         commands=[
-            "update-alternatives --set /usr/bin/java java /usr/local/data/jvm/jdk-21/bin/java 1",
-            "update-alternatives --set /usr/bin/javac javac /usr/local/data/jvm/jdk-21/bin/javac 1",
+            #"update-alternatives --set /usr/bin/java java /usr/local/data/jvm/jdk-21/bin/java 1",
+            #"update-alternatives --set /usr/bin/javac javac /usr/local/data/jvm/jdk-21/bin/javac 1",
             #"update-alternatives --config java",
             #"update-alternatives --config javac"
             "java -version"
@@ -298,7 +298,7 @@ def vcf_anno_flow(bucket: str, runner:str, manifest_path: str):
     runner_logger.info(f"Output path: {output_path}")
     
     # annotate vcf files
-    runner_logger.info("Annotating VCF files...")
+    """runner_logger.info("Annotating VCF files...")
     for vcf_file in os.listdir(download_path):
         if vcf_file.endswith(".gz"):
             
@@ -313,7 +313,7 @@ def vcf_anno_flow(bucket: str, runner:str, manifest_path: str):
             vcf_file = vcf_file.replace(".gz", "")
             
         vcf_file_path = os.path.join(download_path, vcf_file)
-        annotator(vcf_file_path, output_path)
+        annotator(vcf_file_path, output_path)"""
 
     # remove downloaded JSON files by removing download path
     shutil.rmtree(download_path)
@@ -321,12 +321,12 @@ def vcf_anno_flow(bucket: str, runner:str, manifest_path: str):
         
     # upload annotated files to S3
 
-    upload_folder_to_s3(
+    """upload_folder_to_s3(
         local_folder=output_path,
         bucket=bucket,
         destination=runner,
         sub_folder=""
-    )
+    )"""
     
     #TODO: add log file output and upload to S3
     #TODO: add error handling for failed downloads or annotations
