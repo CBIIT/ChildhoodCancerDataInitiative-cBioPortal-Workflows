@@ -235,6 +235,7 @@ deployments:
   - prefect.deployments.steps.run_shell_script:
       script: |
         apt-get update -y
+        apt-get install -y wget
         apt install default-jdk -y
         apt install extrepo -y
         extrepo enable zulu-openjdk
