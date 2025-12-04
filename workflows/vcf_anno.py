@@ -223,6 +223,7 @@ def vcf_anno_flow(bucket: str, runner:str, manifest_path: str):
     
     # print current directory
     runner_logger.info(f"Current directory: {os.getcwd()}")
+    home_dir = os.getcwd()
     
     # check versions of tools
     runner_logger.info("Checking versions of tools...")
@@ -261,9 +262,10 @@ def vcf_anno_flow(bucket: str, runner:str, manifest_path: str):
     num_files = len(os.listdir(download_path))
     runner_logger.info(f"Actual number of files downloaded: {num_files}")
 
-    # change to output path
-    os.chdir(output_path)
+    # mk output path
     runner_logger.info(f"Output path: {output_path}")
+    
+    os.chdir(home_dir)
     
     # annotate vcf files
     runner_logger.info("Annotating VCF files...")
