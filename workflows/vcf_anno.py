@@ -253,6 +253,7 @@ def vcf_anno_flow(bucket: str, runner:str, manifest_path: str):
     shell_op = ShellOperation(
         commands=[
             "java -version",
+            "mvn -version"
         ]
     )
     shell_op.run()
