@@ -240,12 +240,12 @@ def vcf_anno_flow(bucket: str, runner:str, manifest_path: str):
     # print current directory
     runner_logger.info(f"Current directory: {os.getcwd()}")
     
-    install_java()
+    #install_java()
     
     # check java install
     shell_op = ShellOperation(
         commands=[
-            "cat /etc/os-release",
+            "print uname -a",
         ]
     )
     shell_op.run()

@@ -236,5 +236,16 @@ deployments:
       script: apt-get update
       stream_output: true
   - prefect.deployments.steps.run_shell_script:
-      script: apt-get install -y wget
+      script: |
+        echo "Installing JDK 21..."
+        apt-get update -y
+        apt-get install -y wget
+        wget https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.9+10/OpenJDK21U-jdk_x64_linux_hotspot_21.0.9_10.tar.gz
+        mkdir -p /usr/local/data/jvm /usr/local/data/maven /usr/local/data/m2repo
+        tar -xzf OpenJDK21U-jdk_x64_linux_hotspot_21.0.9_10.tar.gz -C /usr/local/data/jvm
+        mv /usr/local/data/jvm/jdk-21.0.9+10 /usr/local/data/jvm/jdk-21
+        wget https://dlcdn.apache.org/maven/maven-3/3.9.11/binaries/apache-maven-3.9.11-bin.tar.gz
+        tar -xzf apache-maven-3.9.11-bin.tar.gz -C /usr/local/data/maven
+        mv /usr/local/data/maven/apache-maven-3.9.11 /usr/local/data/maven/maven-3.9.11
+        chmod +x /etc/profile.d/java.sh
       stream_output: true
