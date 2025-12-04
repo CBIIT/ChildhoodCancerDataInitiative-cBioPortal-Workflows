@@ -236,7 +236,7 @@ deployments:
       script: |
         apt-get update -y
         apt install default-jdk -y
-        apt install extrepo
+        apt install extrepo -y
         extrepo enable zulu-openjdk
         apt update -y
         apt install zulu21-jdk -y
