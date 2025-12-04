@@ -48,7 +48,7 @@ def install_nexus():
             #"update-alternatives --set /usr/bin/javac javac /usr/local/data/jvm/jdk-21/bin/javac 1",
             #"update-alternatives --config java",
             #"update-alternatives --config javac"
-            "java -version"
+            "java -version",
             "git clone --branch v1.0.6 https://github.com/genome-nexus/genome-nexus-annotation-pipeline.git",
             "cp genome-nexus-annotation-pipeline/annotationPipeline/src/main/resources/application.properties.EXAMPLE genome-nexus-annotation-pipeline/annotationPipeline/src/main/resources/application.properties",
             "cp genome-nexus-annotation-pipeline/annotationPipeline/src/main/resources/log4j.properties.console.EXAMPLE genome-nexus-annotation-pipeline/annotationPipeline/src/main/resources/log4j.properties",
