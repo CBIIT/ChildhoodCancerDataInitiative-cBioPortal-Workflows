@@ -252,8 +252,7 @@ def vcf_anno_flow(bucket: str, runner:str, manifest_path: str):
     
     shell_op = ShellOperation(
         commands=[
-            "ls /usr/local/data/maven/maven-3.9.11/bin",
-            "ls /usr/local/data/jvm/jdk-21/bin",
+            "java -version",
         ]
     )
     shell_op.run()
