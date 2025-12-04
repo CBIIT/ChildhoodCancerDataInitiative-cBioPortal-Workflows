@@ -28,7 +28,6 @@ def install_nexus():
             "cp genome-nexus-annotation-pipeline/annotationPipeline/src/main/resources/log4j.properties.console.EXAMPLE genome-nexus-annotation-pipeline/annotationPipeline/src/main/resources/log4j.properties",
             "cd genome-nexus-annotation-pipeline/",
             "mvn clean install -DskipTests -X",
-            #"ls -l ./annotationPipeline/target/",
             "cd .."
         ]
     )
@@ -184,28 +183,32 @@ def version_check():
     shell_op.run()
 
 @task(name="vcf_annotator", log_prints=True)
-def annotator(vcf_file: str, output_dir: str) -> None:
+def annotator(vcf_file: str, download_dir: str, output_dir: str) -> None:
     """Annotate vcf file using genome nexus annotation tool
 
     Args:
         vcf_file (str): Path to the vcf file
+        download_dir (str): Path to the download directory
         output_dir (str): Path to the output directory
     """
     runner_logger = get_run_logger()
+    
+    vcf_path = os.path.join(download_dir, vcf_file)
     
     runner_logger.info(f"Annotating vcf file: {vcf_file}")
     if vcf_file.endswith(".gz"):
         shell_op = ShellOperation(
                     commands=[
-                        f"gunzip {os.path.join(vcf_file, vcf_file)}"
+                        f"gunzip {vcf_path}"
                     ]
                 )
         shell_op.run()
         vcf_file = vcf_file.replace(".gz", "")
+        vcf_path = os.path.join(download_dir, vcf_file)
         runner_logger.info(f"Gunzipped vcf file: {vcf_file}")
     
     # read in file and ignore lines starting with ##
-    vcf = pd.read_csv(vcf_file, comment='#', header=None, sep='\t')
+    vcf = pd.read_csv(vcf_path, comment='#', header=None, sep='\t')
     
     # select columns 0, 1, 3, 4
     vcf = vcf[[0, 1, 3, 4]]
@@ -217,11 +220,11 @@ def annotator(vcf_file: str, output_dir: str) -> None:
     vcf.columns = ["Chromosome", "Start_Position", "Reference_Allele", "Tumor_Seq_Allele1"]
     
     # write to new vcf file
-    vcf.to_csv(vcf_file, sep='\t', index=False)
+    vcf.to_csv(vcf_path, sep='\t', index=False)
     
     shell_op = ShellOperation(
         commands=[
-            f"java -jar genome-nexus-annotation-pipeline/annotationPipeline/target/annotationPipeline-*.jar --filename {vcf_file} --output-filename {output_dir}/{os.path.basename(vcf_file).replace('.vcf', '_annotated.vcf')} --isoform-override mskcc"
+            f"java -jar genome-nexus-annotation-pipeline/annotationPipeline/target/annotationPipeline-*.jar --filename {vcf_path} --output-filename {output_dir}/{os.path.basename(vcf_file).replace('.vcf', '_annotated.vcf')} --isoform-override mskcc"
         ]
     )
     shell_op.run()
@@ -292,7 +295,7 @@ def vcf_anno_flow(bucket: str, runner:str, manifest_path: str):
     runner_logger.info("Annotating VCF files...")
     for vcf_file in os.listdir(download_path):
         # TODO - parallelize this step
-        annotator(vcf_file, output_path)
+        annotator(vcf_file, download_path, output_path)
 
     # remove downloaded JSON files by removing download path
     shutil.rmtree(download_path)
@@ -310,3 +313,4 @@ def vcf_anno_flow(bucket: str, runner:str, manifest_path: str):
     #TODO: add log file output and upload to S3
     #TODO: add error handling for failed downloads or annotations
     # TODO add PASS Filter flag
+    # TODO: add option for GRCh37 vs GRCh38
