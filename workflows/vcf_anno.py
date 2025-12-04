@@ -197,6 +197,9 @@ def annotator(vcf_file: str, output_dir: str) -> None:
     shell_op = ShellOperation(
         commands=[
             #'bash -c "export JAVA_HOME=/usr/local/data/jvm/jdk-21"; "export PATH=$JAVA_HOME/bin:$PATH";',
+            "pwd",
+            "ls -l .",
+            "ls -l ./genome-nexus-annotation-pipeline/annotationPipeline/target/",
             f"java -jar genome-nexus-annotation-pipeline/annotationPipeline/target/annotationPipeline-*.jar --filename {vcf_file} --output-filename {output_dir}/{os.path.basename(vcf_file).replace('.vcf', '_annotated.vcf')} --isoform-override mskcc"
         ]
     )
