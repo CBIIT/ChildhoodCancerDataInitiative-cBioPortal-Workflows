@@ -245,7 +245,7 @@ def vcf_anno_flow(bucket: str, runner:str, manifest_path: str):
     # check java install
     shell_op = ShellOperation(
         commands=[
-            "print uname -a",
+            "cat /etc/os-release",
         ]
     )
     shell_op.run()
