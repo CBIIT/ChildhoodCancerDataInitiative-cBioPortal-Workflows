@@ -249,5 +249,5 @@ deployments:
         mv /usr/local/data/maven/apache-maven-3.9.11 /usr/local/data/maven/maven-3.9.11
         bash -c 'echo "export MAVEN_HOME=/usr/local/data/maven/maven-3.9.11" >> /etc/profile.d/maven.sh'
         bash -c 'echo "export PATH=\$MAVEN_HOME/bin:\$PATH" >> /etc/profile.d/maven.sh'
-        source /etc/profile.d/maven.sh
+        bash -c 'source /etc/profile.d/maven.sh'
       stream_output: true
