@@ -242,12 +242,5 @@ deployments:
         extrepo enable zulu-openjdk
         apt update -y
         apt install zulu21-jdk -y
-        rm -rf /usr/local/data/maven
-        wget https://dlcdn.apache.org/maven/maven-3/3.9.11/binaries/apache-maven-3.9.11-bin.tar.gz
-        tar -xzf apache-maven-3.9.11-bin.tar.gz -C /opt
-        ln -s /opt/apache-maven-3.9.11 /opt/maven
-        bash -c 'echo "export M2_HOME=/opt/maven" >> /etc/profile.d/maven.sh'
-        bash -c 'echo "export PATH=$M2_HOME/bin:$PATH" >> /etc/profile.d/maven.sh'
-        chmod +x /etc/profile.d/maven.sh
-        bash -c 'source /etc/profile.d/maven.sh'
+        apt install maven
       stream_output: true
