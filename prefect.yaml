@@ -243,12 +243,11 @@ deployments:
         apt update -y
         apt install zulu21-jdk -y
         rm -rf /usr/local/data/maven
-        mkdir -p /usr/local/data/maven
         wget https://dlcdn.apache.org/maven/maven-3/3.9.11/binaries/apache-maven-3.9.11-bin.tar.gz
-        tar -xzf apache-maven-3.9.11-bin.tar.gz -C /usr/local/data/maven
-        mv /usr/local/data/maven/apache-maven-3.9.11 /usr/local/data/maven/maven-3.9.11
-        bash -c 'echo "export MAVEN_HOME=/usr/local/data/maven/maven-3.9.11"'
-        bash -c 'echo "export M2_HOME=/usr/local/data/maven/maven-3.9.11"'
-        bash -c 'echo "export PATH=$MAVEN_HOME/bin:$PATH"'
-        bash -c 'echo "export PATH=$M2_HOME/bin:$PATH"'
+        tar -xzf apache-maven-3.9.11-bin.tar.gz -C /opt
+        ln -s /opt/apache-maven-3.9.11 /opt/maven
+        bash -c 'echo "export M2_HOME=/opt/maven" >> /etc/profile.d/maven.sh'
+        bash -c 'echo "export PATH=$M2_HOME/bin:$PATH" >> /etc/profile.d/maven.sh'
+        chmod +x /etc/profile.d/maven.sh
+        bash -c 'source /etc/profile.d/maven.sh'
       stream_output: true
