@@ -242,5 +242,5 @@ deployments:
         extrepo enable zulu-openjdk
         apt update -y
         apt install zulu21-jdk -y
-        apt install maven
+        apt install maven -y
       stream_output: true
