@@ -215,9 +215,9 @@ deployments:
   description: Annotate VCF files using Genome Nexus Annotation Pipeline
   entrypoint: workflows/vcf_anno.py:vcf_anno_flow
   parameters:
-    bucket (str): bucket name
-    runner (str): runner name and destination path in s3
-    manifest_path (str): path to csv file with cols for sample, md5sum and s3_url of VCF
+    bucket: bucket name
+    runner: runner name and destination path in s3
+    manifest_path: path to csv file with cols for sample, md5sum and s3_url of VCF
   work_pool:
     name: ccdi-curation-16gb-prefect-3.2.14-python3.9
     work_queue_name:
