@@ -235,12 +235,15 @@ deployments:
   - prefect.deployments.steps.run_shell_script:
       script: |
         apt-get update -y
+        apt-get install -y ca-certificates
         apt-get install -y wget
         apt install default-jdk -y
         apt install extrepo -y
         extrepo enable zulu-openjdk
         apt update -y
         apt install zulu21-jdk -y
+        rm -rf /usr/local/data/maven
+        mkdir -p /usr/local/data/maven
         wget https://dlcdn.apache.org/maven/maven-3/3.9.11/binaries/apache-maven-3.9.11-bin.tar.gz
         tar -xzf apache-maven-3.9.11-bin.tar.gz -C /usr/local/data/maven
         mv /usr/local/data/maven/apache-maven-3.9.11 /usr/local/data/maven/maven-3.9.11
