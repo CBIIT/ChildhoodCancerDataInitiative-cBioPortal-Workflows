@@ -260,7 +260,7 @@ def vcf_anno_flow(bucket: str, runner:str, manifest_path: str):
     
     # install genome nexus annotation tool
     runner_logger.info("Installing Genome Nexus Annotation tool...")
-    #install_nexus()
+    install_nexus()
     
     #version_check()
     
