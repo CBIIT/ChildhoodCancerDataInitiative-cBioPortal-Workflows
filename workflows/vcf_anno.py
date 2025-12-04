@@ -28,7 +28,7 @@ def install_nexus():
             "cp genome-nexus-annotation-pipeline/annotationPipeline/src/main/resources/log4j.properties.console.EXAMPLE genome-nexus-annotation-pipeline/annotationPipeline/src/main/resources/log4j.properties",
             "cd genome-nexus-annotation-pipeline/",
             "mvn clean install -DskipTests -X",
-            "ls -l ./annotationPipeline/target/",
+            #"ls -l ./annotationPipeline/target/",
             "cd .."
         ]
     )
@@ -197,7 +197,7 @@ def annotator(vcf_file: str, output_dir: str) -> None:
     shell_op = ShellOperation(
         commands=[
             #'bash -c "export JAVA_HOME=/usr/local/data/jvm/jdk-21"; "export PATH=$JAVA_HOME/bin:$PATH";',
-            f"java -jar genome-nexus-annotation/genome-nexus-annotation-pipeline-1.0.6.jar --filename {vcf_file} --output-filename {output_dir}/{os.path.basename(vcf_file).replace('.vcf', '_annotated.vcf')} --isoform-override mskcc"
+            f"java -jar genome-nexus-annotation/annotationPipeline/target/annotationPipeline-1.0.6-SNAPSHOT.jar --filename {vcf_file} --output-filename {output_dir}/{os.path.basename(vcf_file).replace('.vcf', '_annotated.vcf')} --isoform-override mskcc"
         ]
     )
     shell_op.run()
