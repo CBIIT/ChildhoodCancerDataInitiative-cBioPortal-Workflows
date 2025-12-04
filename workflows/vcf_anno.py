@@ -13,48 +13,22 @@ from botocore.exceptions import ClientError
 from prefect import flow, task, get_run_logger, unmapped
 from src.utils import get_time, file_dl, get_logger, upload_folder_to_s3, set_s3_resource
 
-@task(name="fin-install-java", log_prints=True)
-def install_java():
-    """Installation steps for Java 21
-    """
-    logger = get_run_logger()
-    logger.info("Installing Java 21...")
-    shell_op = ShellOperation(
-        commands=[
-            "update-alternatives --install /usr/bin/java java /usr/local/data/jvm/jdk-21/bin/java 1",
-            "update-alternatives --install /usr/bin/javac javac /usr/local/data/jvm/jdk-21/bin/javac 1",
-            "update-alternatives --config java",
-            "update-alternatives --config javac"
-            "java -version"
-        ]
-    )
-    shell_op.run()
-    
-
 @task(name="install-genome-nexus-annotation", log_prints=True)
 def install_nexus():
     """Installation steps for genome nexus annotation tool
     """
-    # Set Java and Maven
-    #os.environ["JAVA_HOME"] = "/usr/local/data/jvm/jdk-21"
-    
-    #version_check()
 
     logger = get_run_logger()
     logger.info("Installing Genome Nexus Annotation tool...")
     shell_op = ShellOperation(
         commands=[
-            #"update-alternatives --set /usr/bin/java java /usr/local/data/jvm/jdk-21/bin/java 1",
-            #"update-alternatives --set /usr/bin/javac javac /usr/local/data/jvm/jdk-21/bin/javac 1",
-            #"update-alternatives --config java",
-            #"update-alternatives --config javac"
             "java -version",
             "git clone --branch v1.0.6 https://github.com/genome-nexus/genome-nexus-annotation-pipeline.git",
             "cp genome-nexus-annotation-pipeline/annotationPipeline/src/main/resources/application.properties.EXAMPLE genome-nexus-annotation-pipeline/annotationPipeline/src/main/resources/application.properties",
             "cp genome-nexus-annotation-pipeline/annotationPipeline/src/main/resources/log4j.properties.console.EXAMPLE genome-nexus-annotation-pipeline/annotationPipeline/src/main/resources/log4j.properties",
             "cd genome-nexus-annotation-pipeline/",
-            #'bash -c "export JAVA_HOME=/usr/local/data/jvm/jdk-21"; "export PATH=$JAVA_HOME/bin:$PATH";',# "export MAVEN_HOME=/usr/local/data/maven/apache-maven-3.9.11"; export PATH=$MAVEN_HOME/bin:$PATH"',
             "mvn clean install -DskipTests -X",
+            "ls -l"
             "cd .."
         ]
     )
@@ -185,6 +159,14 @@ def version_check():
     """Check version of genome nexus annotation tool
     """
     runner_logger = get_run_logger()
+    
+    shell_op = ShellOperation(
+        commands=[
+            "cat /etc/os-release",
+        ]
+    )
+    shell_op.run()
+    
     runner_logger.info("Checking version of java...")
     shell_op = ShellOperation(
         commands=[
@@ -233,36 +215,19 @@ def vcf_anno_flow(bucket: str, runner:str, manifest_path: str):
     
     dt = get_time()
 
-    
     runner_logger = get_run_logger()
     runner_logger.info("Starting VCF annotation flow...")
     
     # print current directory
     runner_logger.info(f"Current directory: {os.getcwd()}")
     
-    #install_java()
-    
-    # check java install
-    shell_op = ShellOperation(
-        commands=[
-            "cat /etc/os-release",
-        ]
-    )
-    shell_op.run()
-    
-    shell_op = ShellOperation(
-        commands=[
-            "java -version",
-            "mvn -version"
-        ]
-    )
-    shell_op.run()
+    # check versions of tools
+    runner_logger.info("Checking versions of tools...")
+    version_check()
     
     # install genome nexus annotation tool
     runner_logger.info("Installing Genome Nexus Annotation tool...")
     install_nexus()
-    
-    #version_check()
     
     # download manifest file from S3
     runner_logger.info(f"Downloading manifest file from S3: {manifest_path}")
