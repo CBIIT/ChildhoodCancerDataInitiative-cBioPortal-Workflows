@@ -194,12 +194,33 @@ def annotator(vcf_file: str, output_dir: str) -> None:
     runner_logger = get_run_logger()
     
     runner_logger.info(f"Annotating vcf file: {vcf_file}")
+    if vcf_file.endswith(".gz"):
+        shell_op = ShellOperation(
+                    commands=[
+                        f"gunzip {os.path.join(vcf_file, vcf_file)}"
+                    ]
+                )
+        shell_op.run()
+        vcf_file = vcf_file.replace(".gz", "")
+        runner_logger.info(f"Gunzipped vcf file: {vcf_file}")
+    
+    # read in file and ignore lines starting with ##
+    vcf = pd.read_csv(vcf_file, comment='#', header=None, sep='\t')
+    
+    # select columns 0, 1, 3, 4
+    vcf = vcf[[0, 1, 3, 4]]
+    
+    # replace 'chr' in column 0
+    vcf[0] = vcf[0].str.replace('chr', '')
+    
+    # rename columns to Chromosome, Start_Position, Reference_Allele, Tumor_Seq_Allele1
+    vcf.columns = ["Chromosome", "Start_Position", "Reference_Allele", "Tumor_Seq_Allele1"]
+    
+    # write to new vcf file
+    vcf.to_csv(vcf_file, sep='\t', index=False)
+    
     shell_op = ShellOperation(
         commands=[
-            #'bash -c "export JAVA_HOME=/usr/local/data/jvm/jdk-21"; "export PATH=$JAVA_HOME/bin:$PATH";',
-            "pwd",
-            "ls -l .",
-            "ls -l ./genome-nexus-annotation-pipeline/annotationPipeline/target/",
             f"java -jar genome-nexus-annotation-pipeline/annotationPipeline/target/annotationPipeline-*.jar --filename {vcf_file} --output-filename {output_dir}/{os.path.basename(vcf_file).replace('.vcf', '_annotated.vcf')} --isoform-override mskcc"
         ]
     )
@@ -270,20 +291,8 @@ def vcf_anno_flow(bucket: str, runner:str, manifest_path: str):
     # annotate vcf files
     runner_logger.info("Annotating VCF files...")
     for vcf_file in os.listdir(download_path):
-        if vcf_file.endswith(".gz"):
-            
-            # gunzip the file
-            runner_logger.info(f"Gunzipping file: {vcf_file}")
-            shell_op = ShellOperation(
-                commands=[
-                    f"gunzip {os.path.join(download_path, vcf_file)}"
-                ]
-            )
-            shell_op.run()
-            vcf_file = vcf_file.replace(".gz", "")
-            
-        vcf_file_path = os.path.join(download_path, vcf_file)
-        annotator(vcf_file_path, output_path)
+        # TODO - parallelize this step
+        annotator(vcf_file, output_path)
 
     # remove downloaded JSON files by removing download path
     shutil.rmtree(download_path)
@@ -300,4 +309,4 @@ def vcf_anno_flow(bucket: str, runner:str, manifest_path: str):
     
     #TODO: add log file output and upload to S3
     #TODO: add error handling for failed downloads or annotations
-    
+    # TODO add PASS Filter flag
