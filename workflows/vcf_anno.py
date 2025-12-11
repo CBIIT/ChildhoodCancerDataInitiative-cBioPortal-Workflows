@@ -210,6 +210,9 @@ def annotator(vcf_file: str, download_dir: str, output_dir: str) -> None:
     # read in file and ignore lines starting with ##
     vcf = pd.read_csv(vcf_path, comment='#', header=None, sep='\t')
     
+    # filter PASS filter
+    vcf = vcf[vcf[6] == 'PASS']
+    
     # select columns 0, 1, 3, 4
     vcf = vcf[[0, 1, 3, 4]]
     
@@ -257,6 +260,19 @@ def vcf_anno_flow(bucket: str, runner:str, manifest_path: str):
 
     runner_logger = get_run_logger()
     runner_logger.info("Starting VCF annotation flow...")
+    
+    # check GENOME_NEXUS_API env variable
+    if "GENOME_NEXUS_API" not in os.environ:
+        runner_logger.error("GENOME_NEXUS_API environment variable not set")
+        raise ValueError("GENOME_NEXUS_API environment variable not set")
+    else:
+        runner_logger.info("GENOME_NEXUS_API environment variable set")
+        shell_op = ShellOperation(
+            commands=[
+                "echo $GENOME_NEXUS_API"
+            ]
+        )
+        shell_op.run()
     
     # print current directory
     runner_logger.info(f"Current directory: {os.getcwd()}")
@@ -325,5 +341,5 @@ def vcf_anno_flow(bucket: str, runner:str, manifest_path: str):
     
     #TODO: add log file output and upload to S3
     #TODO: add error handling for failed downloads or annotations
-    # TODO add PASS Filter flag
+    # TODO parallelize annotation step
     # TODO: add option for GRCh37 vs GRCh38
