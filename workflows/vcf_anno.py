@@ -219,6 +219,19 @@ def annotator(vcf_file: str, download_dir: str, output_dir: str) -> None:
     # rename columns to Chromosome, Start_Position, Reference_Allele, Tumor_Seq_Allele1
     vcf.columns = ["Chromosome", "Start_Position", "Reference_Allele", "Tumor_Seq_Allele1"]
     
+    def end_position(row):
+        """Calculate end position for vcf file
+
+        Args:
+            row (pd.Series): Row of the vcf file
+        Returns:
+            int: End position
+        """
+        return row['Start_Position'] + len(row['Reference_Allele']) - 1
+    
+    # annotate end position
+    vcf['End_Position'] = vcf.apply(end_position, axis=1)
+    
     # write to new vcf file
     vcf.to_csv(vcf_path, sep='\t', index=False)
     
