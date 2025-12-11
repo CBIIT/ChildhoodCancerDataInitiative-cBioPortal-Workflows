@@ -262,14 +262,14 @@ def vcf_anno_flow(bucket: str, runner:str, manifest_path: str):
     runner_logger.info("Starting VCF annotation flow...")
     
     # check GENOME_NEXUS_API env variable
-    if "GENOME_NEXUS_API" not in os.environ:
-        runner_logger.error("GENOME_NEXUS_API environment variable not set")
-        raise ValueError("GENOME_NEXUS_API environment variable not set")
+    if "GENOMENEXUS_BASE" not in os.environ:
+        runner_logger.error("GENOMENEXUS_BASE environment variable not set")
+        raise ValueError("GENOMENEXUS_BASE environment variable not set")
     else:
-        runner_logger.info("GENOME_NEXUS_API environment variable set")
+        runner_logger.info("GENOMENEXUS_BASE environment variable set")
         shell_op = ShellOperation(
             commands=[
-                "echo $GENOME_NEXUS_API"
+                "echo $GENOMENEXUS_BASE"
             ]
         )
         shell_op.run()
