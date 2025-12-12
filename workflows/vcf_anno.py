@@ -241,7 +241,7 @@ def annotator(vcf_file: str, download_dir: str, output_dir: str, reference_genom
     if reference_genome == "GRCh37":
         shell_op = ShellOperation(
             commands=[
-                f"java -jar genome-nexus-annotation-pipeline/annotationPipeline/target/annotationPipeline-*.jar --filename {vcf_path} --output-filename {output_dir}/{os.path.basename(vcf_file).replace('.vcf', '_annotated.vcf')} --isoform-override mskcc --reference-genome GRCh37"
+                f"java -jar genome-nexus-annotation-pipeline/annotationPipeline/target/annotationPipeline-*.jar --filename {vcf_path} --output-filename {output_dir}/{os.path.basename(vcf_file).replace('.vcf', '_annotated.maf')} --isoform-override mskcc"
             ]
         )
         shell_op.run()
@@ -253,7 +253,7 @@ def annotator(vcf_file: str, download_dir: str, output_dir: str, reference_genom
             commands=[
                 'export GENOMENEXUS_BASE="https://grch38.genomenexus.org"',
                 'echo $GENOMENEXUS_BASE',
-                f"java -jar genome-nexus-annotation-pipeline/annotationPipeline/target/annotationPipeline-*.jar --filename {vcf_path} --output-filename {output_dir}/{os.path.basename(vcf_file).replace('.vcf', '_annotated.vcf')} --isoform-override mskcc"
+                f"java -jar genome-nexus-annotation-pipeline/annotationPipeline/target/annotationPipeline-*.jar --filename {vcf_path} --output-filename {output_dir}/{os.path.basename(vcf_file).replace('.vcf', '_annotated.maf')} --isoform-override mskcc"
             ]
         )
         shell_op.run()
@@ -343,7 +343,7 @@ def vcf_anno_flow(bucket: str, runner:str, manifest_path: str, reference_genome:
         sub_folder=""
     )
     
-    #TODO: add log file output and upload to S3
+    #TODO: add log file output, record errors from file and upload that to S3
     #TODO: add error handling for failed downloads or annotations
     # TODO parallelize annotation step
-    # TODO: add option for GRCh37 vs GRCh38
+    # TODO: add in count of PASS variants from input VCF and count of output SUCCESS variants annotated  in output VCF
