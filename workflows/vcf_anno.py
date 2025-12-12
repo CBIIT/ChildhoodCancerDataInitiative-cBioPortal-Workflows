@@ -347,3 +347,4 @@ def vcf_anno_flow(bucket: str, runner:str, manifest_path: str, reference_genome:
     #TODO: add error handling for failed downloads or annotations
     # TODO parallelize annotation step
     # TODO: add in count of PASS variants from input VCF and count of output SUCCESS variants annotated  in output VCF
+    # TODO: update manifest and script to assign tumor sample barcode and matched normal sample barcode if available
