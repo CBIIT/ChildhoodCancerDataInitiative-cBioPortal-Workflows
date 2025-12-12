@@ -23,6 +23,7 @@ def install_nexus():
     shell_op = ShellOperation(
         commands=[
             "java -version",
+            'export GENOMENEXUS_BASE="https://grch38.genomenexus.org"',
             "git clone --branch v1.0.6 https://github.com/genome-nexus/genome-nexus-annotation-pipeline.git",
             "cp genome-nexus-annotation-pipeline/annotationPipeline/src/main/resources/application.properties.EXAMPLE genome-nexus-annotation-pipeline/annotationPipeline/src/main/resources/application.properties",
             "cp genome-nexus-annotation-pipeline/annotationPipeline/src/main/resources/log4j.properties.console.EXAMPLE genome-nexus-annotation-pipeline/annotationPipeline/src/main/resources/log4j.properties",
@@ -262,7 +263,7 @@ def vcf_anno_flow(bucket: str, runner:str, manifest_path: str):
     runner_logger.info("Starting VCF annotation flow...")
     
     # check GENOME_NEXUS_API env variable
-    if "GENOMENEXUS_BASE" not in os.environ:
+    """if "GENOMENEXUS_BASE" not in os.environ:
         runner_logger.error("GENOMENEXUS_BASE environment variable not set")
         raise ValueError("GENOMENEXUS_BASE environment variable not set")
     else:
@@ -272,7 +273,7 @@ def vcf_anno_flow(bucket: str, runner:str, manifest_path: str):
                 "echo $GENOMENEXUS_BASE"
             ]
         )
-        shell_op.run()
+        shell_op.run()"""
     
     # print current directory
     runner_logger.info(f"Current directory: {os.getcwd()}")
