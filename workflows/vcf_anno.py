@@ -183,7 +183,7 @@ def version_check():
     shell_op.run()
 
 @task(name="vcf_annotator", log_prints=True)
-def annotator(vcf_file: str, download_dir: str, output_dir: str) -> None:
+def annotator(vcf_file: str, download_dir: str, output_dir: str, reference_genome: str) -> None:
     """Annotate vcf file using genome nexus annotation tool
 
     Args:
@@ -238,43 +238,45 @@ def annotator(vcf_file: str, download_dir: str, output_dir: str) -> None:
     # write to new vcf file
     vcf.to_csv(vcf_path, sep='\t', index=False)
     
-    shell_op = ShellOperation(
-        commands=[
-            'export GENOMENEXUS_BASE="https://grch38.genomenexus.org"',
-            'echo $GENOMENEXUS_BASE',
-            f"java -jar genome-nexus-annotation-pipeline/annotationPipeline/target/annotationPipeline-*.jar --filename {vcf_path} --output-filename {output_dir}/{os.path.basename(vcf_file).replace('.vcf', '_annotated.vcf')} --isoform-override mskcc"
-        ]
-    )
-    shell_op.run()
+    if reference_genome == "GRCh37":
+        shell_op = ShellOperation(
+            commands=[
+                f"java -jar genome-nexus-annotation-pipeline/annotationPipeline/target/annotationPipeline-*.jar --filename {vcf_path} --output-filename {output_dir}/{os.path.basename(vcf_file).replace('.vcf', '_annotated.vcf')} --isoform-override mskcc --reference-genome GRCh37"
+            ]
+        )
+        shell_op.run()
+        runner_logger.info(f"Annotation completed for vcf file: {vcf_file}")
+        return
+    else:
+    
+        shell_op = ShellOperation(
+            commands=[
+                'export GENOMENEXUS_BASE="https://grch38.genomenexus.org"',
+                'echo $GENOMENEXUS_BASE',
+                f"java -jar genome-nexus-annotation-pipeline/annotationPipeline/target/annotationPipeline-*.jar --filename {vcf_path} --output-filename {output_dir}/{os.path.basename(vcf_file).replace('.vcf', '_annotated.vcf')} --isoform-override mskcc"
+            ]
+        )
+        shell_op.run()
+    
     runner_logger.info(f"Annotation completed for vcf file: {vcf_file}")
 
+DropDownChoices = Literal["GRCh37", "GRCh38"]
+
 @flow(name="cbio-vcf-annotation-flow", log_prints=True)
-def vcf_anno_flow(bucket: str, runner:str, manifest_path: str):
-    """_summary_
+def vcf_anno_flow(bucket: str, runner:str, manifest_path: str, reference_genome: DropDownChoices) -> None:
+    """Flow to annotate VCF files using Genome Nexus annotation tool
 
     Args:
         bucket (str): bucket name
         runner (str): runner name and destination path in s3
         manifest_path (str): path to csv file with cols for sample and s3_url of VCFs
+        reference_genome (Literal['GRCh37', 'GRCh38']): reference genome to use for annotation
     """
     
     dt = get_time()
 
     runner_logger = get_run_logger()
     runner_logger.info("Starting VCF annotation flow...")
-    
-    # check GENOME_NEXUS_API env variable
-    """if "GENOMENEXUS_BASE" not in os.environ:
-        runner_logger.error("GENOMENEXUS_BASE environment variable not set")
-        raise ValueError("GENOMENEXUS_BASE environment variable not set")
-    else:
-        runner_logger.info("GENOMENEXUS_BASE environment variable set")
-        shell_op = ShellOperation(
-            commands=[
-                "echo $GENOMENEXUS_BASE"
-            ]
-        )
-        shell_op.run()"""
     
     # print current directory
     runner_logger.info(f"Current directory: {os.getcwd()}")
@@ -326,7 +328,7 @@ def vcf_anno_flow(bucket: str, runner:str, manifest_path: str):
     runner_logger.info("Annotating VCF files...")
     for vcf_file in os.listdir(download_path):
         # TODO - parallelize this step
-        annotator(vcf_file, download_path, output_path)
+        annotator(vcf_file, download_path, output_path, reference_genome)
 
     # remove downloaded JSON files by removing download path
     shutil.rmtree(download_path)
