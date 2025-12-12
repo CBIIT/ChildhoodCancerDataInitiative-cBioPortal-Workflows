@@ -23,7 +23,6 @@ def install_nexus():
     shell_op = ShellOperation(
         commands=[
             "java -version",
-            'export GENOMENEXUS_BASE="https://grch38.genomenexus.org"',
             "git clone --branch v1.0.6 https://github.com/genome-nexus/genome-nexus-annotation-pipeline.git",
             "cp genome-nexus-annotation-pipeline/annotationPipeline/src/main/resources/application.properties.EXAMPLE genome-nexus-annotation-pipeline/annotationPipeline/src/main/resources/application.properties",
             "cp genome-nexus-annotation-pipeline/annotationPipeline/src/main/resources/log4j.properties.console.EXAMPLE genome-nexus-annotation-pipeline/annotationPipeline/src/main/resources/log4j.properties",
@@ -241,6 +240,8 @@ def annotator(vcf_file: str, download_dir: str, output_dir: str) -> None:
     
     shell_op = ShellOperation(
         commands=[
+            'export GENOMENEXUS_BASE="https://grch38.genomenexus.org"',
+            'echo $GENOMENEXUS_BASE',
             f"java -jar genome-nexus-annotation-pipeline/annotationPipeline/target/annotationPipeline-*.jar --filename {vcf_path} --output-filename {output_dir}/{os.path.basename(vcf_file).replace('.vcf', '_annotated.vcf')} --isoform-override mskcc"
         ]
     )
