@@ -243,5 +243,5 @@ deployments:
         apt update -y
         apt install zulu21-jdk -y
         apt install maven -y
-        bash -c "GENOMENEXUS_BASE=https://grch38.genomenexus.org"
+        bash -c "export GENOMENEXUS_BASE=https://grch38.genomenexus.org"
       stream_output: true
