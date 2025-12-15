@@ -353,8 +353,9 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
     # read in file 
     runner_logger.info(f"Reading manifest file: {os.path.basename(manifest_path)}")
     manifest_df = pd.read_csv(os.path.basename(manifest_path))
-    num_files = len(manifest_df)
-    runner_logger.info(f"Expected number of files downloaded: {num_files}")
+    exp_num_files = len(manifest_df)
+    runner_logger.info(f"Expected number of files downloaded: {exp_num_files}")
+    
 
     # download vcf files from S3
     # change working directory to mounted drive 
@@ -368,6 +369,7 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
     log_filename = f"{output_path}/cbio_vcf_annotation.log"
     logger = get_logger(f"{output_path}/cbio_vcf_annotation", "info")
     logger.info(f"Output path: {output_path}")
+    logger.info(f"Expected number of files downloaded: {exp_num_files}")
 
     logger.info(f"Logs beginning at {get_time()}")
     
@@ -382,6 +384,10 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
     num_files = len(os.listdir(download_path))
     runner_logger.info(f"Actual number of files downloaded: {num_files}")
     logger.info(f"Actual number of files downloaded: {num_files}")
+    
+    if exp_num_files != num_files:
+        runner_logger.error("Number of files downloaded does not match expected number of files")
+        logger.error("Number of files downloaded does not match expected number of files")
 
     # mk output path
     runner_logger.info(f"Output path: {output_path}")
@@ -406,5 +412,3 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
         destination=runner,
         sub_folder=""
     )
-    
-    #TODO: add log file output, record errors from file and upload that to S3
