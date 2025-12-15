@@ -182,7 +182,7 @@ def annotatator_flow(manifest_df: pd.DataFrame, download_dir: str, output_dir: s
         })
         
     # run parallelized annotation
-    annotation = annotator.map(submit_list, unmapped(runner_logger))
+    annotation = annotator.map(submit_list)
     
     return annotation.result()
 
