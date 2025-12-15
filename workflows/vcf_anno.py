@@ -155,15 +155,17 @@ def download_vcf(manifest_df: pd.DataFrame) -> None:
 
 
 @flow(name="annotate-vcf-flow", task_runner=ConcurrentTaskRunner(), log_prints=True)
-def annotatator_flow(manifest_df: pd.DataFrame, download_dir: str, output_dir: str, reference_genome: str) -> None:
+def annotator_flow(manifest_df: pd.DataFrame, download_dir: str, output_dir: str, reference_genome: str, logger) -> None:
     """Annotate vcf files
 
     Args:
         manifest_df (pd.DataFrame): Dataframe of the manifest file
         bucket (str): S3 bucket name
+        download_dir (str): Directory where vcf files are downloaded
+        output_dir (str): Directory where annotated vcf files will be saved
+        reference_genome (str): Reference genome to use for annotation
+        logger: Logger object
     """
-    # download cnv files from S3
-    runner_logger = get_run_logger()
 
     # throttle submission of tasks to avoid overwhelming the system
     time.sleep(2)
@@ -182,7 +184,7 @@ def annotatator_flow(manifest_df: pd.DataFrame, download_dir: str, output_dir: s
         })
         
     # run parallelized annotation
-    annotation = annotator.map(submit_list)
+    annotation = annotator.map(submit_list, unmapped(logger))
     
     return annotation.result()
 
@@ -216,7 +218,7 @@ def version_check():
     shell_op.run()
 
 @task(name="vcf_annotator", log_prints=True, tags=["vcf_dl_task-tag"])
-def annotator(anno_parameter: dict,) -> None:
+def annotator(anno_parameter: dict, logger) -> None:
     """Annotate vcf file using genome nexus annotation tool
 
     Args:
@@ -290,6 +292,7 @@ def annotator(anno_parameter: dict,) -> None:
             shell_op.run()
         except Exception as e:
             runner_logger.error(f"Error annotating vcf file {vcf_file} with GRCh37: {e}")
+            logger.error(f"Error annotating vcf file {vcf_file} with GRCh37: {e}")
             raise
     else:
         try:
@@ -303,6 +306,7 @@ def annotator(anno_parameter: dict,) -> None:
             shell_op.run()
         except Exception as e:
             runner_logger.error(f"Error annotating vcf file {vcf_file} with GRCh38: {e}")
+            logger.error(f"Error annotating vcf file {vcf_file} with GRCh38: {e}")
             raise
     
     # replace sample barcode in output file
@@ -360,6 +364,13 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
     download_path = os.path.join(output_path, "vcf_downloads_"+dt)
     os.makedirs(download_path, exist_ok=True)
     
+    # create logger
+    log_filename = f"{output_path}/cbio_vcf_annotation.log"
+    logger = get_logger(f"{output_path}/cbio_vcf_annotation", "info")
+    logger.info(f"Output path: {output_path}")
+
+    logger.info(f"Logs beginning at {get_time()}")
+    
     # change working directory to download path
     runner_logger.info(f"Download path: {download_path}")
     os.chdir(download_path)
@@ -370,6 +381,7 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
     # count number of files downloaded
     num_files = len(os.listdir(download_path))
     runner_logger.info(f"Actual number of files downloaded: {num_files}")
+    logger.info(f"Actual number of files downloaded: {num_files}")
 
     # mk output path
     runner_logger.info(f"Output path: {output_path}")
@@ -378,17 +390,16 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
     
     # annotate vcf files
     runner_logger.info("Annotating VCF files...")
-    annotatator_flow(manifest_df, download_path, output_path, reference_genome)
-    #for vcf_file in os.listdir(download_path):
-        # TODO - parallelize this step
-        #annotator(vcf_file, download_path, output_path, reference_genome)
+    annotator_flow(manifest_df, download_path, output_path, reference_genome, logger=logger)
 
     # remove downloaded JSON files by removing download path
     shutil.rmtree(download_path)
     runner_logger.info(f"Removed downloaded JSON files from {download_path}")
+    logger.info(f"Removed downloaded JSON files from {download_path}")
         
     # upload annotated files to S3
-
+    os.rename(log_filename, log_filename.replace(".log", "_"+dt+".log"))
+    
     upload_folder_to_s3(
         local_folder=output_path,
         bucket=bucket,
@@ -397,7 +408,3 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
     )
     
     #TODO: add log file output, record errors from file and upload that to S3
-    #TODO: add error handling for failed downloads or annotations - PENDING
-    # TODO parallelize annotation step - PENDING
-    # TODO: add in count of PASS variants from input VCF and count of output SUCCESS variants annotated  in output VCF
-    # TODO: update manifest and script to assign tumor sample barcode and matched normal sample barcode if available - PENDING
