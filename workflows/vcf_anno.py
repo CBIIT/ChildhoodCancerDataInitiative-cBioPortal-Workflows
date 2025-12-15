@@ -175,7 +175,7 @@ def annotatator_flow(manifest_df: pd.DataFrame, download_dir: str, output_dir: s
         sample_barcode = row['sample']
         submit_list.append({
             'vcf_file': file_name,
-            'sample': sample_barcode,
+            'sample_barcode': sample_barcode,
             'download_dir': download_dir,
             'output_dir': output_dir,
             'reference_genome': reference_genome
@@ -216,12 +216,12 @@ def version_check():
     shell_op.run()
 
 @task(name="vcf_annotator", log_prints=True, tags=["vcf_dl_task-tag"])
-def annotator(vcf_file: str, sample: str, download_dir: str, output_dir: str, reference_genome: str) -> None:
+def annotator(vcf_file: str, sample_barcode: str, download_dir: str, output_dir: str, reference_genome: str) -> None:
     """Annotate vcf file using genome nexus annotation tool
 
     Args:
         vcf_file (str): Path to the vcf file
-        sample (str): Sample barcode
+        sample_barcode (str): Sample barcode
         download_dir (str): Path to the download directory
         output_dir (str): Path to the output directory
         reference_genome (str): Reference genome to use for annotation
@@ -300,7 +300,7 @@ def annotator(vcf_file: str, sample: str, download_dir: str, output_dir: str, re
     
     # replace sample barcode in output file
     anno_maf = pd.read_csv(f"{output_dir}/{os.path.basename(vcf_file).replace('.vcf', '_annotated.maf')}", sep='\t', comment='#')
-    anno_maf['Tumor_Sample_Barcode'] = sample
+    anno_maf['Tumor_Sample_Barcode'] = sample_barcode
     anno_maf.to_csv(f"{output_dir}/{os.path.basename(vcf_file).replace('.vcf', '_annotated.maf')}", sep='\t', index=False)
     
     runner_logger.info(f"Annotation completed for vcf file: {vcf_file}")
