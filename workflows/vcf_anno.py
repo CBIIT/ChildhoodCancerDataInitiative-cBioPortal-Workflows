@@ -216,7 +216,7 @@ def version_check():
     shell_op.run()
 
 @task(name="vcf_annotator", log_prints=True, tags=["vcf_dl_task-tag"])
-def annotator(vcf_file: str, sample_barcode: str, download_dir: str, output_dir: str, reference_genome: str) -> None:
+def annotator(anno_parameter: dict,) -> None:
     """Annotate vcf file using genome nexus annotation tool
 
     Args:
@@ -227,6 +227,13 @@ def annotator(vcf_file: str, sample_barcode: str, download_dir: str, output_dir:
         reference_genome (str): Reference genome to use for annotation
     """
     runner_logger = get_run_logger()
+    
+    # load in anno params
+    vcf_file = anno_parameter['vcf_file']
+    sample_barcode = anno_parameter['sample_barcode']
+    download_dir = anno_parameter['download_dir']
+    output_dir = anno_parameter['output_dir']
+    reference_genome = anno_parameter['reference_genome']
     
     vcf_path = os.path.join(download_dir, vcf_file)
     
@@ -390,7 +397,7 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
     )
     
     #TODO: add log file output, record errors from file and upload that to S3
-    #TODO: add error handling for failed downloads or annotations
+    #TODO: add error handling for failed downloads or annotations - PENDING
     # TODO parallelize annotation step - PENDING
     # TODO: add in count of PASS variants from input VCF and count of output SUCCESS variants annotated  in output VCF
     # TODO: update manifest and script to assign tumor sample barcode and matched normal sample barcode if available - PENDING
