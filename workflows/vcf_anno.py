@@ -153,6 +153,39 @@ def download_vcf(manifest_df: pd.DataFrame) -> None:
     
     return file_downloads.result()
 
+
+@flow(name="annotate-vcf-flow", task_runner=ConcurrentTaskRunner(), log_prints=True)
+def annotatator_flow(manifest_df: pd.DataFrame, download_dir: str, output_dir: str, reference_genome: str) -> None:
+    """Annotate vcf files
+
+    Args:
+        manifest_df (pd.DataFrame): Dataframe of the manifest file
+        bucket (str): S3 bucket name
+    """
+    # download cnv files from S3
+    runner_logger = get_run_logger()
+
+    # throttle submission of tasks to avoid overwhelming the system
+    time.sleep(2)
+
+    #setup with list of dicts to iterate over and then run with map
+    submit_list = []
+    for _, row in manifest_df.iterrows():
+        file_name = os.path.basename(row["s3_url"])
+        sample_barcode = row['sample']
+        submit_list.append({
+            'vcf_file': file_name,
+            'sample': sample_barcode,
+            'download_dir': download_dir,
+            'output_dir': output_dir,
+            'reference_genome': reference_genome
+        })
+        
+    # run parallelized annotation
+    annotation = annotator.map(submit_list, unmapped(runner_logger))
+    
+    return annotation.result()
+
 @task(name="version_check", log_prints=True)
 def version_check():
     """Check version of genome nexus annotation tool
@@ -182,14 +215,16 @@ def version_check():
     )
     shell_op.run()
 
-@task(name="vcf_annotator", log_prints=True)
-def annotator(vcf_file: str, download_dir: str, output_dir: str, reference_genome: str) -> None:
+@task(name="vcf_annotator", log_prints=True, tags=["vcf_dl_task-tag"])
+def annotator(vcf_file: str, sample: str, download_dir: str, output_dir: str, reference_genome: str) -> None:
     """Annotate vcf file using genome nexus annotation tool
 
     Args:
         vcf_file (str): Path to the vcf file
+        sample (str): Sample barcode
         download_dir (str): Path to the download directory
         output_dir (str): Path to the output directory
+        reference_genome (str): Reference genome to use for annotation
     """
     runner_logger = get_run_logger()
     
@@ -239,31 +274,41 @@ def annotator(vcf_file: str, download_dir: str, output_dir: str, reference_genom
     vcf.to_csv(vcf_path, sep='\t', index=False)
     
     if reference_genome == "GRCh37":
-        shell_op = ShellOperation(
-            commands=[
-                f"java -jar genome-nexus-annotation-pipeline/annotationPipeline/target/annotationPipeline-*.jar --filename {vcf_path} --output-filename {output_dir}/{os.path.basename(vcf_file).replace('.vcf', '_annotated.maf')} --isoform-override mskcc"
-            ]
-        )
-        shell_op.run()
-        runner_logger.info(f"Annotation completed for vcf file: {vcf_file}")
-        return
+        try:
+            shell_op = ShellOperation(
+                commands=[
+                    f"java -jar genome-nexus-annotation-pipeline/annotationPipeline/target/annotationPipeline-*.jar --filename {vcf_path} --output-filename {output_dir}/{os.path.basename(vcf_file).replace('.vcf', '_annotated.maf')} -e {output_dir}/{os.path.basename(vcf_file).replace('.vcf', '_annotated.maf.log')} --isoform-override mskcc"
+                ]
+            )
+            shell_op.run()
+        except Exception as e:
+            runner_logger.error(f"Error annotating vcf file {vcf_file} with GRCh37: {e}")
+            raise
     else:
+        try:
+            shell_op = ShellOperation(
+                commands=[
+                    'export GENOMENEXUS_BASE="https://grch38.genomenexus.org"',
+                    'echo $GENOMENEXUS_BASE',
+                    f"java -jar genome-nexus-annotation-pipeline/annotationPipeline/target/annotationPipeline-*.jar --filename {vcf_path} --output-filename {output_dir}/{os.path.basename(vcf_file).replace('.vcf', '_annotated.maf')} -e {output_dir}/{os.path.basename(vcf_file).replace('.vcf', '_annotated.maf.log')} --isoform-override mskcc"
+                ]
+            )
+            shell_op.run()
+        except Exception as e:
+            runner_logger.error(f"Error annotating vcf file {vcf_file} with GRCh38: {e}")
+            raise
     
-        shell_op = ShellOperation(
-            commands=[
-                'export GENOMENEXUS_BASE="https://grch38.genomenexus.org"',
-                'echo $GENOMENEXUS_BASE',
-                f"java -jar genome-nexus-annotation-pipeline/annotationPipeline/target/annotationPipeline-*.jar --filename {vcf_path} --output-filename {output_dir}/{os.path.basename(vcf_file).replace('.vcf', '_annotated.maf')} --isoform-override mskcc"
-            ]
-        )
-        shell_op.run()
+    # replace sample barcode in output file
+    anno_maf = pd.read_csv(f"{output_dir}/{os.path.basename(vcf_file).replace('.vcf', '_annotated.maf')}", sep='\t', comment='#')
+    anno_maf['Tumor_Sample_Barcode'] = sample
+    anno_maf.to_csv(f"{output_dir}/{os.path.basename(vcf_file).replace('.vcf', '_annotated.maf')}", sep='\t', index=False)
     
     runner_logger.info(f"Annotation completed for vcf file: {vcf_file}")
 
 DropDownChoices = Literal["GRCh37", "GRCh38"]
 
 @flow(name="cbio-vcf-annotation-flow", log_prints=True)
-def vcf_anno_flow(bucket: str, runner:str, manifest_path: str, reference_genome: DropDownChoices) -> None:
+def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome: DropDownChoices) -> None:
     """Flow to annotate VCF files using Genome Nexus annotation tool
 
     Args:
@@ -326,9 +371,10 @@ def vcf_anno_flow(bucket: str, runner:str, manifest_path: str, reference_genome:
     
     # annotate vcf files
     runner_logger.info("Annotating VCF files...")
-    for vcf_file in os.listdir(download_path):
+    annotatator_flow(manifest_df, download_path, output_path, reference_genome)
+    #for vcf_file in os.listdir(download_path):
         # TODO - parallelize this step
-        annotator(vcf_file, download_path, output_path, reference_genome)
+        #annotator(vcf_file, download_path, output_path, reference_genome)
 
     # remove downloaded JSON files by removing download path
     shutil.rmtree(download_path)
@@ -345,6 +391,6 @@ def vcf_anno_flow(bucket: str, runner:str, manifest_path: str, reference_genome:
     
     #TODO: add log file output, record errors from file and upload that to S3
     #TODO: add error handling for failed downloads or annotations
-    # TODO parallelize annotation step
+    # TODO parallelize annotation step - PENDING
     # TODO: add in count of PASS variants from input VCF and count of output SUCCESS variants annotated  in output VCF
-    # TODO: update manifest and script to assign tumor sample barcode and matched normal sample barcode if available
+    # TODO: update manifest and script to assign tumor sample barcode and matched normal sample barcode if available - PENDING
