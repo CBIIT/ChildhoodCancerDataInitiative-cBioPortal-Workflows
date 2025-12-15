@@ -77,8 +77,8 @@ def vcf_dl_task(dl_parameter: dict, runner_logger):
     runner_logger = get_run_logger()
     
     # Set the s3 resource object for local or remote execution
-    bucket = dl_parameter['s3_url'].split("/")[2]
-    file_key = "/".join(dl_parameter['s3_url'].split("/")[3:]) #file path in bucket
+    bucket = dl_parameter['file_url'].split("/")[2]
+    file_key = "/".join(dl_parameter['file_url'].split("/")[3:]) #file path in bucket
     s3 = set_s3_resource()
     source = s3.Bucket(bucket)
     filename = dl_parameter['file_name']
@@ -135,10 +135,10 @@ def download_vcf(manifest_df: pd.DataFrame) -> None:
     submit_list = []
 
     for _, row in manifest_df.iterrows():
-        row["bucket"] = row["s3_url"].split("/", 3)[2]
-        row["file_path"] = "/".join(row["s3_url"].split("/", 3)[3:])
-        row["file_name"] = os.path.basename(row["s3_url"])
-        f_name = os.path.basename(row["s3_url"])
+        row["bucket"] = row["file_url"].split("/", 3)[2]
+        row["file_path"] = "/".join(row["file_url"].split("/", 3)[3:])
+        row["file_name"] = os.path.basename(row["file_url"])
+        f_name = os.path.basename(row["file_url"])
 
         if f_name != row["file_name"]:
             runner_logger.error(
@@ -173,7 +173,7 @@ def annotator_flow(manifest_df: pd.DataFrame, download_dir: str, output_dir: str
     #setup with list of dicts to iterate over and then run with map
     submit_list = []
     for _, row in manifest_df.iterrows():
-        file_name = os.path.basename(row["s3_url"])
+        file_name = os.path.basename(row["file_url"])
         sample_barcode = row['sample']
         submit_list.append({
             'vcf_file': file_name,
@@ -325,7 +325,7 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
     Args:
         bucket (str): bucket name
         runner (str): runner name and destination path in s3
-        manifest_path (str): path to csv file with cols for sample and s3_url of VCFs
+        manifest_path (str): path to csv file with cols for sample, md5sum and file_url of VCFs
         reference_genome (Literal['GRCh37', 'GRCh38']): reference genome to use for annotation
     """
     
