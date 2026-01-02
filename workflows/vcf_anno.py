@@ -300,7 +300,7 @@ def annotator(anno_parameter: dict, logger) -> None:
                 commands=[
                     'export GENOMENEXUS_BASE="https://grch38.genomenexus.org"',
                     'echo $GENOMENEXUS_BASE',
-                    f"java -jar genome-nexus-annotation-pipeline/annotationPipeline/target/annotationPipeline-*.jar --filename {vcf_path} --output-filename {output_dir}/{os.path.basename(vcf_file).replace('.vcf', '_annotated.maf')} -e {output_dir}/{os.path.basename(vcf_file).replace('.vcf', '_annotated.maf.log')} --isoform-override uniprot"
+                    f"java -jar genome-nexus-annotation-pipeline/annotationPipeline/target/annotationPipeline-*.jar --filename {vcf_path} --output-filename {output_dir}/{os.path.basename(vcf_file).replace('.vcf', '_annotated.maf')} -e {output_dir}/{os.path.basename(vcf_file).replace('.vcf', '_annotated.maf.log')}"
                 ]
             )
             shell_op.run()
