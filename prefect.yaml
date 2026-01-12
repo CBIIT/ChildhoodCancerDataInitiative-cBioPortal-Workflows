@@ -206,10 +206,9 @@ deployments:
       directory: "{{ clone-step.directory }}"
       stream_output: False
 
-- name: TEST-cbio-vcf-annotation
+- name: cbio-vcf-annotation
   version: null
   tags:
-  - TEST
   - cbioportal
   - V3
   description: Annotate VCF files using Genome Nexus Annotation Pipeline
