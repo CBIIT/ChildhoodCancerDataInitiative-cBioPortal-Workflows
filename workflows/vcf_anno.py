@@ -361,9 +361,6 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
     # read in file 
     runner_logger.info(f"Reading manifest file: {os.path.basename(manifest_path)}")
     manifest_df = pd.read_csv(os.path.basename(manifest_path))
-    print(manifest_df.head())
-    print(manifest_df.columns)
-    print(manifest_df.dtypes)
     exp_num_files = len(manifest_df)
     runner_logger.info(f"Expected number of files downloaded: {exp_num_files}")
     
