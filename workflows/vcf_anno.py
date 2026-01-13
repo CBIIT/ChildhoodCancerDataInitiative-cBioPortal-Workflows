@@ -315,9 +315,10 @@ def annotator(anno_parameter: dict, logger) -> None:
     runner_logger.info(f"Annotation completed for vcf file: {vcf_file}")
 
 DropDownChoices = Literal["GRCh37", "GRCh38"]
+DropDownChoices2 = Literal["yes", "no"]
 
 @flow(name="cbio-vcf-annotation-flow", log_prints=True)
-def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome: DropDownChoices) -> None:
+def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome: DropDownChoices, cleanup: DropDownChoices2) -> None:
     """Flow to annotate VCF files using Genome Nexus annotation tool
 
     Args:
@@ -325,7 +326,15 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
         runner (str): runner name and destination path in s3
         manifest_path (str): path to csv file with cols for sample, md5sum and file_url of VCFs
         reference_genome (Literal['GRCh37', 'GRCh38']): reference genome to use for annotation
+        cleanup (Literal["yes", "no"]): If 'yes', instead of running annotation, cleans up existing vcf annotation folder on mnt drive
     """
+    if cleanup == "yes":
+        # cleanup vcf annotation folder on mnt drive
+        vcf_anno_path = "/usr/local/data/vcf_annotation"
+        if os.path.exists(vcf_anno_path):
+            shutil.rmtree(vcf_anno_path)
+            runner_logger = get_run_logger()
+            runner_logger.info(f"Cleaned up existing vcf annotation folder at {vcf_anno_path}")
     
     dt = get_time()
 
@@ -410,8 +419,3 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
         destination=runner,
         sub_folder=""
     )
-    
-    shutil.rmtree(output_path)
-    runner_logger.info(f"Removed generated MAF files from {output_path}")
-    logger.info(f"Removed generated MAF files from {output_path}")
-
