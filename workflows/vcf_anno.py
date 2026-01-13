@@ -1,5 +1,3 @@
-import json
-import csv
 import os
 import time
 import pandas as pd
@@ -317,9 +315,10 @@ def annotator(anno_parameter: dict, logger) -> None:
     runner_logger.info(f"Annotation completed for vcf file: {vcf_file}")
 
 DropDownChoices = Literal["GRCh37", "GRCh38"]
+DropDownChoices2 = Literal["yes", "no"]
 
 @flow(name="cbio-vcf-annotation-flow", log_prints=True)
-def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome: DropDownChoices) -> None:
+def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome: DropDownChoices, cleanup: DropDownChoices2) -> None:
     """Flow to annotate VCF files using Genome Nexus annotation tool
 
     Args:
@@ -327,7 +326,16 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
         runner (str): runner name and destination path in s3
         manifest_path (str): path to csv file with cols for sample, md5sum and file_url of VCFs
         reference_genome (Literal['GRCh37', 'GRCh38']): reference genome to use for annotation
+        cleanup (Literal["yes", "no"]): If 'yes', instead of running annotation, cleans up existing vcf annotation folder on mnt drive
     """
+    if cleanup == "yes":
+        # cleanup vcf annotation folder on mnt drive
+        vcf_anno_path = "/usr/local/data/vcf_annotation"
+        if os.path.exists(vcf_anno_path):
+            shutil.rmtree(vcf_anno_path)
+            runner_logger = get_run_logger()
+            runner_logger.info(f"Cleaned up existing vcf annotation folder at {vcf_anno_path}")
+            return None
     
     dt = get_time()
 
@@ -398,10 +406,10 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
     runner_logger.info("Annotating VCF files...")
     annotator_flow(manifest_df, download_path, output_path, reference_genome, logger=logger)
 
-    # remove downloaded JSON files by removing download path
+    # remove downloaded VCF files by removing download path
     shutil.rmtree(download_path)
-    runner_logger.info(f"Removed downloaded JSON files from {download_path}")
-    logger.info(f"Removed downloaded JSON files from {download_path}")
+    runner_logger.info(f"Removed downloaded VCF files from {download_path}")
+    logger.info(f"Removed downloaded VCF files from {download_path}")
         
     # upload annotated files to S3
     os.rename(log_filename, log_filename.replace(".log", "_"+dt+".log"))
