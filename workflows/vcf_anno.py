@@ -389,7 +389,10 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
     os.chdir(download_path)
     
     runner_logger.info("Downloading VCF files from S3...")
-    download_vcf(manifest_df)
+    for i in range(0, len(manifest_df), 500):
+        batch_df = manifest_df.iloc[i:i+500]
+        runner_logger.info(f"Downloading batch {i//500 + 1} of VCF files...")
+        download_vcf(batch_df)
     
     # count number of files downloaded
     num_files = len(os.listdir(download_path))
@@ -407,7 +410,10 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
     
     # annotate vcf files
     runner_logger.info("Annotating VCF files...")
-    annotator_flow(manifest_df, download_path, output_path, reference_genome, logger=logger)
+    for i in range(0, len(manifest_df), 500):
+        batch_df = manifest_df.iloc[i:i+500]
+        runner_logger.info(f"Annotating batch {i//500 + 1} of VCF files...")
+        annotator_flow(batch_df, download_path, output_path, reference_genome, logger=logger)
 
     # remove downloaded VCF files by removing download path
     shutil.rmtree(download_path)
