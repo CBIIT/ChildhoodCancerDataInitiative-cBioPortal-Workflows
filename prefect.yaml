@@ -206,7 +206,7 @@ deployments:
       directory: "{{ clone-step.directory }}"
       stream_output: False
 
-- name: cbio-vcf-annotation
+- name: TEST-cbio-vcf-annotation
   version: null
   tags:
   - cbioportal
@@ -227,7 +227,7 @@ deployments:
   - prefect.deployments.steps.git_clone:
       id: clone-step
       repository: https://github.com/CBIIT/ChildhoodCancerDataInitiative-cBioPortal-Workflows.git
-      branch: main
+      branch: cleanup_mnt_drive
   - prefect.deployments.steps.pip_install_requirements:
       requirements_file: requirements.txt
       directory: "{{ clone-step.directory }}"

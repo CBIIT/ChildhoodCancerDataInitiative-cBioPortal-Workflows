@@ -1,5 +1,3 @@
-import json
-import csv
 import os
 import time
 import pandas as pd
@@ -398,10 +396,10 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
     runner_logger.info("Annotating VCF files...")
     annotator_flow(manifest_df, download_path, output_path, reference_genome, logger=logger)
 
-    # remove downloaded JSON files by removing download path
+    # remove downloaded VCF files by removing download path
     shutil.rmtree(download_path)
-    runner_logger.info(f"Removed downloaded JSON files from {download_path}")
-    logger.info(f"Removed downloaded JSON files from {download_path}")
+    runner_logger.info(f"Removed downloaded VCF files from {download_path}")
+    logger.info(f"Removed downloaded VCF files from {download_path}")
         
     # upload annotated files to S3
     os.rename(log_filename, log_filename.replace(".log", "_"+dt+".log"))
@@ -412,3 +410,8 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
         destination=runner,
         sub_folder=""
     )
+    
+    shutil.rmtree(output_path)
+    runner_logger.info(f"Removed generated MAF files from {output_path}")
+    logger.info(f"Removed generated MAF files from {output_path}")
+
