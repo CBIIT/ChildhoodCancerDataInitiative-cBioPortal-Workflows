@@ -291,6 +291,14 @@ def annotator(anno_parameter: dict, logger) -> None:
                 ]
             )
             shell_op.run()
+            
+            # replace sample barcode in output file
+            anno_maf = pd.read_csv(f"{output_dir}/{os.path.basename(vcf_file).replace('.vcf', '_annotated.maf')}", sep='\t', comment='#')
+            anno_maf['Tumor_Sample_Barcode'] = sample_barcode
+            anno_maf.to_csv(f"{output_dir}/{os.path.basename(vcf_file).replace('.vcf', '_annotated.maf')}", sep='\t', index=False)
+            
+            runner_logger.info(f"Annotation completed for vcf file: {vcf_file}")
+            
         except Exception as e:
             runner_logger.error(f"Error annotating vcf file {vcf_file} with GRCh37: {e}")
             logger.error(f"Error annotating vcf file {vcf_file} with GRCh37: {e}")
@@ -305,17 +313,20 @@ def annotator(anno_parameter: dict, logger) -> None:
                 ]
             )
             shell_op.run()
+            
+            # replace sample barcode in output file
+            anno_maf = pd.read_csv(f"{output_dir}/{os.path.basename(vcf_file).replace('.vcf', '_annotated.maf')}", sep='\t', comment='#')
+            anno_maf['Tumor_Sample_Barcode'] = sample_barcode
+            anno_maf.to_csv(f"{output_dir}/{os.path.basename(vcf_file).replace('.vcf', '_annotated.maf')}", sep='\t', index=False)
+            
+            runner_logger.info(f"Annotation completed for vcf file: {vcf_file}")
+            
         except Exception as e:
             runner_logger.error(f"Error annotating vcf file {vcf_file} with GRCh38: {e}")
             logger.error(f"Error annotating vcf file {vcf_file} with GRCh38: {e}")
             
     
-    # replace sample barcode in output file
-    anno_maf = pd.read_csv(f"{output_dir}/{os.path.basename(vcf_file).replace('.vcf', '_annotated.maf')}", sep='\t', comment='#')
-    anno_maf['Tumor_Sample_Barcode'] = sample_barcode
-    anno_maf.to_csv(f"{output_dir}/{os.path.basename(vcf_file).replace('.vcf', '_annotated.maf')}", sep='\t', index=False)
     
-    runner_logger.info(f"Annotation completed for vcf file: {vcf_file}")
 
 DropDownChoices = Literal["GRCh37", "GRCh38"]
 DropDownChoices2 = Literal["yes", "no"]
