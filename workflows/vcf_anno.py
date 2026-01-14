@@ -166,7 +166,7 @@ def annotator_flow(manifest_df: pd.DataFrame, download_dir: str, output_dir: str
     """
 
     # throttle submission of tasks to avoid overwhelming the system
-    time.sleep(2)
+    time.sleep(5)
 
     #setup with list of dicts to iterate over and then run with map
     submit_list = []
@@ -227,6 +227,9 @@ def annotator(anno_parameter: dict, logger) -> None:
         reference_genome (str): Reference genome to use for annotation
     """
     runner_logger = get_run_logger()
+    
+    # throttle submission of tasks to avoid overwhelming the system
+    time.sleep(5)
     
     # load in anno params
     vcf_file = anno_parameter['vcf_file']
@@ -291,7 +294,7 @@ def annotator(anno_parameter: dict, logger) -> None:
         except Exception as e:
             runner_logger.error(f"Error annotating vcf file {vcf_file} with GRCh37: {e}")
             logger.error(f"Error annotating vcf file {vcf_file} with GRCh37: {e}")
-            raise
+            
     else:
         try:
             shell_op = ShellOperation(
@@ -305,7 +308,7 @@ def annotator(anno_parameter: dict, logger) -> None:
         except Exception as e:
             runner_logger.error(f"Error annotating vcf file {vcf_file} with GRCh38: {e}")
             logger.error(f"Error annotating vcf file {vcf_file} with GRCh38: {e}")
-            raise
+            
     
     # replace sample barcode in output file
     anno_maf = pd.read_csv(f"{output_dir}/{os.path.basename(vcf_file).replace('.vcf', '_annotated.maf')}", sep='\t', comment='#')
