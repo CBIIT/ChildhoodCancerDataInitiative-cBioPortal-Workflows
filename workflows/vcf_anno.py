@@ -215,7 +215,7 @@ def version_check():
     )
     shell_op.run()
 
-@task(name="vcf_annotator", log_prints=True, tags=["vcf_dl_task-tag"])
+@task(name="vcf_annotator", log_prints=True, tags=["vcf_anno_task-tag"])
 def annotator(anno_parameter: dict, logger) -> None:
     """Annotate vcf file using genome nexus annotation tool
 
