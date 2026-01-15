@@ -397,7 +397,7 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
         manifest_path (str): path to csv file with cols for sample, md5sum and file_url of VCFs
         reference_genome (Literal['GRCh37', 'GRCh38']): reference genome to use for annotation
         cleanup (Literal["yes", "no"]): If 'yes', instead of running annotation, cleans up existing vcf annotation folder on mnt drive
-        maf_concat (str, optional): Name of concatenated MAF file to concat new annotations to. Defaults to None.
+        maf_concat (str, optional): Path of concatenated MAF file to concat new annotations to. Defaults to None.
     """
     if cleanup == "yes":
         # cleanup vcf annotation folder on mnt drive
