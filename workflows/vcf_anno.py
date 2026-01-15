@@ -326,17 +326,18 @@ def annotator(anno_parameter: dict, logger) -> None:
             logger.error(f"Error annotating vcf file {vcf_file} with GRCh38: {e}")
 
 @task(name="concat_mafs", log_prints=True)
-def concat_mafs(maf_files: list, output_path: str, concatenated_maf_name: str, logger, runner_logger) -> None:
+def concat_mafs(maf_files: list, output_path: str, concatenated_maf_name: str, dt: str, logger, runner_logger) -> None:
     """Concatenate MAF files
 
     Args:
         maf_files (list): List of MAF files to concatenate
         output_path (str): Path to output directory
         concatenated_maf_name (str): Name of concatenated MAF file
-        logger (_type_): _logger_ object
+        dt (str): Date-time string for naming
         runner_logger (_type_): _runner_logger_ object
     """
-    # init MAF file with header from first file
+
+    # init MAF file with first file
     shell_op = ShellOperation(
         commands=[
             f"cat {os.path.join(output_path, maf_files[0])} | grep '^#' > {os.path.join(output_path, concatenated_maf_name)}"
@@ -363,6 +364,8 @@ def concat_mafs(maf_files: list, output_path: str, concatenated_maf_name: str, l
             ]
         )
         shell_op.run()
+        
+        # record line counts
         line_op = ShellOperation(
         commands=[
                 f"wc -l {os.path.join(output_path, maf)} >> {os.path.join(output_path, line_count_filename)}"
@@ -386,7 +389,7 @@ DropDownChoices = Literal["GRCh37", "GRCh38"]
 DropDownChoices2 = Literal["yes", "no"]
 
 @flow(name="cbio-vcf-annotation-flow", log_prints=True)
-def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome: DropDownChoices, cleanup: DropDownChoices2) -> None:
+def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome: DropDownChoices, cleanup: DropDownChoices2, maf_concat: str = None) -> None:
     """Flow to annotate VCF files using Genome Nexus annotation tool
 
     Args:
@@ -395,6 +398,7 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
         manifest_path (str): path to csv file with cols for sample, md5sum and file_url of VCFs
         reference_genome (Literal['GRCh37', 'GRCh38']): reference genome to use for annotation
         cleanup (Literal["yes", "no"]): If 'yes', instead of running annotation, cleans up existing vcf annotation folder on mnt drive
+        maf_concat (str, optional): Name of concatenated MAF file to concat new annotations to. Defaults to None.
     """
     if cleanup == "yes":
         # cleanup vcf annotation folder on mnt drive
@@ -489,7 +493,15 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
     runner_logger.info("Concatenating annotated MAF files...")
     maf_files = [f for f in os.listdir(output_path) if f.endswith("_annotated.maf")]
     concatenated_maf_name = f"vcf_annotated_concatenated_{dt}.maf"
-    concat_mafs(maf_files, output_path, concatenated_maf_name, logger, runner_logger)
+    
+    if maf_concat: # previously concatenated maf to append to
+        file_dl(bucket, maf_concat)
+        maf_concat_basename = os.path.basename(maf_concat)
+        shutil.move(maf_concat_basename, os.path.join(output_path, maf_concat_basename))
+        maf_files.insert(0, maf_concat_basename)
+    
+    concat_mafs(maf_files, output_path, concatenated_maf_name, dt, logger, runner_logger)
+
 
     # upload annotated files to S3
     os.rename(log_filename, log_filename.replace(".log", "_"+dt+".log"))
