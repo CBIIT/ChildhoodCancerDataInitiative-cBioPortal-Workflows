@@ -324,9 +324,63 @@ def annotator(anno_parameter: dict, logger) -> None:
         except Exception as e:
             runner_logger.error(f"Error annotating vcf file {vcf_file} with GRCh38: {e}")
             logger.error(f"Error annotating vcf file {vcf_file} with GRCh38: {e}")
-            
+
+@task(name="concat_mafs", log_prints=True)
+def concat_mafs(maf_files: list, output_path: str, concatenated_maf_name: str, logger, runner_logger) -> None:
+    """Concatenate MAF files
+
+    Args:
+        maf_files (list): List of MAF files to concatenate
+        output_path (str): Path to output directory
+        concatenated_maf_name (str): Name of concatenated MAF file
+        logger (_type_): _logger_ object
+        runner_logger (_type_): _runner_logger_ object
+    """
+    # init MAF file with header from first file
+    shell_op = ShellOperation(
+        commands=[
+            f"cat {os.path.join(output_path, maf_files[0])} | grep '^#' > {os.path.join(output_path, concatenated_maf_name)}"
+        ]
+    )
     
+    shell_op.run()
     
+    # init record line counts in separate file
+    line_count_filename = f"vcf_annotated_line_counts_{dt}.txt"
+    
+    line_op = ShellOperation(
+        commands=[
+            f"wc -l {os.path.join(output_path, maf_files[0])} >> {os.path.join(output_path, line_count_filename)}"
+        ]
+    )
+    line_op.run()
+    
+    # use ShellOperation to concatenate files
+    for maf in maf_files[1:]:
+        shell_op = ShellOperation(
+            commands=[
+                f"grep -v '^#' {os.path.join(output_path, maf)} >> {os.path.join(output_path, concatenated_maf_name)}"
+            ]
+        )
+        shell_op.run()
+        line_op = ShellOperation(
+        commands=[
+                f"wc -l {os.path.join(output_path, maf)} >> {os.path.join(output_path, line_count_filename)}"
+            ]
+        )
+        line_op.run()
+        
+    # gzip concatenated MAF file
+    shell_op = ShellOperation(
+        commands=[
+            f"gzip {os.path.join(output_path, concatenated_maf_name)}"
+        ]
+    )
+    shell_op.run()
+    concatenated_maf_name += ".gz"
+
+    runner_logger.info(f"Concatenated MAF file: {concatenated_maf_name}")
+    logger.info(f"Concatenated MAF file: {concatenated_maf_name}")
 
 DropDownChoices = Literal["GRCh37", "GRCh38"]
 DropDownChoices2 = Literal["yes", "no"]
@@ -430,7 +484,13 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
     shutil.rmtree(download_path)
     runner_logger.info(f"Removed downloaded VCF files from {download_path}")
     logger.info(f"Removed downloaded VCF files from {download_path}")
-        
+    
+    # concatenation of MAFs
+    runner_logger.info("Concatenating annotated MAF files...")
+    maf_files = [f for f in os.listdir(output_path) if f.endswith("_annotated.maf")]
+    concatenated_maf_name = f"vcf_annotated_concatenated_{dt}.maf"
+    concat_mafs(maf_files, output_path, concatenated_maf_name, logger, runner_logger)
+
     # upload annotated files to S3
     os.rename(log_filename, log_filename.replace(".log", "_"+dt+".log"))
     
