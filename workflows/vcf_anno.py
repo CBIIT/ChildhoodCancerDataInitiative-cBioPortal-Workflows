@@ -340,7 +340,7 @@ def concat_mafs(maf_files: list, output_path: str, concatenated_maf_name: str, d
     # init MAF file with first file
     shell_op = ShellOperation(
         commands=[
-            f"grep -v '^#' {os.path.join(output_path, maf_files[0])} > {os.path.join(output_path, concatenated_maf_name)}"
+            f"grep -vE '^#' {os.path.join(output_path, maf_files[0])} > {os.path.join(output_path, concatenated_maf_name)}"
         ]
     )
     shell_op.run()
@@ -359,7 +359,7 @@ def concat_mafs(maf_files: list, output_path: str, concatenated_maf_name: str, d
     for maf in maf_files[1:]:
         shell_op = ShellOperation(
             commands=[
-                f"grep -v '^#' {os.path.join(output_path, maf)} >> {os.path.join(output_path, concatenated_maf_name)}"
+                f"grep -vE '^\#|^Hugo_Symbol' {os.path.join(output_path, maf)} >> {os.path.join(output_path, concatenated_maf_name)}"
             ]
         )
         shell_op.run()
@@ -496,6 +496,15 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
     if maf_concat: # previously concatenated maf to append to
         file_dl(bucket, maf_concat)
         maf_concat_basename = os.path.basename(maf_concat)
+        if not maf_concat_basename.endswith(".gz"):
+            # unzip file
+            shell_op = ShellOperation(
+                commands=[
+                    f"gunzip {maf_concat_basename}"
+                ]
+            )
+            shell_op.run()
+            maf_concat_basename = maf_concat_basename.replace(".gz", "")
         shutil.move(maf_concat_basename, os.path.join(output_path, maf_concat_basename))
         maf_files.insert(0, maf_concat_basename)
     
