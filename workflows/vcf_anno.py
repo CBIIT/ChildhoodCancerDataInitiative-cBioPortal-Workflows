@@ -496,7 +496,7 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
     if maf_concat: # previously concatenated maf to append to
         file_dl(bucket, maf_concat)
         maf_concat_basename = os.path.basename(maf_concat)
-        if not maf_concat_basename.endswith(".gz"):
+        if maf_concat_basename.endswith(".gz"):
             # unzip file
             shell_op = ShellOperation(
                 commands=[
