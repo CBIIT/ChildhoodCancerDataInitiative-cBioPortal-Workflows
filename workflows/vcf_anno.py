@@ -340,10 +340,9 @@ def concat_mafs(maf_files: list, output_path: str, concatenated_maf_name: str, d
     # init MAF file with first file
     shell_op = ShellOperation(
         commands=[
-            f"cat {os.path.join(output_path, maf_files[0])} | grep '^#' > {os.path.join(output_path, concatenated_maf_name)}"
+            f"grep -v '^#' {os.path.join(output_path, maf_files[0])} > {os.path.join(output_path, concatenated_maf_name)}"
         ]
     )
-    
     shell_op.run()
     
     # init record line counts in separate file
