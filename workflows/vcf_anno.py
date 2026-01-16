@@ -7,9 +7,14 @@ from prefect_shell import ShellOperation
 from prefect.task_runners import ConcurrentTaskRunner
 from typing import Literal
 import boto3
-from botocore.exceptions import ClientError
+from botocore.exceptions import ClientError, EndpointConnectionError, SSLError
 from prefect import flow, task, get_run_logger, unmapped
 from src.utils import get_time, file_dl, get_logger, upload_folder_to_s3, set_s3_resource
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+import ssl
+import socket
+from urllib3.exceptions import SSLError as Urllib3SSLError
+from requests.exceptions import SSLError as RequestsSSLError, ConnectionError
 
 @task(name="install-genome-nexus-annotation", log_prints=True)
 def install_nexus():
@@ -61,8 +66,22 @@ def get_md5(file_path):
     task_run_name="vcf_dl_task_{dl_parameter[file_name]}", 
     log_prints=True,
     tags=["vcf_dl_task-tag"],
-    retries=3,
-    retry_delay_seconds=1,
+    retries=5,
+    retry_delay_seconds=[1, 2, 4, 8, 16],
+)
+@retry(
+    stop=stop_after_attempt(5),
+    wait=wait_exponential(multiplier=1, min=2, max=30),
+    retry=retry_if_exception_type((
+        SSLError, 
+        ssl.SSLError, 
+        Urllib3SSLError, 
+        RequestsSSLError,
+        EndpointConnectionError,
+        ConnectionError,
+        socket.error,
+        OSError
+    ))
 )
 def vcf_dl_task(dl_parameter: dict, runner_logger):
     """Download vcf files from S3
@@ -89,6 +108,16 @@ def vcf_dl_task(dl_parameter: dict, runner_logger):
         ex_message = ex.response["Error"]["Message"]
         runner_logger.error(
             f"ClientError occurred while downloading file {filename} from bucket {bucket}:\n{ex_code}, {ex_message}"
+        )
+        raise
+    except (SSLError, ssl.SSLError, Urllib3SSLError, RequestsSSLError, EndpointConnectionError, ConnectionError, socket.error, OSError) as ex:
+        runner_logger.warning(
+            f"TLS/SSL or connection error while downloading file {filename} from bucket {bucket}: {str(ex)}. Retrying..."
+        )
+        raise
+    except Exception as ex:
+        runner_logger.error(
+            f"Unexpected error occurred while downloading file {filename} from bucket {bucket}: {str(ex)}"
         )
         raise
 
@@ -215,7 +244,27 @@ def version_check():
     )
     shell_op.run()
 
-@task(name="vcf_annotator", log_prints=True, tags=["vcf_anno_task-tag"])
+@task(
+    name="vcf_annotator", 
+    log_prints=True, 
+    tags=["vcf_anno_task-tag"],
+    retries=3,
+    retry_delay_seconds=[2, 5, 10]
+)
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=2, min=4, max=60),
+    retry=retry_if_exception_type((
+        SSLError, 
+        ssl.SSLError, 
+        Urllib3SSLError, 
+        RequestsSSLError,
+        EndpointConnectionError,
+        ConnectionError,
+        socket.error,
+        OSError
+    ))
+)
 def annotator(anno_parameter: dict, logger) -> None:
     """Annotate vcf file using genome nexus annotation tool
 
