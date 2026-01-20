@@ -69,20 +69,6 @@ def get_md5(file_path):
     retries=5,
     retry_delay_seconds=[1, 2, 4, 8, 16],
 )
-@retry(
-    stop=stop_after_attempt(5),
-    wait=wait_exponential(multiplier=1, min=2, max=30),
-    retry=retry_if_exception_type((
-        SSLError, 
-        ssl.SSLError, 
-        Urllib3SSLError, 
-        RequestsSSLError,
-        EndpointConnectionError,
-        ConnectionError,
-        socket.error,
-        OSError
-    ))
-)
 def vcf_dl_task(dl_parameter: dict, runner_logger):
     """Download vcf files from S3
 
@@ -250,20 +236,6 @@ def version_check():
     tags=["vcf_anno_task-tag"],
     retries=3,
     retry_delay_seconds=[2, 5, 10]
-)
-@retry(
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=2, min=4, max=60),
-    retry=retry_if_exception_type((
-        SSLError, 
-        ssl.SSLError, 
-        Urllib3SSLError, 
-        RequestsSSLError,
-        EndpointConnectionError,
-        ConnectionError,
-        socket.error,
-        OSError
-    ))
 )
 def annotator(anno_parameter: dict, logger) -> None:
     """Annotate vcf file using genome nexus annotation tool
@@ -437,7 +409,7 @@ DropDownChoices = Literal["GRCh37", "GRCh38"]
 DropDownChoices2 = Literal["yes", "no"]
 
 @flow(name="cbio-vcf-annotation-flow", log_prints=True)
-def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome: DropDownChoices, cleanup: DropDownChoices2, maf_concat: str = None) -> None:
+def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome: DropDownChoices, cleanup: DropDownChoices2, output_path: str = None, maf_concat: str = None) -> None:
     """Flow to annotate VCF files using Genome Nexus annotation tool
 
     Args:
@@ -446,6 +418,7 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
         manifest_path (str): path to csv file with cols for sample, md5sum and file_url of VCFs
         reference_genome (Literal['GRCh37', 'GRCh38']): reference genome to use for annotation
         cleanup (Literal["yes", "no"]): If 'yes', instead of running annotation, cleans up existing vcf annotation folder on mnt drive
+        output_path (str): Path to output directory; to be used if previous run failed, pick up where left off
         maf_concat (str, optional): Path of concatenated MAF file to concat new annotations to. Defaults to None.
     """
     if cleanup == "yes":
@@ -487,11 +460,22 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
 
     # download vcf files from S3
     # change working directory to mounted drive 
-    output_path = os.path.join("/usr/local/data/vcf_annotation", "vcf_run_"+dt)
-    os.makedirs(output_path, exist_ok=True)
-
-    download_path = os.path.join(output_path, "vcf_downloads_"+dt)
-    os.makedirs(download_path, exist_ok=True)
+    if output_path is None:
+        output_path = os.path.join("/usr/local/data/vcf_annotation", "vcf_run_"+dt)
+        os.makedirs(output_path, exist_ok=True)
+        
+        download_path = os.path.join(output_path, "vcf_downloads_"+dt)
+        os.makedirs(download_path, exist_ok=True)
+        prev_run_chk_flag = False
+    else:
+        prev_run_chk_flag = True
+        download_path = os.path.basename(output_path).replace("vcf_run_", "vcf_downloads_")
+        download_path = os.path.join(os.path.dirname(output_path), download_path)
+        if not os.path.exists(download_path):
+            runner_logger.error(f"Download path {download_path} does not exist for previous run, cannot resume")
+            raise ValueError(f"Download path {download_path} does not exist for previous run, cannot resume")
+        else:
+            runner_logger.info(f"Resuming from previous run, using download path: {download_path}")
     
     # create logger
     log_filename = f"{output_path}/cbio_vcf_annotation.log"
@@ -506,10 +490,26 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
     os.chdir(download_path)
     
     runner_logger.info("Downloading VCF files from S3...")
-    for i in range(0, len(manifest_df), 500):
-        batch_df = manifest_df.iloc[i:i+500]
-        runner_logger.info(f"Downloading batch {i//500 + 1} of {len(manifest_df)//500 + 1} VCF files...")
-        download_vcf(batch_df)
+    if prev_run_chk_flag:
+        # check how many files already downloaded
+        num_existing_files = len(os.listdir(download_path))
+        runner_logger.info(f"Number of files already downloaded: {num_existing_files}")
+        if num_existing_files >= exp_num_files:
+            runner_logger.info("All files already downloaded, skipping download step")
+        else:
+            # filter manifest to only include files not yet downloaded
+            existing_files = os.listdir(download_path)
+            download_df = manifest_df[~manifest_df['file_url'].apply(lambda x: os.path.basename(x) in existing_files)]
+            runner_logger.info(f"Number of files to download: {len(download_df)}")
+            for i in range(0, len(download_df), 500):
+                batch_df = download_df.iloc[i:i+500]
+                runner_logger.info(f"Downloading batch {i//500 + 1} of {len(download_df)//500 + 1} VCF files...")
+                download_vcf(batch_df)
+    else:
+        for i in range(0, len(manifest_df), 500):
+            batch_df = manifest_df.iloc[i:i+500]
+            runner_logger.info(f"Downloading batch {i//500 + 1} of {len(manifest_df)//500 + 1} VCF files...")
+            download_vcf(batch_df)
     
     # count number of files downloaded
     num_files = len(os.listdir(download_path))
@@ -520,17 +520,35 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
         runner_logger.error("Number of files downloaded does not match expected number of files")
         logger.error("Number of files downloaded does not match expected number of files")
 
-    # mk output path
+    # output path
     runner_logger.info(f"Output path: {output_path}")
     
     os.chdir(home_dir)
     
     # annotate vcf files
     runner_logger.info("Annotating VCF files...")
-    for i in range(0, len(manifest_df), 200):
-        batch_df = manifest_df.iloc[i:i+200]
-        runner_logger.info(f"Annotating batch {i//200 + 1} of {len(manifest_df)//200 + 1} VCF files...")
-        annotator_flow(batch_df, download_path, output_path, reference_genome, logger=logger)
+    if prev_run_chk_flag:
+        # check how many files already annotated
+        num_existing_maf_files = len([f for f in os.listdir(output_path) if f.endswith("_annotated.maf")])
+        runner_logger.info(f"Number of files already annotated: {num_existing_maf_files}")
+        if num_existing_maf_files >= exp_num_files:
+            runner_logger.info("All files already annotated, skipping annotation step")
+        else:
+            # filter manifest to only include files not yet annotated
+            existing_maf_files = [f.replace("_annotated.maf", "") for f in os.listdir(output_path) if f.endswith("_annotated.maf")]
+            expected_maf_files = [os.path.basename(url).replace(".vcf.gz", "") for url in manifest_df['file_url']]
+            to_annotate_files = set(expected_maf_files) - set(existing_maf_files)
+            annotate_df = manifest_df[manifest_df['file_url'].apply(lambda x: os.path.basename(x).replace(".vcf.gz", "") in to_annotate_files)]
+            runner_logger.info(f"Number of files to annotate: {len(annotate_df)}")
+            for i in range(0, len(annotate_df), 200):
+                batch_df = annotate_df.iloc[i:i+200]
+                runner_logger.info(f"Annotating batch {i//200 + 1} of {len(annotate_df)//200 + 1} VCF files...")
+                annotator_flow(batch_df, download_path, output_path, reference_genome, logger=logger)
+    else:
+        for i in range(0, len(manifest_df), 200):
+            batch_df = manifest_df.iloc[i:i+200]
+            runner_logger.info(f"Annotating batch {i//200 + 1} of {len(manifest_df)//200 + 1} VCF files...")
+            annotator_flow(batch_df, download_path, output_path, reference_genome, logger=logger)
 
     # remove downloaded VCF files by removing download path
     shutil.rmtree(download_path)
