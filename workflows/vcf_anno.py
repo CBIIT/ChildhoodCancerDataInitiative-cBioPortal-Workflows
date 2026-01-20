@@ -460,7 +460,7 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
 
     # download vcf files from S3
     # change working directory to mounted drive 
-    if output_path is None:
+    if output_path is None or output_path == "":
         output_path = os.path.join("/usr/local/data/vcf_annotation", "vcf_run_"+dt)
         os.makedirs(output_path, exist_ok=True)
         
