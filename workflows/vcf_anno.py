@@ -36,6 +36,7 @@ def install_nexus():
     )
     shell_op.run()
     
+    return None
     
 
 @task(name="get_md5", log_prints=True)
@@ -229,6 +230,8 @@ def version_check():
         ]
     )
     shell_op.run()
+    
+    return None
 
 @task(
     name="vcf_annotator", 
