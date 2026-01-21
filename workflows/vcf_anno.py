@@ -9,7 +9,7 @@ from typing import Literal
 import boto3
 from botocore.exceptions import ClientError, EndpointConnectionError, SSLError
 from prefect import flow, task, get_run_logger, unmapped
-from src.utils import get_time, file_dl, get_logger, upload_folder_to_s3, set_s3_resource
+from src.utils import get_time, file_dl, upload_folder_to_s3, set_s3_resource#, get_logger
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 import ssl
 import socket
@@ -421,18 +421,19 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
         output_path (str): Path to output directory; to be used if previous run failed, pick up where left off
         maf_concat (str, optional): Path of concatenated MAF file to concat new annotations to. Defaults to None.
     """
+    
+    runner_logger = get_run_logger()
+    
     if cleanup == "yes":
         # cleanup vcf annotation folder on mnt drive
         vcf_anno_path = "/usr/local/data/vcf_annotation"
         if os.path.exists(vcf_anno_path):
             shutil.rmtree(vcf_anno_path)
-            runner_logger = get_run_logger()
             runner_logger.info(f"Cleaned up existing vcf annotation folder at {vcf_anno_path}")
             return None
     
     dt = get_time()
-
-    runner_logger = get_run_logger()
+    
     runner_logger.info("Starting VCF annotation flow...")
     
     # print current directory
@@ -489,6 +490,8 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
             raise ValueError(f"Download path {download_path} does not exist for previous run, cannot resume")
         else:
             runner_logger.info(f"Resuming from previous run, using download path: {download_path}")
+    
+    return None
     
     # create logger
     """log_filename = f"{output_path}/cbio_vcf_annotation.log"
@@ -601,5 +604,5 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
         sub_folder=""
     )"""
         
-    return None
+    
     
