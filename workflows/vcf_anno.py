@@ -493,10 +493,8 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
         else:
             runner_logger.info(f"Resuming from previous run, using download path: {download_path}")
     
-    return None
-    
     # create logger
-    """log_filename = f"{output_path}/cbio_vcf_annotation.log"
+    log_filename = f"{output_path}/cbio_vcf_annotation.log"
     logger = get_logger(f"{output_path}/cbio_vcf_annotation", "info")
     logger.info(f"Output path: {output_path}")
     logger.info(f"Expected number of files downloaded: {exp_num_files}")
@@ -604,7 +602,8 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
         bucket=bucket,
         destination=runner,
         sub_folder=""
-    )"""
-        
+    )
+    
+    return None
     
     
