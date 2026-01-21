@@ -473,7 +473,7 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
         download_path = os.path.basename(output_path).replace("vcf_run_", "vcf_downloads_")
         download_path = os.path.join(os.path.dirname(output_path), download_path)
         runner_logger.info(f"Download path for previous run: {download_path}")
-        """if not os.path.exists(download_path):
+        if not os.path.exists(download_path):
             runner_logger.error(f"Download path {download_path} does not exist for previous run, cannot resume")
             raise ValueError(f"Download path {download_path} does not exist for previous run, cannot resume")
         else:
@@ -492,7 +492,7 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
     os.chdir(download_path)
     
     runner_logger.info("Downloading VCF files from S3...")
-    if prev_run_chk_flag:
+    """if prev_run_chk_flag:
         # check how many files already downloaded
         num_existing_files = len(os.listdir(download_path))
         runner_logger.info(f"Number of files already downloaded: {num_existing_files}")
