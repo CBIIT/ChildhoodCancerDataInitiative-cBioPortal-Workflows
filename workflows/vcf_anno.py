@@ -464,7 +464,8 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
     exp_num_files = len(manifest_df)
     runner_logger.info(f"Expected number of files downloaded: {exp_num_files}")
     
-
+    runner_logger.info("VCF annotation flow completed.")
+    return None
     # download vcf files from S3
     # change working directory to mounted drive 
     """if output_path is None or output_path == "":
@@ -601,5 +602,4 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
         sub_folder=""
     )"""
         
-    runner_logger.info("VCF annotation flow completed.")
-    return None
+    
