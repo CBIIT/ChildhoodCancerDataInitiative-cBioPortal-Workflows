@@ -473,7 +473,12 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
         
         # print out contents of output path
         runner_logger.info(f"Output path for previous run: {output_path}")
-        runner_logger.info(f"Contents of output path: {os.listdir(output_path)}")
+        shell_op = ShellOperation(
+            commands=[
+                f"ls -l {output_path}"
+            ]
+        )
+        shell_op.run()
         
         download_path = os.path.basename(output_path).replace("vcf_run_", "vcf_downloads_")
         download_path = os.path.join(os.path.dirname(output_path), download_path)
