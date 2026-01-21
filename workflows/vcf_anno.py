@@ -461,7 +461,7 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
     # download vcf files from S3
     # change working directory to mounted drive 
     if output_path is None or output_path == "":
-        print("Setting up new output and download paths...")
+        runner_logger.info("Setting up new output and download paths...")
         output_path = os.path.join("/usr/local/data/vcf_annotation", "vcf_run_"+dt)
         os.makedirs(output_path, exist_ok=True)
         
@@ -472,7 +472,7 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
         prev_run_chk_flag = True
         download_path = os.path.basename(output_path).replace("vcf_run_", "vcf_downloads_")
         download_path = os.path.join(os.path.dirname(output_path), download_path)
-        print("Download path for previous run:", download_path)
+        runner_logger.info(f"Download path for previous run: {download_path}")
         """if not os.path.exists(download_path):
             runner_logger.error(f"Download path {download_path} does not exist for previous run, cannot resume")
             raise ValueError(f"Download path {download_path} does not exist for previous run, cannot resume")
@@ -589,3 +589,6 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
         destination=runner,
         sub_folder=""
     )"""
+        
+    runner_logger.info("VCF annotation flow completed.")
+    return None
