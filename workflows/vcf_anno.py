@@ -445,7 +445,7 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
     
     shell_op = ShellOperation(
             commands=[
-                f"ls -l {output_path}"
+                "ls -l /usr/local/data/vcf_annotation/"
             ]
         )
     shell_op.run()
