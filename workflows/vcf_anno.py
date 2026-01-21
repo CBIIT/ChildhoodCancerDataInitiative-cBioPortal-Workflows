@@ -445,7 +445,7 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
     
     shell_op = ShellOperation(
             commands=[
-                "ls -l /usr/local/data/vcf_annotation/"
+                f"ls -l {output_path}/"
             ]
         )
     shell_op.run()
@@ -464,11 +464,10 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
     exp_num_files = len(manifest_df)
     runner_logger.info(f"Expected number of files downloaded: {exp_num_files}")
     
-    runner_logger.info("VCF annotation flow completed.")
-    return None
+
     # download vcf files from S3
     # change working directory to mounted drive 
-    """if output_path is None or output_path == "":
+    if output_path is None or output_path == "":
         runner_logger.info("Setting up new output and download paths...")
         output_path = os.path.join("/usr/local/data/vcf_annotation", "vcf_run_"+dt)
         os.makedirs(output_path, exist_ok=True)
@@ -483,7 +482,7 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
         runner_logger.info(f"Output path for previous run: {output_path}")
         
         download_path = os.path.basename(output_path).replace("vcf_run_", "vcf_downloads_")
-        download_path = os.path.join(os.path.dirname(output_path), download_path)
+        download_path = os.path.join(output_path, download_path)
         runner_logger.info(f"Download path for previous run: {download_path}")
         if not os.path.exists(download_path):
             runner_logger.error(f"Download path {download_path} does not exist for previous run, cannot resume")
@@ -492,7 +491,7 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
             runner_logger.info(f"Resuming from previous run, using download path: {download_path}")
     
     # create logger
-    log_filename = f"{output_path}/cbio_vcf_annotation.log"
+    """log_filename = f"{output_path}/cbio_vcf_annotation.log"
     logger = get_logger(f"{output_path}/cbio_vcf_annotation", "info")
     logger.info(f"Output path: {output_path}")
     logger.info(f"Expected number of files downloaded: {exp_num_files}")
