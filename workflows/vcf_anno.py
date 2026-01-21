@@ -601,4 +601,5 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
         sub_folder=""
     )"""
         
+    return None
     
