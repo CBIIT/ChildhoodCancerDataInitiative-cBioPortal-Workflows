@@ -9,7 +9,7 @@ from typing import Literal
 import boto3
 from botocore.exceptions import ClientError, EndpointConnectionError, SSLError
 from prefect import flow, task, get_run_logger, unmapped
-from src.utils import get_time, file_dl, upload_folder_to_s3, set_s3_resource#, get_logger
+from src.utils import get_time, file_dl, upload_folder_to_s3, set_s3_resource, get_logger
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 import ssl
 import socket
@@ -455,7 +455,7 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
     
     # install genome nexus annotation tool
     runner_logger.info("Installing Genome Nexus Annotation tool...")
-    #install_nexus()
+    install_nexus()
     
     # download manifest file from S3
     runner_logger.info(f"Downloading manifest file from S3: {manifest_path}")
