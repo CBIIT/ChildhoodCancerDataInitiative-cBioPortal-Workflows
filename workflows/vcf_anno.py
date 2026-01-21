@@ -203,10 +203,9 @@ def annotator_flow(manifest_df: pd.DataFrame, download_dir: str, output_dir: str
     return annotation.result()
 
 @task(name="version_check", log_prints=True)
-def version_check():
+def version_check(runner_logger) -> None:
     """Check version of genome nexus annotation tool
     """
-    runner_logger = get_run_logger()
     
     shell_op = ShellOperation(
         commands=[
@@ -445,7 +444,7 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
     
     # check versions of tools
     runner_logger.info("Checking versions of tools...")
-    version_check()
+    version_check(runner_logger)
     
     shell_op = ShellOperation(
             commands=[
