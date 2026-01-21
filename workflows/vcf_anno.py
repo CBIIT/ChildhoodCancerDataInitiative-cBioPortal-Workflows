@@ -458,11 +458,11 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
     runner_logger.info(f"Expected number of files downloaded: {exp_num_files}")
     
 
-    """# download vcf files from S3
+    # download vcf files from S3
     # change working directory to mounted drive 
     if output_path is None or output_path == "":
         print("Setting up new output and download paths...")
-        output_path = os.path.join("/usr/local/data/vcf_annotation", "vcf_run_"+dt)
+        """output_path = os.path.join("/usr/local/data/vcf_annotation", "vcf_run_"+dt)
         os.makedirs(output_path, exist_ok=True)
         
         download_path = os.path.join(output_path, "vcf_downloads_"+dt)
