@@ -443,9 +443,16 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
     runner_logger.info("Checking versions of tools...")
     version_check()
     
+    shell_op = ShellOperation(
+            commands=[
+                f"ls -l {output_path}"
+            ]
+        )
+    shell_op.run()
+    
     # install genome nexus annotation tool
     runner_logger.info("Installing Genome Nexus Annotation tool...")
-    install_nexus()
+    #install_nexus()
     
     # download manifest file from S3
     runner_logger.info(f"Downloading manifest file from S3: {manifest_path}")
@@ -460,7 +467,7 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
 
     # download vcf files from S3
     # change working directory to mounted drive 
-    if output_path is None or output_path == "":
+    """if output_path is None or output_path == "":
         runner_logger.info("Setting up new output and download paths...")
         output_path = os.path.join("/usr/local/data/vcf_annotation", "vcf_run_"+dt)
         os.makedirs(output_path, exist_ok=True)
@@ -473,12 +480,6 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
         
         # print out contents of output path
         runner_logger.info(f"Output path for previous run: {output_path}")
-        shell_op = ShellOperation(
-            commands=[
-                f"ls -l {output_path}"
-            ]
-        )
-        shell_op.run()
         
         download_path = os.path.basename(output_path).replace("vcf_run_", "vcf_downloads_")
         download_path = os.path.join(os.path.dirname(output_path), download_path)
@@ -502,7 +503,7 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
     os.chdir(download_path)
     
     runner_logger.info("Downloading VCF files from S3...")
-    """if prev_run_chk_flag:
+    if prev_run_chk_flag:
         # check how many files already downloaded
         num_existing_files = len(os.listdir(download_path))
         runner_logger.info(f"Number of files already downloaded: {num_existing_files}")
