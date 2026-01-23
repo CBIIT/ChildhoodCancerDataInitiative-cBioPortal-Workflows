@@ -446,13 +446,6 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
     runner_logger.info("Checking versions of tools...")
     version_check(runner_logger)
     
-    shell_op = ShellOperation(
-            commands=[
-                f"ls -l {output_path}/"
-            ]
-        )
-    shell_op.run()
-    
     # install genome nexus annotation tool
     runner_logger.info("Installing Genome Nexus Annotation tool...")
     install_nexus()
@@ -565,11 +558,6 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
             batch_df = manifest_df.iloc[i:i+200]
             runner_logger.info(f"Annotating batch {i//200 + 1} of {len(manifest_df)//200 + 1} VCF files...")
             annotator_flow(batch_df, download_path, output_path, reference_genome, logger=logger)
-
-    # remove downloaded VCF files by removing download path
-    shutil.rmtree(download_path)
-    runner_logger.info(f"Removed downloaded VCF files from {download_path}")
-    logger.info(f"Removed downloaded VCF files from {download_path}")
     
     # concatenation of MAFs
     runner_logger.info("Concatenating annotated MAF files...")
@@ -577,9 +565,9 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
     concatenated_maf_name = f"vcf_annotated_concatenated_{dt}.maf"
     
     if maf_concat: # previously concatenated maf to append to
-        file_dl(bucket, maf_concat)
-        maf_concat_basename = os.path.basename(maf_concat)
-        if maf_concat_basename.endswith(".gz"):
+        file_dl(bucket, maf_concat) # download the file
+        maf_concat_basename = os.path.basename(maf_concat) # get the file name
+        if maf_concat_basename.endswith(".gz"): 
             # unzip file
             shell_op = ShellOperation(
                 commands=[
@@ -588,11 +576,25 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
             )
             shell_op.run()
             maf_concat_basename = maf_concat_basename.replace(".gz", "")
-        shutil.move(maf_concat_basename, os.path.join(output_path, maf_concat_basename))
-        maf_files.insert(0, maf_concat_basename)
+        shutil.move(maf_concat_basename, os.path.join(output_path, maf_concat_basename)) # move to output path
+        maf_files.insert(0, maf_concat_basename) # add to list of mafs to concatenate
     
     concat_mafs(maf_files, output_path, concatenated_maf_name, dt, logger, runner_logger)
+    
+    # TODO add concat MAF checks
+    
+    # gzip all MAFs in output path
+    shell_op = ShellOperation(
+        commands=[
+            f"gzip {output_path}/*_annotated.maf"
+        ]
+    )
+    shell_op.run()
 
+    # remove downloaded VCF files by removing download path
+    shutil.rmtree(download_path)
+    runner_logger.info(f"Removed downloaded VCF files from {download_path}")
+    logger.info(f"Removed downloaded VCF files from {download_path}")
 
     # upload annotated files to S3
     os.rename(log_filename, log_filename.replace(".log", "_"+dt+".log"))
