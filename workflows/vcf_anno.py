@@ -659,7 +659,7 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
     # gzip all MAFs in output path
     shell_op = ShellOperation(
         commands=[
-            f"gzip {output_path}/*_annotated.maf"
+            f"gzip {output_path}/*.maf"
         ]
     )
     shell_op.run()
