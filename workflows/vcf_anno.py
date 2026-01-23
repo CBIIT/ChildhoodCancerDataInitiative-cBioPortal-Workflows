@@ -395,17 +395,87 @@ def concat_mafs(maf_files: list, output_path: str, concatenated_maf_name: str, d
         )
         line_op.run()
         
-    # gzip concatenated MAF file
-    shell_op = ShellOperation(
-        commands=[
-            f"gzip {os.path.join(output_path, concatenated_maf_name)}"
-        ]
-    )
-    shell_op.run()
-    concatenated_maf_name += ".gz"
-
     runner_logger.info(f"Concatenated MAF file: {concatenated_maf_name}")
     logger.info(f"Concatenated MAF file: {concatenated_maf_name}")
+
+def concat_maf_check(output_path: str, concatenated_maf_name: str, line_count_filename: str, manifest_df: pd.DataFrame, dt: str, logger, runner_logger) -> None:
+    """Check concatenated MAF file line counts
+
+    Args:
+        output_path (str): Path to output directory
+        concatenated_maf_name (str): Name of concatenated MAF file
+        line_count_filename (str): Name of line count file
+        logger: Logger object
+        runner_logger: Runner logger object
+    """
+    
+    # samples to rerun init
+    samples_to_rerun = []
+    
+    # read in line count file
+    line_counts = pd.read_csv(os.path.join(output_path, line_count_filename), sep='\s+', header=None, names=['line_count', 'file_name'])
+    
+    # map samples to line counts by transformed file name
+    manifest_df['file_name'] = manifest_df['file_url'].apply(lambda x: os.path.basename(x).replace('.vcf.gz', '_annotated.maf'))
+    merged_df = pd.merge(manifest_df, line_counts, on='file_name', how='left')
+    
+    # read in concatenated MAF file and get line count by Tumor_Sample_Barcode
+    concat_maf = pd.read_csv(os.path.join(output_path, concatenated_maf_name), sep='\t', comment='#')
+    concat_line_counts = concat_maf['Tumor_Sample_Barcode'].value_counts().reset_index()
+    concat_line_counts.columns = ['Tumor_Sample_Barcode', 'line_count']
+    
+    # rename columns for merging
+    merged_df = pd.merge(merged_df, concat_line_counts, left_on='sample', right_on='Tumor_Sample_Barcode', how='left', suffixes=('_individual', '_concat'))
+    
+    # compare line counts
+    discrepancies = merged_df[merged_df['line_count_individual'] != merged_df['line_count_concat']]
+    if not discrepancies.empty:
+        runner_logger.error("Discrepancies found in line counts between individual MAFs and concatenated MAF:")
+        logger.error("Discrepancies found in line counts between individual MAFs and concatenated MAF:")
+        for _, row in discrepancies.iterrows():
+            runner_logger.error(f"Sample: {row['sample']}, Individual line count: {row['line_count_individual']}, Concatenated line count: {row['line_count_concat']}")
+            logger.error(f"Sample: {row['sample']}, Individual line count: {row['line_count_individual']}, Concatenated line count: {row['line_count_concat']}")
+            samples_to_rerun.append(row['sample'])
+    
+    # check for FAILED annotations in col Annotation_Status
+    fail_check_df = concat_maf[(concat_maf.Annotation_Status == 'FAILED') & ~(concat_maf.Chromosome.str.contains('KI2'))].groupby('Tumor_Sample_Barcode').size()
+    
+    if not fail_check_df.empty:
+        runner_logger.error("Samples with FAILED annotations found in concatenated MAF:")
+        logger.error("Samples with FAILED annotations found in concatenated MAF:")
+        for sample in fail_check_df.index:
+            runner_logger.error(f"Sample: {sample}, Failed annotations: {fail_check_df[sample]}")
+            logger.error(f"Sample: {sample}, Failed annotations: {fail_check_df[sample]}")
+            samples_to_rerun.append(sample)
+            
+    # check for misformatted variants with null/missin Tumor_Sample_Barcode
+    misformatted_df = concat_maf[concat_maf['Tumor_Sample_Barcode'].isnull() | (concat_maf['Tumor_Sample_Barcode'] == '')]
+    if not misformatted_df.empty:
+        runner_logger.error("Misformatted variants with null/missing Tumor_Sample_Barcode found in concatenated MAF:")
+        logger.error("Misformatted variants with null/missing Tumor_Sample_Barcode found in concatenated MAF:")
+        for _, row in misformatted_df.iterrows():
+            runner_logger.error(f"Variant: {row['Chromosome']}:{row['Start_Position']} {row['Reference_Allele']}>{row['Tumor_Seq_Allele1']}")
+            logger.error(f"Variant: {row['Chromosome']}:{row['Start_Position']} {row['Reference_Allele']}>{row['Tumor_Seq_Allele1']}")
+
+    # save new concat MAF without samples identified in samples_to_rerun OR Tumor_Sample_Barcode null/missing
+    if samples_to_rerun or not misformatted_df.empty:
+        cleaned_concat_maf = concat_maf[~concat_maf['Tumor_Sample_Barcode'].isin(samples_to_rerun)]
+        cleaned_concat_maf = cleaned_concat_maf[~(cleaned_concat_maf['Tumor_Sample_Barcode'].isnull() | (cleaned_concat_maf['Tumor_Sample_Barcode'] == ''))]
+        cleaned_concat_maf.to_csv(os.path.join(output_path, concatenated_maf_name.replace('.maf', '_cleaned.maf')), sep='\t', index=False)
+        runner_logger.info(f"Cleaned concatenated MAF file saved as {concatenated_maf_name.replace('.maf', '_cleaned.maf')}")
+        logger.info(f"Cleaned concatenated MAF file saved as {concatenated_maf_name.replace('.maf', '_cleaned.maf')}")
+        
+        #create new manifest df for samples to rerun
+        rerun_manifest_df = manifest_df[manifest_df['sample'].isin(samples_to_rerun)]
+        rerun_manifest_df.to_csv(os.path.join(output_path, f"vcf_annotation_rerun_manifest_{dt}.csv"), index=False)
+        runner_logger.info(f"Rerun manifest file saved as vcf_annotation_rerun_manifest_{dt}.csv")
+        logger.info(f"Rerun manifest file saved as vcf_annotation_rerun_manifest_{dt}.csv")
+    else:
+        runner_logger.info("No discrepancies found in concatenated MAF file.")
+        logger.info("No discrepancies found in concatenated MAF file.")
+
+    return None
+
 
 DropDownChoices = Literal["GRCh37", "GRCh38"]
 DropDownChoices2 = Literal["yes", "no"]
@@ -544,9 +614,11 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
             runner_logger.info("All files already annotated, skipping annotation step")
         else:
             # filter manifest to only include files not yet annotated
-            existing_maf_files = [f.replace("_annotated.maf", "") for f in os.listdir(output_path) if f.endswith("_annotated.maf")]
-            expected_maf_files = [os.path.basename(url).replace(".vcf.gz", "") for url in manifest_df['file_url']]
-            to_annotate_files = set(expected_maf_files) - set(existing_maf_files)
+            existing_maf_files = [f.replace("_annotated.maf", "") for f in os.listdir(output_path) if f.endswith("_annotated.maf")] # observed
+            expected_maf_files = [os.path.basename(url).replace(".vcf.gz", "") for url in manifest_df['file_url']] # expected
+            to_annotate_files = set(expected_maf_files) - set(existing_maf_files) # files to annotate
+            
+            # filter manifest df to only include files to annotate
             annotate_df = manifest_df[manifest_df['file_url'].apply(lambda x: os.path.basename(x).replace(".vcf.gz", "") in to_annotate_files)]
             runner_logger.info(f"Number of files to annotate: {len(annotate_df)}")
             for i in range(0, len(annotate_df), 200):
@@ -581,7 +653,8 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
     
     concat_mafs(maf_files, output_path, concatenated_maf_name, dt, logger, runner_logger)
     
-    # TODO add concat MAF checks
+    # concat MAF checks
+    concat_maf_check(output_path, concatenated_maf_name, f"vcf_annotated_line_counts_{dt}.txt", manifest_df, dt, logger, runner_logger)
     
     # gzip all MAFs in output path
     shell_op = ShellOperation(
