@@ -418,6 +418,9 @@ def concat_maf_check(output_path: str, concatenated_maf_name: str, line_count_fi
     # add in file_name for mapping to line_counts
     line_counts['file_name'] = line_counts['file_name'].apply(lambda x: os.path.basename(x))
     
+    # remove count of header line from line counts
+    line_counts['line_count'] = line_counts['line_count'].astype(int) - 1
+    
     # map samples to line counts by transformed file name
     manifest_df['file_name'] = manifest_df['file_url'].apply(lambda x: os.path.basename(x).replace('.vcf.gz', '_annotated.maf'))
     merged_df = pd.merge(manifest_df, line_counts, on='file_name', how='left')
