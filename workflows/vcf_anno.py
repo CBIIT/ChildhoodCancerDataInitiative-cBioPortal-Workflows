@@ -397,6 +397,7 @@ def concat_mafs(maf_files: list, output_path: str, concatenated_maf_name: str, d
     runner_logger.info(f"Concatenated MAF file: {concatenated_maf_name}")
     logger.info(f"Concatenated MAF file: {concatenated_maf_name}")
 
+@task(name="concat_maf_check", log_prints=True)
 def concat_maf_check(output_path: str, concatenated_maf_name: str, line_count_filename: str, manifest_df: pd.DataFrame, dt: str, logger, runner_logger) -> None:
     """Check concatenated MAF file line counts
 
@@ -413,6 +414,9 @@ def concat_maf_check(output_path: str, concatenated_maf_name: str, line_count_fi
     
     # read in line count file
     line_counts = pd.read_csv(os.path.join(output_path, line_count_filename), sep='\s+', header=None, names=['line_count', 'file_name'])
+    
+    # add in file_name for mapping to line_counts
+    line_counts['file_name'] = line_counts['file_name'].apply(lambda x: os.path.basename(x))
     
     # map samples to line counts by transformed file name
     manifest_df['file_name'] = manifest_df['file_url'].apply(lambda x: os.path.basename(x).replace('.vcf.gz', '_annotated.maf'))
@@ -679,5 +683,3 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
     )
     
     return None
-    
-    
