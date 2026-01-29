@@ -426,7 +426,7 @@ def concat_maf_check(output_path: str, concatenated_maf_name: str, line_count_fi
     merged_df = pd.merge(manifest_df, line_counts, on='file_name', how='left')
     
     # read in concatenated MAF file and get line count by Tumor_Sample_Barcode
-    concat_maf = pd.read_csv(os.path.join(output_path, concatenated_maf_name), sep='\t', comment='#')
+    concat_maf = pd.read_csv(os.path.join(output_path, concatenated_maf_name), sep='\t', comment='#', low_memory=False)
     concat_line_counts = concat_maf['Tumor_Sample_Barcode'].value_counts().reset_index()
     concat_line_counts.columns = ['Tumor_Sample_Barcode', 'line_count']
     
