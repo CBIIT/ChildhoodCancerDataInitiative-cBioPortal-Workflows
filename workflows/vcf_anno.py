@@ -487,7 +487,7 @@ DropDownChoices = Literal["GRCh37", "GRCh38"]
 DropDownChoices2 = Literal["yes", "no"]
 
 @flow(name="cbio-vcf-annotation-flow", log_prints=True)
-def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome: DropDownChoices, cleanup: DropDownChoices2, output_path: str = None, maf_concat: str = None) -> None:
+def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome: DropDownChoices, cleanup: DropDownChoices2, previous_output_path: str = None, maf_concat: str = None) -> None:
     """Flow to annotate VCF files using Genome Nexus annotation tool
 
     Args:
@@ -496,8 +496,8 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
         manifest_path (str): path to csv file with cols for sample, md5sum and file_url of VCFs
         reference_genome (Literal['GRCh37', 'GRCh38']): reference genome to use for annotation
         cleanup (Literal["yes", "no"]): If 'yes', instead of running annotation, cleans up existing vcf annotation folder on mnt drive
-        output_path (str): Path to output directory; to be used if previous run failed, pick up where left off
-        maf_concat (str, optional): Path of concatenated MAF file to concat new annotations to. Defaults to None.
+        previous_output_path (str): Path to previous output directory in mounted drive (e.g. /usr/local/data/vcf_annotation/vcf_run_20260120_T072723); to be used if previous run failed/crashed, pick up where left off
+        maf_concat (str, optional): Path of concatenated MAF file in AWS bucket to concat new annotations to. Defaults to None.
     """
     
     runner_logger = get_run_logger()
@@ -539,7 +539,7 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
 
     # download vcf files from S3
     # change working directory to mounted drive 
-    if output_path is None or output_path == "":
+    if previous_output_path is None or previous_output_path == "":
         runner_logger.info("Setting up new output and download paths...")
         output_path = os.path.join("/usr/local/data/vcf_annotation", "vcf_run_"+dt)
         os.makedirs(output_path, exist_ok=True)
@@ -550,7 +550,8 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
     else:
         prev_run_chk_flag = True
         
-        # print out contents of output path
+        # set output and download paths from previous run
+        output_path = previous_output_path
         runner_logger.info(f"Output path for previous run: {output_path}")
         
         download_path = os.path.basename(output_path).replace("vcf_run_", "vcf_downloads_")
