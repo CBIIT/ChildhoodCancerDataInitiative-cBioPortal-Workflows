@@ -7,9 +7,13 @@ from prefect_shell import ShellOperation
 from prefect.task_runners import ConcurrentTaskRunner
 from typing import Literal
 import boto3
-from botocore.exceptions import ClientError
+from botocore.exceptions import ClientError, EndpointConnectionError, SSLError
 from prefect import flow, task, get_run_logger, unmapped
-from src.utils import get_time, file_dl, get_logger, upload_folder_to_s3, set_s3_resource
+from src.utils import get_time, file_dl, upload_folder_to_s3, set_s3_resource, get_logger
+import ssl
+import socket
+from urllib3.exceptions import SSLError as Urllib3SSLError
+from requests.exceptions import SSLError as RequestsSSLError, ConnectionError
 
 @task(name="install-genome-nexus-annotation", log_prints=True)
 def install_nexus():
@@ -31,6 +35,7 @@ def install_nexus():
     )
     shell_op.run()
     
+    return None
     
 
 @task(name="get_md5", log_prints=True)
@@ -61,8 +66,8 @@ def get_md5(file_path):
     task_run_name="vcf_dl_task_{dl_parameter[file_name]}", 
     log_prints=True,
     tags=["vcf_dl_task-tag"],
-    retries=3,
-    retry_delay_seconds=1,
+    retries=5,
+    retry_delay_seconds=[1, 2, 4, 8, 16],
 )
 def vcf_dl_task(dl_parameter: dict, runner_logger):
     """Download vcf files from S3
@@ -89,6 +94,16 @@ def vcf_dl_task(dl_parameter: dict, runner_logger):
         ex_message = ex.response["Error"]["Message"]
         runner_logger.error(
             f"ClientError occurred while downloading file {filename} from bucket {bucket}:\n{ex_code}, {ex_message}"
+        )
+        raise
+    except (SSLError, ssl.SSLError, Urllib3SSLError, RequestsSSLError, EndpointConnectionError, ConnectionError, socket.error, OSError) as ex:
+        runner_logger.warning(
+            f"TLS/SSL or connection error while downloading file {filename} from bucket {bucket}: {str(ex)}. Retrying..."
+        )
+        raise
+    except Exception as ex:
+        runner_logger.error(
+            f"Unexpected error occurred while downloading file {filename} from bucket {bucket}: {str(ex)}"
         )
         raise
 
@@ -166,7 +181,7 @@ def annotator_flow(manifest_df: pd.DataFrame, download_dir: str, output_dir: str
     """
 
     # throttle submission of tasks to avoid overwhelming the system
-    time.sleep(2)
+    time.sleep(5)
 
     #setup with list of dicts to iterate over and then run with map
     submit_list = []
@@ -187,10 +202,9 @@ def annotator_flow(manifest_df: pd.DataFrame, download_dir: str, output_dir: str
     return annotation.result()
 
 @task(name="version_check", log_prints=True)
-def version_check():
+def version_check(runner_logger) -> None:
     """Check version of genome nexus annotation tool
     """
-    runner_logger = get_run_logger()
     
     shell_op = ShellOperation(
         commands=[
@@ -214,8 +228,16 @@ def version_check():
         ]
     )
     shell_op.run()
+    
+    return None
 
-@task(name="vcf_annotator", log_prints=True, tags=["vcf_dl_task-tag"])
+@task(
+    name="vcf_annotator", 
+    log_prints=True, 
+    tags=["vcf_anno_task-tag"],
+    retries=3,
+    retry_delay_seconds=[2, 5, 10]
+)
 def annotator(anno_parameter: dict, logger) -> None:
     """Annotate vcf file using genome nexus annotation tool
 
@@ -227,6 +249,9 @@ def annotator(anno_parameter: dict, logger) -> None:
         reference_genome (str): Reference genome to use for annotation
     """
     runner_logger = get_run_logger()
+    
+    # throttle submission of tasks to avoid overwhelming the system
+    time.sleep(5)
     
     # load in anno params
     vcf_file = anno_parameter['vcf_file']
@@ -288,10 +313,18 @@ def annotator(anno_parameter: dict, logger) -> None:
                 ]
             )
             shell_op.run()
+            
+            # replace sample barcode in output file
+            anno_maf = pd.read_csv(f"{output_dir}/{os.path.basename(vcf_file).replace('.vcf', '_annotated.maf')}", sep='\t', comment='#')
+            anno_maf['Tumor_Sample_Barcode'] = sample_barcode
+            anno_maf.to_csv(f"{output_dir}/{os.path.basename(vcf_file).replace('.vcf', '_annotated.maf')}", sep='\t', index=False)
+            
+            runner_logger.info(f"Annotation completed for vcf file: {vcf_file}")
+            
         except Exception as e:
             runner_logger.error(f"Error annotating vcf file {vcf_file} with GRCh37: {e}")
             logger.error(f"Error annotating vcf file {vcf_file} with GRCh37: {e}")
-            raise
+            
     else:
         try:
             shell_op = ShellOperation(
@@ -302,23 +335,159 @@ def annotator(anno_parameter: dict, logger) -> None:
                 ]
             )
             shell_op.run()
+            
+            # replace sample barcode in output file
+            anno_maf = pd.read_csv(f"{output_dir}/{os.path.basename(vcf_file).replace('.vcf', '_annotated.maf')}", sep='\t', comment='#')
+            anno_maf['Tumor_Sample_Barcode'] = sample_barcode
+            anno_maf.to_csv(f"{output_dir}/{os.path.basename(vcf_file).replace('.vcf', '_annotated.maf')}", sep='\t', index=False)
+            
+            runner_logger.info(f"Annotation completed for vcf file: {vcf_file}")
+            
         except Exception as e:
             runner_logger.error(f"Error annotating vcf file {vcf_file} with GRCh38: {e}")
             logger.error(f"Error annotating vcf file {vcf_file} with GRCh38: {e}")
-            raise
+
+@task(name="concat_mafs", log_prints=True)
+def concat_mafs(maf_files: list, output_path: str, concatenated_maf_name: str, dt: str, logger, runner_logger) -> None:
+    """Concatenate MAF files
+
+    Args:
+        maf_files (list): List of MAF files to concatenate
+        output_path (str): Path to output directory
+        concatenated_maf_name (str): Name of concatenated MAF file
+        dt (str): Date-time string for naming
+        runner_logger (_type_): _runner_logger_ object
+    """
+
+    # init MAF file with first file
+    shell_op = ShellOperation(
+        commands=[
+            f"grep -vE '^#' {os.path.join(output_path, maf_files[0])} > {os.path.join(output_path, concatenated_maf_name)}"
+        ]
+    )
+    shell_op.run()
     
-    # replace sample barcode in output file
-    anno_maf = pd.read_csv(f"{output_dir}/{os.path.basename(vcf_file).replace('.vcf', '_annotated.maf')}", sep='\t', comment='#')
-    anno_maf['Tumor_Sample_Barcode'] = sample_barcode
-    anno_maf.to_csv(f"{output_dir}/{os.path.basename(vcf_file).replace('.vcf', '_annotated.maf')}", sep='\t', index=False)
+    # init record line counts in separate file
+    line_count_filename = f"vcf_annotated_line_counts_{dt}.txt"
     
-    runner_logger.info(f"Annotation completed for vcf file: {vcf_file}")
+    line_op = ShellOperation(
+        commands=[
+            f"wc -l {os.path.join(output_path, maf_files[0])} >> {os.path.join(output_path, line_count_filename)}"
+        ]
+    )
+    line_op.run()
+    
+    # use ShellOperation to concatenate files
+    for maf in maf_files[1:]:
+        shell_op = ShellOperation(
+            commands=[
+                f"grep -vE '^\#|^Hugo_Symbol' {os.path.join(output_path, maf)} >> {os.path.join(output_path, concatenated_maf_name)}"
+            ]
+        )
+        shell_op.run()
+        
+        # record line counts
+        line_op = ShellOperation(
+        commands=[
+                f"wc -l {os.path.join(output_path, maf)} >> {os.path.join(output_path, line_count_filename)}"
+            ]
+        )
+        line_op.run()
+        
+    runner_logger.info(f"Concatenated MAF file: {concatenated_maf_name}")
+    logger.info(f"Concatenated MAF file: {concatenated_maf_name}")
+
+@task(name="concat_maf_check", log_prints=True)
+def concat_maf_check(output_path: str, concatenated_maf_name: str, line_count_filename: str, manifest_df: pd.DataFrame, dt: str, logger, runner_logger) -> None:
+    """Check concatenated MAF file line counts
+
+    Args:
+        output_path (str): Path to output directory
+        concatenated_maf_name (str): Name of concatenated MAF file
+        line_count_filename (str): Name of line count file
+        logger: Logger object
+        runner_logger: Runner logger object
+    """
+    
+    # samples to rerun init
+    samples_to_rerun = []
+    
+    # read in line count file
+    line_counts = pd.read_csv(os.path.join(output_path, line_count_filename), sep='\s+', header=None, names=['line_count', 'file_name'])
+    
+    # add in file_name for mapping to line_counts
+    line_counts['file_name'] = line_counts['file_name'].apply(lambda x: os.path.basename(x))
+    
+    # remove count of header line from line counts
+    line_counts['line_count'] = line_counts['line_count'].astype(int) - 1
+    
+    # map samples to line counts by transformed file name
+    manifest_df['file_name'] = manifest_df['file_url'].apply(lambda x: os.path.basename(x).replace('.vcf.gz', '_annotated.maf'))
+    merged_df = pd.merge(manifest_df, line_counts, on='file_name', how='left')
+    
+    # read in concatenated MAF file and get line count by Tumor_Sample_Barcode
+    concat_maf = pd.read_csv(os.path.join(output_path, concatenated_maf_name), sep='\t', comment='#', low_memory=False)
+    concat_line_counts = concat_maf['Tumor_Sample_Barcode'].value_counts().reset_index()
+    concat_line_counts.columns = ['Tumor_Sample_Barcode', 'line_count']
+    
+    # rename columns for merging
+    merged_df = pd.merge(merged_df, concat_line_counts, left_on='sample', right_on='Tumor_Sample_Barcode', how='left', suffixes=('_individual', '_concat'))
+    
+    # compare line counts
+    discrepancies = merged_df[merged_df['line_count_individual'] != merged_df['line_count_concat']]
+    if not discrepancies.empty:
+        runner_logger.error("Discrepancies found in line counts between individual MAFs and concatenated MAF:")
+        logger.error("Discrepancies found in line counts between individual MAFs and concatenated MAF:")
+        for _, row in discrepancies.iterrows():
+            runner_logger.error(f"Sample: {row['sample']}, Individual line count: {row['line_count_individual']}, Concatenated line count: {row['line_count_concat']}")
+            logger.error(f"Sample: {row['sample']}, Individual line count: {row['line_count_individual']}, Concatenated line count: {row['line_count_concat']}")
+            samples_to_rerun.append(row['sample'])
+    
+    # check for FAILED annotations in col Annotation_Status
+    fail_check_df = concat_maf[(concat_maf.Annotation_Status == 'FAILED') & ~(concat_maf.Chromosome.str.contains('KI2'))].groupby('Tumor_Sample_Barcode').size()
+    
+    if not fail_check_df.empty:
+        runner_logger.error("Samples with FAILED annotations found in concatenated MAF:")
+        logger.error("Samples with FAILED annotations found in concatenated MAF:")
+        for sample in fail_check_df.index:
+            runner_logger.error(f"Sample: {sample}, Failed annotations: {fail_check_df[sample]}")
+            logger.error(f"Sample: {sample}, Failed annotations: {fail_check_df[sample]}")
+            samples_to_rerun.append(sample)
+            
+    # check for misformatted variants with null/missin Tumor_Sample_Barcode
+    misformatted_df = concat_maf[concat_maf['Tumor_Sample_Barcode'].isnull() | (concat_maf['Tumor_Sample_Barcode'] == '')]
+    if not misformatted_df.empty:
+        runner_logger.error("Misformatted variants with null/missing Tumor_Sample_Barcode found in concatenated MAF:")
+        logger.error("Misformatted variants with null/missing Tumor_Sample_Barcode found in concatenated MAF:")
+        for _, row in misformatted_df.iterrows():
+            runner_logger.error(f"Variant: {row['Chromosome']}:{row['Start_Position']} {row['Reference_Allele']}>{row['Tumor_Seq_Allele1']}")
+            logger.error(f"Variant: {row['Chromosome']}:{row['Start_Position']} {row['Reference_Allele']}>{row['Tumor_Seq_Allele1']}")
+
+    # save new concat MAF without samples identified in samples_to_rerun OR Tumor_Sample_Barcode null/missing
+    if samples_to_rerun or not misformatted_df.empty:
+        cleaned_concat_maf = concat_maf[~concat_maf['Tumor_Sample_Barcode'].isin(samples_to_rerun)]
+        cleaned_concat_maf = cleaned_concat_maf[~(cleaned_concat_maf['Tumor_Sample_Barcode'].isnull() | (cleaned_concat_maf['Tumor_Sample_Barcode'] == ''))]
+        cleaned_concat_maf.to_csv(os.path.join(output_path, concatenated_maf_name.replace('.maf', '_cleaned.maf')), sep='\t', index=False)
+        runner_logger.info(f"Cleaned concatenated MAF file saved as {concatenated_maf_name.replace('.maf', '_cleaned.maf')}")
+        logger.info(f"Cleaned concatenated MAF file saved as {concatenated_maf_name.replace('.maf', '_cleaned.maf')}")
+        
+        #create new manifest df for samples to rerun
+        rerun_manifest_df = manifest_df[manifest_df['sample'].isin(samples_to_rerun)]
+        rerun_manifest_df.to_csv(os.path.join(output_path, f"vcf_annotation_rerun_manifest_{dt}.csv"), index=False)
+        runner_logger.info(f"Rerun manifest file saved as vcf_annotation_rerun_manifest_{dt}.csv")
+        logger.info(f"Rerun manifest file saved as vcf_annotation_rerun_manifest_{dt}.csv")
+    else:
+        runner_logger.info("No discrepancies found in concatenated MAF file.")
+        logger.info("No discrepancies found in concatenated MAF file.")
+
+    return None
+
 
 DropDownChoices = Literal["GRCh37", "GRCh38"]
 DropDownChoices2 = Literal["yes", "no"]
 
 @flow(name="cbio-vcf-annotation-flow", log_prints=True)
-def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome: DropDownChoices, cleanup: DropDownChoices2) -> None:
+def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome: DropDownChoices, cleanup: DropDownChoices2, previous_output_path: str = None, maf_concat: str = None) -> None:
     """Flow to annotate VCF files using Genome Nexus annotation tool
 
     Args:
@@ -327,19 +496,22 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
         manifest_path (str): path to csv file with cols for sample, md5sum and file_url of VCFs
         reference_genome (Literal['GRCh37', 'GRCh38']): reference genome to use for annotation
         cleanup (Literal["yes", "no"]): If 'yes', instead of running annotation, cleans up existing vcf annotation folder on mnt drive
+        previous_output_path (str): Path to previous output directory in mounted drive (e.g. /usr/local/data/vcf_annotation/vcf_run_20260120_T072723); to be used if previous run failed/crashed, pick up where left off
+        maf_concat (str, optional): Path of concatenated MAF file in AWS bucket to concat new annotations to. Defaults to None.
     """
+    
+    runner_logger = get_run_logger()
+    
     if cleanup == "yes":
         # cleanup vcf annotation folder on mnt drive
         vcf_anno_path = "/usr/local/data/vcf_annotation"
         if os.path.exists(vcf_anno_path):
             shutil.rmtree(vcf_anno_path)
-            runner_logger = get_run_logger()
             runner_logger.info(f"Cleaned up existing vcf annotation folder at {vcf_anno_path}")
             return None
     
     dt = get_time()
-
-    runner_logger = get_run_logger()
+    
     runner_logger.info("Starting VCF annotation flow...")
     
     # print current directory
@@ -348,7 +520,7 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
     
     # check versions of tools
     runner_logger.info("Checking versions of tools...")
-    version_check()
+    version_check(runner_logger)
     
     # install genome nexus annotation tool
     runner_logger.info("Installing Genome Nexus Annotation tool...")
@@ -367,11 +539,29 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
 
     # download vcf files from S3
     # change working directory to mounted drive 
-    output_path = os.path.join("/usr/local/data/vcf_annotation", "vcf_run_"+dt)
-    os.makedirs(output_path, exist_ok=True)
-
-    download_path = os.path.join(output_path, "vcf_downloads_"+dt)
-    os.makedirs(download_path, exist_ok=True)
+    if previous_output_path is None or previous_output_path == "":
+        runner_logger.info("Setting up new output and download paths...")
+        output_path = os.path.join("/usr/local/data/vcf_annotation", "vcf_run_"+dt)
+        os.makedirs(output_path, exist_ok=True)
+        
+        download_path = os.path.join(output_path, "vcf_downloads_"+dt)
+        os.makedirs(download_path, exist_ok=True)
+        prev_run_chk_flag = False
+    else:
+        prev_run_chk_flag = True
+        
+        # set output and download paths from previous run
+        output_path = previous_output_path
+        runner_logger.info(f"Output path for previous run: {output_path}")
+        
+        download_path = os.path.basename(output_path).replace("vcf_run_", "vcf_downloads_")
+        download_path = os.path.join(output_path, download_path)
+        runner_logger.info(f"Download path for previous run: {download_path}")
+        if not os.path.exists(download_path):
+            runner_logger.error(f"Download path {download_path} does not exist for previous run, cannot resume")
+            raise ValueError(f"Download path {download_path} does not exist for previous run, cannot resume")
+        else:
+            runner_logger.info(f"Resuming from previous run, using download path: {download_path}")
     
     # create logger
     log_filename = f"{output_path}/cbio_vcf_annotation.log"
@@ -386,7 +576,26 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
     os.chdir(download_path)
     
     runner_logger.info("Downloading VCF files from S3...")
-    download_vcf(manifest_df)
+    if prev_run_chk_flag:
+        # check how many files already downloaded
+        num_existing_files = len(os.listdir(download_path))
+        runner_logger.info(f"Number of files already downloaded: {num_existing_files}")
+        if num_existing_files >= exp_num_files:
+            runner_logger.info("All files already downloaded, skipping download step")
+        else:
+            # filter manifest to only include files not yet downloaded
+            existing_files = os.listdir(download_path)
+            download_df = manifest_df[~manifest_df['file_url'].apply(lambda x: os.path.basename(x) in existing_files)]
+            runner_logger.info(f"Number of files to download: {len(download_df)}")
+            for i in range(0, len(download_df), 500):
+                batch_df = download_df.iloc[i:i+500]
+                runner_logger.info(f"Downloading batch {i//500 + 1} of {len(download_df)//500 + 1} VCF files...")
+                download_vcf(batch_df)
+    else:
+        for i in range(0, len(manifest_df), 500):
+            batch_df = manifest_df.iloc[i:i+500]
+            runner_logger.info(f"Downloading batch {i//500 + 1} of {len(manifest_df)//500 + 1} VCF files...")
+            download_vcf(batch_df)
     
     # count number of files downloaded
     num_files = len(os.listdir(download_path))
@@ -397,20 +606,76 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
         runner_logger.error("Number of files downloaded does not match expected number of files")
         logger.error("Number of files downloaded does not match expected number of files")
 
-    # mk output path
+    # output path
     runner_logger.info(f"Output path: {output_path}")
     
     os.chdir(home_dir)
     
     # annotate vcf files
     runner_logger.info("Annotating VCF files...")
-    annotator_flow(manifest_df, download_path, output_path, reference_genome, logger=logger)
+    if prev_run_chk_flag:
+        # check how many files already annotated
+        num_existing_maf_files = len([f for f in os.listdir(output_path) if f.endswith("_annotated.maf")])
+        runner_logger.info(f"Number of files already annotated: {num_existing_maf_files}")
+        if num_existing_maf_files >= exp_num_files:
+            runner_logger.info("All files already annotated, skipping annotation step")
+        else:
+            # filter manifest to only include files not yet annotated
+            existing_maf_files = [f.replace("_annotated.maf", "") for f in os.listdir(output_path) if f.endswith("_annotated.maf")] # observed
+            expected_maf_files = [os.path.basename(url).replace(".vcf.gz", "") for url in manifest_df['file_url']] # expected
+            to_annotate_files = set(expected_maf_files) - set(existing_maf_files) # files to annotate
+            
+            # filter manifest df to only include files to annotate
+            annotate_df = manifest_df[manifest_df['file_url'].apply(lambda x: os.path.basename(x).replace(".vcf.gz", "") in to_annotate_files)]
+            runner_logger.info(f"Number of files to annotate: {len(annotate_df)}")
+            for i in range(0, len(annotate_df), 200):
+                batch_df = annotate_df.iloc[i:i+200]
+                runner_logger.info(f"Annotating batch {i//200 + 1} of {len(annotate_df)//200 + 1} VCF files...")
+                annotator_flow(batch_df, download_path, output_path, reference_genome, logger=logger)
+    else:
+        for i in range(0, len(manifest_df), 200):
+            batch_df = manifest_df.iloc[i:i+200]
+            runner_logger.info(f"Annotating batch {i//200 + 1} of {len(manifest_df)//200 + 1} VCF files...")
+            annotator_flow(batch_df, download_path, output_path, reference_genome, logger=logger)
+    
+    # concatenation of MAFs
+    runner_logger.info("Concatenating annotated MAF files...")
+    maf_files = [f for f in os.listdir(output_path) if f.endswith("_annotated.maf")]
+    concatenated_maf_name = f"vcf_annotated_concatenated_{dt}.maf"
+    
+    if maf_concat: # previously concatenated maf to append to
+        file_dl(bucket, maf_concat) # download the file
+        maf_concat_basename = os.path.basename(maf_concat) # get the file name
+        if maf_concat_basename.endswith(".gz"): 
+            # unzip file
+            shell_op = ShellOperation(
+                commands=[
+                    f"gunzip {maf_concat_basename}"
+                ]
+            )
+            shell_op.run()
+            maf_concat_basename = maf_concat_basename.replace(".gz", "")
+        shutil.move(maf_concat_basename, os.path.join(output_path, maf_concat_basename)) # move to output path
+        maf_files.insert(0, maf_concat_basename) # add to list of mafs to concatenate
+    
+    concat_mafs(maf_files, output_path, concatenated_maf_name, dt, logger, runner_logger)
+    
+    # concat MAF checks
+    concat_maf_check(output_path, concatenated_maf_name, f"vcf_annotated_line_counts_{dt}.txt", manifest_df, dt, logger, runner_logger)
+    
+    # gzip all MAFs in output path
+    shell_op = ShellOperation(
+        commands=[
+            f"gzip {output_path}/*.maf"
+        ]
+    )
+    shell_op.run()
 
     # remove downloaded VCF files by removing download path
     shutil.rmtree(download_path)
     runner_logger.info(f"Removed downloaded VCF files from {download_path}")
     logger.info(f"Removed downloaded VCF files from {download_path}")
-        
+
     # upload annotated files to S3
     os.rename(log_filename, log_filename.replace(".log", "_"+dt+".log"))
     
@@ -420,3 +685,5 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
         destination=runner,
         sub_folder=""
     )
+    
+    return None
