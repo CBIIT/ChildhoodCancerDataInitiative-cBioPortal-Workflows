@@ -552,7 +552,10 @@ def cnv_flow(bucket: str, manifest_path: str, destination_path: str, gencode_ver
 
         # change working directory to download path
         os.chdir(download_path)
-        download_cnv(manifest_df, logger)
+        for i in range(0, len(manifest_df), 500):
+            batch_df = manifest_df.iloc[i:i+500]
+            runner_logger.info(f"Downloading batch {i//500 + 1} of {len(manifest_df)//500 + 1} CNV files...")
+            download_cnv(batch_df, logger)
 
         # count number of files downloaded
         num_files = len(os.listdir(download_path))
