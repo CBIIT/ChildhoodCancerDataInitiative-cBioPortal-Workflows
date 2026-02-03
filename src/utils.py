@@ -2,6 +2,7 @@ import subprocess, os, json
 from datetime import datetime
 from pytz import timezone
 from prefect import task, flow, get_run_logger
+from prefect.variables import get_variable
 import mysql.connector
 import pandas as pd
 import boto3
@@ -50,7 +51,9 @@ def get_secret(env_name: str):
         dict: JSON object with credentials
     """
 
-    region_name = "us-east-1"
+    region_name = get_variable("aws_region")
+    
+    account_id = get_variable("cbio_aws_account_id")
 
     if env_name == "dev":
         secret_name = "ccdicbio-dev-rds"
@@ -62,7 +65,10 @@ def get_secret(env_name: str):
         secret_name = "ccdicbioprod-db-credentials"
     else:
         raise ValueError("Invalid environment name. Please use one of: ['dev', 'qa', 'stage', 'prod'].")
-        
+    
+    # update secret name for centralized workers
+    secret_name = f"arn:aws:secretsmanager:{region_name}:{account_id}:{secret_name}"
+    
     # Create a Secrets Manager client
     session = boto3.session.Session()
     client = session.client(service_name="secretsmanager", region_name=region_name)
