@@ -112,7 +112,7 @@ deployments:
       directory: "{{ clone-step.directory }}"
       stream_output: False
       
-- name: cbio-cnv-transform
+- name: TEST-cbio-cnv-transform
   version: null
   tags:
   - mysql
@@ -135,7 +135,7 @@ deployments:
   - prefect.deployments.steps.git_clone:
       id: clone-step
       repository: https://github.com/CBIIT/ChildhoodCancerDataInitiative-cBioPortal-Workflows.git
-      branch: main
+      branch: cnv_batch
   - prefect.deployments.steps.run_shell_script:
       script: apt-get update
       stream_output: true
