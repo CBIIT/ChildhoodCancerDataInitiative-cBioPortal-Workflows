@@ -10,6 +10,13 @@ from botocore.exceptions import ClientError
 import logging
 
 
+@task(name="Log AWS Caller Identity")
+def log_aws_identity():
+    logger = get_run_logger()
+    sts = boto3.client("sts")
+    identity = sts.get_caller_identity()
+    logger.info(f"AWS Caller Identity: {identity}")
+
 def get_time() -> str:
     """Returns the current time"""
     tz = timezone("EST")
@@ -267,6 +274,7 @@ def db_counter(db_type: str, dump_file: str = None):
     Returns:
         pd.DataFrame: DataFrame containing table names, column counts, and row counts.
     """
+    log_aws_identity()
     if db_type == "dump": 
     
         # Check if dump_file is provided
