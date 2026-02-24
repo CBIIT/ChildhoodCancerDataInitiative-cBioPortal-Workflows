@@ -10,8 +10,7 @@ from botocore.exceptions import ClientError
 import logging
 
 
-@task(name="Log AWS Caller Identity")
-def log_aws_identity():
+def log_aws_identity(logger):
     logger = get_run_logger()
     sts = boto3.client("sts")
     identity = sts.get_caller_identity()
@@ -476,16 +475,12 @@ def upload_folder_to_s3(
 
 @task(name="Restart ECS Service Task", retries=3, retry_delay_seconds=30)
 def restart_ecs_service(env_name: str):
-    log_aws_identity()
     logger = get_run_logger()
-    
+    log_aws_identity(logger)
     cluster_name = f"cbio-{env_name}-Cluster"
     service_name = f"cbio-{env_name}-Fargate-Service"
     
     ecs_client = boto3.client('ecs')
-    sts = boto3.client("sts")
-    identity = sts.get_caller_identity()
-    logger.info(f"AWS Caller Identity: {identity}")
     
     logger.info(f"Attempting to force new deployment (restart) for: {service_name} on Cluster: {cluster_name}")
     
