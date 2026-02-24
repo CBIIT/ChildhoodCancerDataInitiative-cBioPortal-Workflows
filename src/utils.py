@@ -483,6 +483,9 @@ def restart_ecs_service(env_name: str):
     service_name = f"cbio-{env_name}-Fargate-Service"
     
     ecs_client = boto3.client('ecs')
+    sts = boto3.client("sts")
+    identity = sts.get_caller_identity()
+    logger.info(f"AWS Caller Identity: {identity}")
     
     logger.info(f"Attempting to force new deployment (restart) for: {service_name} on Cluster: {cluster_name}")
     
