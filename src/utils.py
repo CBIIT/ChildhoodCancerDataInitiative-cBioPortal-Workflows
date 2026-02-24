@@ -11,7 +11,6 @@ import logging
 
 
 def log_aws_identity(logger):
-    logger = get_run_logger()
     sts = boto3.client("sts")
     identity = sts.get_caller_identity()
     logger.info(f"AWS Caller Identity: {identity}")
