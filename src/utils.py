@@ -481,11 +481,17 @@ def restart_ecs_service(env_name: str):
 
     sts = boto3.client("sts")
 
-    assumed_role = sts.assume_role(
-        RoleArn="arn:aws:iam::864981743430:role/power-user-prefect-ecs-task-manager-cBioportal-curation",
-        RoleSessionName="prefect-ecs-restart"
-    )
-
+    if env_name == "prod":
+        assumed_role = sts.assume_role(
+            RoleArn="arn:aws:iam::864981743430:role/power-user-prefect-ecs-task-cBioportal-curation",
+            RoleSessionName="prefect-ecs-restart"
+        )
+    else:
+        assumed_role = sts.assume_role(
+            RoleArn="arn:aws:iam::864981743430:role/power-user-prefect-ecs-task-manager-cBioportal-curation",
+            RoleSessionName="prefect-ecs-restart"
+        )
+    
     creds = assumed_role["Credentials"]
 
     ecs_client = boto3.client(
