@@ -478,8 +478,23 @@ def restart_ecs_service(env_name: str):
     log_aws_identity(logger)
     cluster_name = f"cbio-{env_name}-Cluster"
     service_name = f"cbio-{env_name}-Fargate-Service"
-    
-    ecs_client = boto3.client('ecs')
+
+    sts = boto3.client("sts")
+
+    assumed_role = sts.assume_role(
+        RoleArn="arn:aws:iam::864981743430:role/power-user-prefect-ecs-task-manager-cBioportal-curation",
+        RoleSessionName="prefect-ecs-restart"
+    )
+
+    creds = assumed_role["Credentials"]
+
+    ecs_client = boto3.client(
+        "ecs",
+        region_name="us-east-1",
+        aws_access_key_id=creds["AccessKeyId"],
+        aws_secret_access_key=creds["SecretAccessKey"],
+        aws_session_token=creds["SessionToken"]
+    )
     
     logger.info(f"Attempting to force new deployment (restart) for: {service_name} on Cluster: {cluster_name}")
     
