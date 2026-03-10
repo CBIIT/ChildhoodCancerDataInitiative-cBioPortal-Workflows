@@ -267,7 +267,6 @@ def db_counter(db_type: str, dump_file: str = None):
     Returns:
         pd.DataFrame: DataFrame containing table names, column counts, and row counts.
     """
-    log_aws_identity()
     if db_type == "dump": 
     
         # Check if dump_file is provided
