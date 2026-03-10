@@ -476,12 +476,12 @@ def upload_folder_to_s3(
 def restart_ecs_service(env_name: str):
     logger = get_run_logger()
     log_aws_identity(logger)
-    cluster_name = f"cbio-{env_name}-Cluster"
-    service_name = f"cbio-{env_name}-Fargate-Service"
+    env = env_name.lower()
+    cluster_name = f"cbio-{env}-Cluster"
+    service_name = f"cbio-{env}-Fargate-Service"
 
     sts = boto3.client("sts")
 
-    env = env_name.lower()
     if env in ("prod" ,"stage"):
         assumed_role = sts.assume_role(
             RoleArn="arn:aws:iam::195275671594:role/power-user-prefect-ecs-task-manager-cBioportal-curation-prod",
