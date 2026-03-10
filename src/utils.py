@@ -538,7 +538,7 @@ def process_dump_file(dump_file_name: str) -> bool:
         bool: Whether processing was successful.
     """
     #remove CREATE DATABASE AND USE statements to exclude source db schema calls
-    #rename dump file to raw_{dump_file_name
+    #rename dump file to raw_{dump_file_name}
     raw_dump_file_name = f"raw_{dump_file_name}" 
     os.rename(dump_file_name, raw_dump_file_name)
     pattern = re.compile(r"USE |CREATE DATABASE ")
