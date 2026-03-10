@@ -481,16 +481,19 @@ def restart_ecs_service(env_name: str):
 
     sts = boto3.client("sts")
 
-    if env_name == "prod" or "stage":
+    env = env_name.lower()
+    if env in ("prod" ,"stage"):
         assumed_role = sts.assume_role(
             RoleArn="arn:aws:iam::195275671594:role/power-user-prefect-ecs-task-manager-cBioportal-curation-prod",
             RoleSessionName="prefect-ecs-restart"
         )
-    else:
+    elif env in ("dev","qa"):
         assumed_role = sts.assume_role(
             RoleArn="arn:aws:iam::864981743430:role/power-user-prefect-ecs-task-manager-cBioportal-curation",
             RoleSessionName="prefect-ecs-restart"
         )
+    else :
+        raise ValueError(f"Invalid environment: {env_name}")
     
     creds = assumed_role["Credentials"]
 
