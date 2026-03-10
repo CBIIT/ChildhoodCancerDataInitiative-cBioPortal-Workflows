@@ -10,11 +10,6 @@ from botocore.exceptions import ClientError
 import logging
 
 
-def log_aws_identity(logger):
-    sts = boto3.client("sts")
-    identity = sts.get_caller_identity()
-    logger.info(f"AWS Caller Identity: {identity}")
-
 def get_time() -> str:
     """Returns the current time"""
     tz = timezone("EST")
@@ -475,7 +470,6 @@ def upload_folder_to_s3(
 @task(name="Restart ECS Service Task", retries=3, retry_delay_seconds=30)
 def restart_ecs_service(env_name: str):
     logger = get_run_logger()
-    log_aws_identity(logger)
     env = env_name.lower()
     cluster_name = f"cbio-{env}-Cluster"
     service_name = f"cbio-{env}-Fargate-Service"
