@@ -35,7 +35,7 @@ def set_s3_resource():
         s3_resource = boto3.resource("s3")
     return s3_resource
 
-@task(name="get_secret")
+@task(name="get_secret", log_prints=True)
 def get_secret(env_name: str):
     """Get the secret from AWS Secrets Manager.
 
@@ -51,6 +51,7 @@ def get_secret(env_name: str):
     """
 
     region_name = "us-east-1"
+    account_id = "864981743430"
 
     if env_name == "dev":
         secret_name = "ccdicbio-dev-rds"
@@ -63,10 +64,15 @@ def get_secret(env_name: str):
     else:
         raise ValueError("Invalid environment name. Please use one of: ['dev', 'qa', 'stage', 'prod'].")
         
+    # update secret name for centralized workers
+    secret_name = f"arn:aws:secretsmanager:{region_name}:{account_id}:secret:{secret_name}"
+    
+    print(f"Retrieving secret from path: {secret_name}")
+        
     # Create a Secrets Manager client
     session = boto3.session.Session()
     client = session.client(service_name="secretsmanager", region_name=region_name)
-
+    
     # retreive the secret
     try:
         get_secret_value_response = client.get_secret_value(SecretId=secret_name)
