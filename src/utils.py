@@ -35,7 +35,7 @@ def set_s3_resource():
         s3_resource = boto3.resource("s3")
     return s3_resource
 
-@task(name="get_secret")
+@task(name="get_secret", log_prints=True)
 def get_secret(env_name: str):
     """Get the secret from AWS Secrets Manager.
 
@@ -51,6 +51,7 @@ def get_secret(env_name: str):
     """
 
     region_name = "us-east-1"
+    account_id = "864981743430"
 
     if env_name == "dev":
         secret_name = "ccdicbio-dev-rds"
@@ -63,10 +64,13 @@ def get_secret(env_name: str):
     else:
         raise ValueError("Invalid environment name. Please use one of: ['dev', 'qa', 'stage', 'prod'].")
         
+    # update secret name for centralized workers
+    secret_name = f"arn:aws:secretsmanager:{region_name}:{account_id}:secret:{secret_name}"
+        
     # Create a Secrets Manager client
     session = boto3.session.Session()
     client = session.client(service_name="secretsmanager", region_name=region_name)
-
+    
     # retreive the secret
     try:
         get_secret_value_response = client.get_secret_value(SecretId=secret_name)
@@ -469,11 +473,34 @@ def upload_folder_to_s3(
 @task(name="Restart ECS Service Task", retries=3, retry_delay_seconds=30)
 def restart_ecs_service(env_name: str):
     logger = get_run_logger()
+    env = env_name.lower()
+    cluster_name = f"cbio-{env}-Cluster"
+    service_name = f"cbio-{env}-Fargate-Service"
+
+    sts = boto3.client("sts")
+
+    if env in ("prod" ,"stage"):
+        assumed_role = sts.assume_role(
+            RoleArn="arn:aws:iam::195275671594:role/power-user-prefect-ecs-task-manager-cBioportal-curation-prod",
+            RoleSessionName="prefect-ecs-restart"
+        )
+    elif env in ("dev","qa"):
+        assumed_role = sts.assume_role(
+            RoleArn="arn:aws:iam::864981743430:role/power-user-prefect-ecs-task-manager-cBioportal-curation",
+            RoleSessionName="prefect-ecs-restart"
+        )
+    else :
+        raise ValueError(f"Invalid environment: {env_name}")
     
-    cluster_name = f"cbio-{env_name}-Cluster"
-    service_name = f"cbio-{env_name}-Fargate-Service"
-    
-    ecs_client = boto3.client('ecs')
+    creds = assumed_role["Credentials"]
+
+    ecs_client = boto3.client(
+        "ecs",
+        region_name="us-east-1",
+        aws_access_key_id=creds["AccessKeyId"],
+        aws_secret_access_key=creds["SecretAccessKey"],
+        aws_session_token=creds["SessionToken"]
+    )
     
     logger.info(f"Attempting to force new deployment (restart) for: {service_name} on Cluster: {cluster_name}")
     
