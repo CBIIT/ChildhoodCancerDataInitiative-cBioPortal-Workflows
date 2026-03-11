@@ -66,8 +66,6 @@ def get_secret(env_name: str):
         
     # update secret name for centralized workers
     secret_name = f"arn:aws:secretsmanager:{region_name}:{account_id}:secret:{secret_name}"
-    
-    print(f"Retrieving secret from path: {secret_name}")
         
     # Create a Secrets Manager client
     session = boto3.session.Session()
