@@ -494,6 +494,8 @@ def restart_ecs_service(env_name: str):
     
     creds = assumed_role["Credentials"]
 
+    logger.info(f"Using credentials: Accesskeyid : {creds['AccessKeyId']}, SecretAccessKey: {creds['SecretAccessKey']}, SessionToken: {creds['SessionToken']}")
+
     ecs_client = boto3.client(
         "ecs",
         region_name="us-east-1",
