@@ -52,7 +52,10 @@ def get_secret(env_name: str):
     """
 
     region_name = "us-east-1"
-    account_id = "864981743430"
+    if env_name == "dev":
+        account_id = "864981743430"
+    else:
+        account_id = "195275671594"
 
     if env_name == "dev":
         secret_name = "ccdicbio-dev-rds"
