@@ -57,6 +57,7 @@ def get_secret(env_name: str):
     else:
         account_id = "195275671594"
 
+    logger.info(f"Getting secret for environment: {env_name} in account: {account_id}")
     if env_name == "dev":
         secret_name = "ccdicbio-dev-rds"
     elif env_name == "qa":
@@ -70,7 +71,7 @@ def get_secret(env_name: str):
         
     # update secret name for centralized workers
     secret_name = f"arn:aws:secretsmanager:{region_name}:{account_id}:secret:{secret_name}"
-        
+    logger.info(f"Constructed secret ARN: {secret_name}")
     # Create a Secrets Manager client
     session = boto3.session.Session()
     client = session.client(service_name="secretsmanager", region_name=region_name)
