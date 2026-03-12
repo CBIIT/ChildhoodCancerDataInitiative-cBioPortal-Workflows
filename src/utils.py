@@ -50,7 +50,7 @@ def get_secret(env_name: str):
     Returns:
         dict: JSON object with credentials
     """
-
+    logger = get_run_logger()
     region_name = "us-east-1"
     if env_name == "dev":
         account_id = "864981743430"
