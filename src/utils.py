@@ -1,5 +1,6 @@
 import subprocess, os, json
 from datetime import datetime
+from venv import logger
 from pytz import timezone
 from prefect import task, flow, get_run_logger
 import mysql.connector
@@ -74,6 +75,7 @@ def get_secret(env_name: str):
     # retreive the secret
     try:
         get_secret_value_response = client.get_secret_value(SecretId=secret_name)
+        logger.info(f"Successfully retrieved secret value for {get_secret_value_response.get('KmsKeyId')}")
     except ClientError as e:
         raise e
 
