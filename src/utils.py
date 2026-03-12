@@ -478,8 +478,10 @@ def restart_ecs_service(env_name: str):
     service_name = f"cbio-{env}-Fargate-Service"
 
     secret = get_secret(env)
-    logger.info(f"Retrieved secret for environment: {env} and secret keys: {list(json.loads(secret).keys())}")
+    logger.info(f"secret {secret}")
+    logger.info(f"Retrieved secret for environment: {env} and secret keys: host : {json.loads(secret).get('host')}, username: {json.loads(secret).get('username')}, dbClusterIdentifier: {json.loads(secret).get('dbClusterIdentifier')}")
     sts = boto3.client("sts")
+
 
     if env in ("prod" ,"stage"):
         assumed_role = sts.assume_role(
