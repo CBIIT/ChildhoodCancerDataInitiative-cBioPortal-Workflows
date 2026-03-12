@@ -477,6 +477,8 @@ def restart_ecs_service(env_name: str):
     cluster_name = f"cbio-{env}-Cluster"
     service_name = f"cbio-{env}-Fargate-Service"
 
+    secret = get_secret(env)
+    logger.info(f"Retrieved secret for environment: {env} and secret keys: {list(json.loads(secret).keys())}")
     sts = boto3.client("sts")
 
     if env in ("prod" ,"stage"):
@@ -493,8 +495,6 @@ def restart_ecs_service(env_name: str):
         raise ValueError(f"Invalid environment: {env_name}")
     
     creds = assumed_role["Credentials"]
-
-    logger.info(f"Using credentials: Accesskeyid : {creds['AccessKeyId']}, SecretAccessKey: {creds['SecretAccessKey']}, SessionToken: {creds['SessionToken']}")
 
     ecs_client = boto3.client(
         "ecs",
