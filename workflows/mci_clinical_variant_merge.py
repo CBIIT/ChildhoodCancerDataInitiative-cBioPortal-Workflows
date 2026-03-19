@@ -198,7 +198,7 @@ def merge_clinical_variants_to_maf(maf_concat_path: str, anno_clin_muts: pd.Data
     # count rows in new concat maf 
     concat_rows = maf_concat_sorted_deduped.shape[0]
     
-    log_string = f"Number clinical variants: {clin_mut_rows}, \nNumber of variants in raw maf concat: {unannotated_rows}, \nNumber of variants in merged maf: {concat_rows}, \nNumber replaced: {clin_mut_rows-(concat_rows-unannotated_rows)}, \nNumber NOT replaced: {concat_rows-unannotated_rows}"
+    log_string = f"Number clinical variants: {clin_mut_rows}, \nNumber of variants in raw maf concat: {unannotated_rows} \nNumber of variants in merged maf: {concat_rows} \nNumber replaced: {clin_mut_rows-(concat_rows-unannotated_rows)} \nNumber NOT replaced: {concat_rows-unannotated_rows}\n"
     
     return maf_concat_sorted_deduped, log_string
 
@@ -247,7 +247,7 @@ def clin_anno_merge_flow(bucket: str, runner: str, clinical_variant_file_path: s
     clin_muts.to_csv(os.path.join(output_path, f"clin_muts_to_annotate_{dt}.tsv"), sep="\t", index=False) 
     
     runner_logger.info("Annotating clinical mutations")
-    anno_clin_muts, not_anno = annotate_clinical_variants(clin_muts.head(), reference_genome)
+    anno_clin_muts, not_anno = annotate_clinical_variants(clin_muts, reference_genome)
     
     runner_logger.info("Saving annotated clinical mutations file")
     anno_clin_muts.to_csv(os.path.join(output_path, f"annotated_clin_muts_{dt}.tsv"), sep="\t", index=False) 
