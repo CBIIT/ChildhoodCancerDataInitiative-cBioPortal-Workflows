@@ -122,7 +122,7 @@ def annotate_clinical_variants(clin_muts: pd.DataFrame, reference_genome) -> pd.
     
     # query variants against genome nexus
     rows = list(clin_muts.itertuples(index=False))
-    with ThreadPoolExecutor(max_workers=10) as executor:
+    with ThreadPoolExecutor(max_workers=5) as executor:
         results = list(executor.map(fetch_variant, rows, repeat(reference_genome)))
     result_df = pd.DataFrame(results)
     clin_muts = pd.concat([clin_muts.reset_index(drop=True), result_df], axis=1)
