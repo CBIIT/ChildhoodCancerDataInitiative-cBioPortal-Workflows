@@ -261,7 +261,7 @@ deployments:
     runner: ""
     clinical_variant_file_path: ""
     reference_genome: "GRCh38"
-    maf_concat: ""
+    maf_concat_path: ""
   work_pool:
     name: ccdi-dcc-16gb-prefect-3.2.14-python3.9
     work_queue_name:
