@@ -8,6 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 from itertools import repeat
 import shutil
 from typing import Literal
+import openpyxl
 
 @task(name="clin_file_prep", description="Prepares clinical variant file for annotation by filtering to relevant variants and parsing out necessary columns")
 def clin_file_prep(clin_file_path: str, maf_samples: list, reference_genome: str) -> pd.DataFrame:
