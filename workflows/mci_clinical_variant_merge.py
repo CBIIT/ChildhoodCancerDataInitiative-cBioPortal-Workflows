@@ -121,7 +121,7 @@ def fetch_variant(row, reference_genome, retries=3) -> dict:
                     "variant_classification": None
                 }
 
-@flow(name="annotate_clinical_variants", description="Annotates clinical variants using Genome Nexus API")
+@flow(name="annotate_clinical_variants", description="Annotates clinical variants using Genome Nexus API", log_prints=True)
 def annotate_clinical_variants(clin_muts: pd.DataFrame, reference_genome) -> pd.DataFrame:
     """Annotates clinical variants using Genome Nexus API
     
@@ -145,6 +145,7 @@ def annotate_clinical_variants(clin_muts: pd.DataFrame, reference_genome) -> pd.
         #with ThreadPoolExecutor(max_workers=10) as executor:
         #    batch_results = list(executor.map(fetch_variant, batch_rows, repeat(reference_genome)))
         batch_results = fetch_variant.map(batch_rows, unmapped(reference_genome))
+        print(batch_results)
         op_df.extend(batch_results)
     """rows = list(clin_muts.itertuples(index=False))
     with ThreadPoolExecutor(max_workers=2) as executor:
