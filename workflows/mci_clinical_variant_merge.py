@@ -66,6 +66,9 @@ def fetch_variant(row, reference_genome, retries=3) -> dict:
     Returns:
         dict: Dictionary containing annotated variant information
     """
+    # sleep to throttle
+    sleep(1)
+    
     for attempt in range(retries):
         try:
             if reference_genome == 'GRCh38':
@@ -324,10 +327,14 @@ def clin_anno_merge_flow(bucket: str, runner: str, clinical_variant_file_path: s
     clin_muts.to_csv(os.path.join(output_path, f"clin_muts_to_annotate_{dt}.tsv"), sep="\t", index=False) 
     
     runner_logger.info("Annotating clinical mutations")
+    
+    # batch annotations
+    batch_size = 100
     op = []
     try:
-        for batch in range(0, len(clin_muts), 20):
-            batch_clin_muts = clin_muts.iloc[batch:batch+20]
+        for batch in range(0, len(clin_muts), batch_size):
+            runner_logger.info(f"Annotating batch {batch//batch_size + 1} of {((len(clin_muts)-1)//batch_size) + 1}")
+            batch_clin_muts = clin_muts.iloc[batch:batch+batch_size]
             anno_clin_muts, not_anno = annotate_clinical_variants(batch_clin_muts, reference_genome)
             op.append(anno_clin_muts)
     except Exception as e:
