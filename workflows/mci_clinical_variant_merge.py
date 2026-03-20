@@ -258,7 +258,10 @@ def clin_anno_merge_flow(bucket: str, runner: str, clinical_variant_file_path: s
     anno_clin_muts, not_anno = annotate_clinical_variants(clin_muts, reference_genome)
     
     runner_logger.info("Saving annotated clinical mutations file")
-    anno_clin_muts.to_csv(os.path.join(output_path, f"annotated_clin_muts_{dt}.tsv"), sep="\t", index=False) 
+    try:
+        anno_clin_muts.to_csv(os.path.join(output_path, f"annotated_clin_muts_{dt}.tsv"), sep="\t", index=False) 
+    except Exception as e:
+        runner_logger.error(f"Error saving annotated clinical mutations file: {e}")
     
     # merge annotated clinical variants with MegaMAF file, dedupe with preference to clin variants and add annotation columns to maf
     # also get stats for log file
