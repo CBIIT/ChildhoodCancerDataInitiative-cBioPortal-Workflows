@@ -146,7 +146,7 @@ def annotate_clinical_variants(clin_muts: pd.DataFrame, reference_genome) -> pd.
     # Convert DataFrame rows to list for concurrent processing
     rows = list(clin_muts.itertuples(index=False))
     
-    # Process variants in batches to manage memory and API load
+    """# Process variants in batches to manage memory and API load
     batch_size = 20
     all_results = []
     
@@ -170,7 +170,13 @@ def annotate_clinical_variants(clin_muts: pd.DataFrame, reference_genome) -> pd.
         
         logger.info(f"Completed batch {batch_num}/{total_batches}")
     
-    results = all_results
+    results = all_results"""
+    
+    result_futures = fetch_variant.map(rows, [reference_genome] * len(rows))
+    
+    # Wait for all futures to complete and get the results
+    logger.info("Waiting for all API calls to complete...")
+    results = [future.result() for future in result_futures]
     
     # Convert results to DataFrame
     logger.info("Converting annotation results to DataFrame")
@@ -318,13 +324,18 @@ def clin_anno_merge_flow(bucket: str, runner: str, clinical_variant_file_path: s
     clin_muts.to_csv(os.path.join(output_path, f"clin_muts_to_annotate_{dt}.tsv"), sep="\t", index=False) 
     
     runner_logger.info("Annotating clinical mutations")
+    op = []
     try:
-        anno_clin_muts, not_anno = annotate_clinical_variants(clin_muts.head(20), reference_genome)
+        for batch in range(0, len(clin_muts), 20):
+            batch_clin_muts = clin_muts.iloc[batch:batch+20]
+            anno_clin_muts, not_anno = annotate_clinical_variants(batch_clin_muts, reference_genome)
+            op.append(anno_clin_muts)
     except Exception as e:
         runner_logger.error(f"Error during annotation of clinical variants: {str(e)}")
         raise e
     
     runner_logger.info("Saving annotated clinical mutations file")
+    anno_clin_muts = pd.concat(op, ignore_index=True)
     anno_clin_muts.to_csv(os.path.join(output_path, f"annotated_clin_muts_{dt}.tsv"), sep="\t", index=False) 
     
     # merge annotated clinical variants with MegaMAF file, dedupe with preference to clin variants and add annotation columns to maf
