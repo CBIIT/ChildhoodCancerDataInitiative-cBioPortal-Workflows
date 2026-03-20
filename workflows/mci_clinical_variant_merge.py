@@ -2,10 +2,9 @@ import os, sys
 import pandas as pd
 from time import sleep
 import requests
-from prefect import flow, task, unmapped
+from prefect import flow, task
+from prefect.task_runners import ConcurrentTaskRunner
 from src.utils import get_time, file_dl, upload_folder_to_s3, get_run_logger
-from concurrent.futures import ThreadPoolExecutor
-from itertools import repeat
 import shutil
 from typing import Literal
 import openpyxl
@@ -53,7 +52,8 @@ def clin_file_prep(clin_file_path: str, maf_samples: list, reference_genome: str
     description="Fetches variant annotation from Genome Nexus API for a given variant",
     tags=["vcf_anno_task-tag"],
     retries=3,
-    retry_delay_seconds=[2, 5, 10])
+    retry_delay_seconds=[2, 5, 10],
+    task_run_name="fetch_variant_{row.gene_symbol}_{row.query}")
 def fetch_variant(row, reference_genome, retries=3) -> dict:
     """Annotate variant with Genome Nexus API
 
@@ -121,7 +121,10 @@ def fetch_variant(row, reference_genome, retries=3) -> dict:
                     "variant_classification": None
                 }
 
-@flow(name="annotate_clinical_variants", description="Annotates clinical variants using Genome Nexus API", log_prints=True)
+@flow(name="annotate_clinical_variants", 
+      description="Annotates clinical variants using Genome Nexus API", 
+      log_prints=True,
+      task_runner=ConcurrentTaskRunner(max_workers=10))
 def annotate_clinical_variants(clin_muts: pd.DataFrame, reference_genome) -> pd.DataFrame:
     """Annotates clinical variants using Genome Nexus API
     
@@ -130,28 +133,24 @@ def annotate_clinical_variants(clin_muts: pd.DataFrame, reference_genome) -> pd.
     Returns:
         pd.DataFrame: Dataframe of annotated clinical variants with annotation columns from Genome Nexus API added
     """
+    from prefect import get_run_logger
+    logger = get_run_logger()
     
     # count clin muts
     starting_count = clin_muts.shape[0]
+    logger.info(f"Starting annotation of {starting_count} clinical variants")
     
-    op_df = []
+    # Convert DataFrame rows to list for concurrent processing
+    rows = list(clin_muts.itertuples(index=False))
     
-    # query variants against genome nexus
-    """for _, row in clin_muts.iterrows():
-        result = fetch_variant(row, reference_genome)
-        op_df.append(result)"""
-    for batch in range(0, clin_muts.shape[0], 10):
-        batch_rows = list(clin_muts.iloc[batch:batch+10].itertuples(index=False))
-        #with ThreadPoolExecutor(max_workers=10) as executor:
-        #    batch_results = list(executor.map(fetch_variant, batch_rows, repeat(reference_genome)))
-        batch_results = fetch_variant.map(batch_rows, unmapped(reference_genome))
-        print(batch_results)
-        op_df.extend(batch_results)
-    """rows = list(clin_muts.itertuples(index=False))
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        results = list(executor.map(fetch_variant, rows, repeat(reference_genome)))
-    result_df = pd.DataFrame(results)"""
-    result_df = pd.DataFrame(op_df)
+    # Use Prefect's task mapping for concurrent API calls
+    # This will automatically handle concurrency based on the task runner configuration
+    logger.info(f"Starting concurrent annotation with max 10 workers")
+    results = fetch_variant.map(rows, [reference_genome] * len(rows))
+    
+    # Convert results to DataFrame
+    logger.info("Converting annotation results to DataFrame")
+    result_df = pd.DataFrame(results)
     clin_muts = pd.concat([clin_muts.reset_index(drop=True), result_df], axis=1)
     
     # filter out any annotation failures
