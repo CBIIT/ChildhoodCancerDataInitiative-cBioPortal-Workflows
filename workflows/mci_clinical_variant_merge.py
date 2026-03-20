@@ -53,7 +53,8 @@ def clin_file_prep(clin_file_path: str, maf_samples: list, reference_genome: str
     tags=["vcf_anno_task-tag"],
     retries=3,
     retry_delay_seconds=[2, 5, 10],
-    task_run_name="fetch_variant_{row.gene_symbol}_{row.query}")
+    task_run_name="fetch_variant_{row.gene_symbol}_{row.query}",
+    log_prints=True)
 def fetch_variant(row, reference_genome, retries=3) -> dict:
     """Annotate variant with Genome Nexus API
 
@@ -104,7 +105,7 @@ def fetch_variant(row, reference_genome, retries=3) -> dict:
                         result["hgvs_short"] = cons.get('hgvspShort')
                         result["variant_classification"] = cons.get('variantClassification')
                         break
-
+            print(result)
             return result
 
         except Exception:
@@ -122,9 +123,9 @@ def fetch_variant(row, reference_genome, retries=3) -> dict:
                 }
 
 @flow(name="annotate_clinical_variants", 
-      description="Annotates clinical variants using Genome Nexus API", 
-      log_prints=True,
-      task_runner=ConcurrentTaskRunner(max_workers=10))
+    description="Annotates clinical variants using Genome Nexus API", 
+    log_prints=True,
+    task_runner=ConcurrentTaskRunner(max_workers=10))
 def annotate_clinical_variants(clin_muts: pd.DataFrame, reference_genome) -> pd.DataFrame:
     """Annotates clinical variants using Genome Nexus API
     
