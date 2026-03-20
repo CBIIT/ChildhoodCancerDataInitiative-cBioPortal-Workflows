@@ -2,7 +2,7 @@ import os, sys
 import pandas as pd
 from time import sleep
 import requests
-from prefect import flow, task
+from prefect import flow, task, unmapped
 from src.utils import get_time, file_dl, upload_folder_to_s3, get_run_logger
 from concurrent.futures import ThreadPoolExecutor
 from itertools import repeat
@@ -49,7 +49,11 @@ def clin_file_prep(clin_file_path: str, maf_samples: list, reference_genome: str
     
     return clin_muts
 
-@task(name="fetch_variant", description="Fetches variant annotation from Genome Nexus API for a given variant")
+@task(name="fetch_variant", 
+    description="Fetches variant annotation from Genome Nexus API for a given variant"
+    tags=["vcf_anno_task-tag"],
+    retries=3,
+    retry_delay_seconds=[2, 5, 10])
 def fetch_variant(row, reference_genome, retries=3) -> dict:
     """Annotate variant with Genome Nexus API
 
@@ -133,15 +137,15 @@ def annotate_clinical_variants(clin_muts: pd.DataFrame, reference_genome) -> pd.
     op_df = []
     
     # query variants against genome nexus
-    for _, row in clin_muts.iterrows():
+    """for _, row in clin_muts.iterrows():
         result = fetch_variant(row, reference_genome)
-        op_df.append(result)
-    """for batch in range(0, clin_muts.shape[0], 10):
+        op_df.append(result)"""
+    for batch in range(0, clin_muts.shape[0], 10):
         batch_rows = list(clin_muts.iloc[batch:batch+10].itertuples(index=False))
-        with ThreadPoolExecutor(max_workers=10) as executor:
-            batch_results = list(executor.map(fetch_variant, batch_rows, repeat(reference_genome)))
+        #with ThreadPoolExecutor(max_workers=10) as executor:
+        #    batch_results = list(executor.map(fetch_variant, batch_rows, repeat(reference_genome)))
+        batch_results = fetch_variant.map(batch_rows, unmapped(reference_genome))
         op_df.extend(batch_results)
-    result_df = pd.DataFrame(op_df)"""
     """rows = list(clin_muts.itertuples(index=False))
     with ThreadPoolExecutor(max_workers=2) as executor:
         results = list(executor.map(fetch_variant, rows, repeat(reference_genome)))
