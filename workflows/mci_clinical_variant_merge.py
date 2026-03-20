@@ -319,7 +319,7 @@ def clin_anno_merge_flow(bucket: str, runner: str, clinical_variant_file_path: s
     
     runner_logger.info("Annotating clinical mutations")
     try:
-        anno_clin_muts, not_anno = annotate_clinical_variants(clin_muts, reference_genome)
+        anno_clin_muts, not_anno = annotate_clinical_variants(clin_muts.head(20), reference_genome)
     except Exception as e:
         runner_logger.error(f"Error during annotation of clinical variants: {str(e)}")
         raise e
