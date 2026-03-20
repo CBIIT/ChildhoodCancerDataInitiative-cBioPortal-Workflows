@@ -146,14 +146,31 @@ def annotate_clinical_variants(clin_muts: pd.DataFrame, reference_genome) -> pd.
     # Convert DataFrame rows to list for concurrent processing
     rows = list(clin_muts.itertuples(index=False))
     
-    # Use Prefect's task mapping for concurrent API calls
-    # This will automatically handle concurrency based on the task runner configuration
-    logger.info(f"Starting concurrent annotation with max 10 workers")
-    result_futures = fetch_variant.map(rows, [reference_genome] * len(rows))
+    # Process variants in batches to manage memory and API load
+    batch_size = 100
+    all_results = []
     
-    # Wait for all futures to complete and get the results
-    logger.info("Waiting for all API calls to complete...")
-    results = [future.result() for future in result_futures]
+    logger.info(f"Processing {len(rows)} variants in batches of {batch_size}")
+    
+    for batch_start in range(0, len(rows), batch_size):
+        batch_end = min(batch_start + batch_size, len(rows))
+        batch_rows = rows[batch_start:batch_end]
+        batch_num = (batch_start // batch_size) + 1
+        total_batches = (len(rows) + batch_size - 1) // batch_size
+        
+        logger.info(f"Processing batch {batch_num}/{total_batches} ({len(batch_rows)} variants)")
+        
+        # Use Prefect's task mapping for concurrent API calls within the batch
+        batch_futures = fetch_variant.map(batch_rows, [reference_genome] * len(batch_rows))
+        
+        # Wait for batch futures to complete and get the results
+        logger.info(f"Waiting for batch {batch_num} API calls to complete...")
+        batch_results = [future.result() for future in batch_futures]
+        all_results.extend(batch_results)
+        
+        logger.info(f"Completed batch {batch_num}/{total_batches}")
+    
+    results = all_results
     
     # Convert results to DataFrame
     logger.info("Converting annotation results to DataFrame")
@@ -304,10 +321,7 @@ def clin_anno_merge_flow(bucket: str, runner: str, clinical_variant_file_path: s
     anno_clin_muts, not_anno = annotate_clinical_variants(clin_muts, reference_genome)
     
     runner_logger.info("Saving annotated clinical mutations file")
-    try:
-        anno_clin_muts.to_csv(os.path.join(output_path, f"annotated_clin_muts_{dt}.tsv"), sep="\t", index=False) 
-    except Exception as e:
-        runner_logger.error(f"Error saving annotated clinical mutations file: {e}")
+    anno_clin_muts.to_csv(os.path.join(output_path, f"annotated_clin_muts_{dt}.tsv"), sep="\t", index=False) 
     
     # merge annotated clinical variants with MegaMAF file, dedupe with preference to clin variants and add annotation columns to maf
     # also get stats for log file
