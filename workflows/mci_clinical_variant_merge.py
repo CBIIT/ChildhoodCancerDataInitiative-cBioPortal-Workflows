@@ -51,6 +51,16 @@ def clin_file_prep(clin_file_path: str, maf_samples: list, reference_genome: str
 
 @task(name="fetch_variant", description="Fetches variant annotation from Genome Nexus API for a given variant")
 def fetch_variant(row, reference_genome, retries=3) -> dict:
+    """Annotate variant with Genome Nexus API
+
+    Args:
+        row (dict): Dictionary containing variant information
+        reference_genome (str): Reference genome to use for annotation (e.g., "GRCh38" or "GRCh37")
+        retries (int, optional): Number of retries for API requests. Defaults to 3.
+
+    Returns:
+        dict: Dictionary containing annotated variant information
+    """
     for attempt in range(retries):
         try:
             if reference_genome == 'GRCh38':
@@ -123,16 +133,20 @@ def annotate_clinical_variants(clin_muts: pd.DataFrame, reference_genome) -> pd.
     op_df = []
     
     # query variants against genome nexus
-    for batch in range(0, clin_muts.shape[0], 10):
+    for _, row in clin_muts.iterrows():
+        result = fetch_variant(row, reference_genome)
+        op_df.append(result)
+    """for batch in range(0, clin_muts.shape[0], 10):
         batch_rows = list(clin_muts.iloc[batch:batch+10].itertuples(index=False))
         with ThreadPoolExecutor(max_workers=10) as executor:
             batch_results = list(executor.map(fetch_variant, batch_rows, repeat(reference_genome)))
         op_df.extend(batch_results)
-    result_df = pd.DataFrame(op_df)
+    result_df = pd.DataFrame(op_df)"""
     """rows = list(clin_muts.itertuples(index=False))
     with ThreadPoolExecutor(max_workers=2) as executor:
         results = list(executor.map(fetch_variant, rows, repeat(reference_genome)))
     result_df = pd.DataFrame(results)"""
+    result_df = pd.DataFrame(op_df)
     clin_muts = pd.concat([clin_muts.reset_index(drop=True), result_df], axis=1)
     
     # filter out any annotation failures
@@ -255,7 +269,7 @@ def clin_anno_merge_flow(bucket: str, runner: str, clinical_variant_file_path: s
     clin_muts.to_csv(os.path.join(output_path, f"clin_muts_to_annotate_{dt}.tsv"), sep="\t", index=False) 
     
     runner_logger.info("Annotating clinical mutations")
-    anno_clin_muts, not_anno = annotate_clinical_variants(clin_muts, reference_genome)
+    anno_clin_muts, not_anno = annotate_clinical_variants(clin_muts.head(20), reference_genome)
     
     runner_logger.info("Saving annotated clinical mutations file")
     try:
