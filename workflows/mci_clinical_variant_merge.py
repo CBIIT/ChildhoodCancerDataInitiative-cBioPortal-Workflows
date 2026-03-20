@@ -105,13 +105,15 @@ def fetch_variant(row, reference_genome, retries=3) -> dict:
                         result["hgvs_short"] = cons.get('hgvspShort')
                         result["variant_classification"] = cons.get('variantClassification')
                         break
-            print(result)
+
             return result
 
-        except Exception:
+        except Exception as e:
             if attempt < retries - 1:
                 sleep(2)
             else:    
+                # Log the error for debugging
+                print(f"Failed to annotate variant {getattr(row, 'query', 'unknown')}: {str(e)}")
                 return {
                     "start": None,
                     "end": None,
@@ -151,8 +153,29 @@ def annotate_clinical_variants(clin_muts: pd.DataFrame, reference_genome) -> pd.
     
     # Convert results to DataFrame
     logger.info("Converting annotation results to DataFrame")
+    logger.info(f"Number of results: {len(results)}")
+    
+    # Debug: log a sample of results
+    if results:
+        logger.info(f"Sample result: {results[0] if results else 'No results'}")
+    
     result_df = pd.DataFrame(results)
+    logger.info(f"Result DataFrame columns: {result_df.columns.tolist()}")
+    logger.info(f"Result DataFrame shape: {result_df.shape}")
+    
+    # Ensure the result_df has the expected columns
+    expected_cols = ["start", "end", "variant_type", "reference_allele", "variant_allele", "hgvs_short", "variant_classification"]
+    missing_cols = [col for col in expected_cols if col not in result_df.columns]
+    if missing_cols:
+        logger.warning(f"Missing columns in result_df: {missing_cols}")
+        # Add missing columns with None values
+        for col in missing_cols:
+            result_df[col] = None
+    
+    # Concatenate original data with annotation results
     clin_muts = pd.concat([clin_muts.reset_index(drop=True), result_df], axis=1)
+    logger.info(f"Combined DataFrame shape: {clin_muts.shape}")
+    logger.info(f"Combined DataFrame columns: {clin_muts.columns.tolist()}")
     
     # filter out any annotation failures
     clin_muts = clin_muts[clin_muts["start"].notna() & clin_muts["end"].notna() & clin_muts["variant_type"].notna() & clin_muts["reference_allele"].notna() & clin_muts["variant_allele"].notna()]
