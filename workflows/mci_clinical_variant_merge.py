@@ -149,7 +149,11 @@ def annotate_clinical_variants(clin_muts: pd.DataFrame, reference_genome) -> pd.
     # Use Prefect's task mapping for concurrent API calls
     # This will automatically handle concurrency based on the task runner configuration
     logger.info(f"Starting concurrent annotation with max 10 workers")
-    results = fetch_variant.map(rows, [reference_genome] * len(rows))
+    result_futures = fetch_variant.map(rows, [reference_genome] * len(rows))
+    
+    # Wait for all futures to complete and get the results
+    logger.info("Waiting for all API calls to complete...")
+    results = [future.result() for future in result_futures]
     
     # Convert results to DataFrame
     logger.info("Converting annotation results to DataFrame")
