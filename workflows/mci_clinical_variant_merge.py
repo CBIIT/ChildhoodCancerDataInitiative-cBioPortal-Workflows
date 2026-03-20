@@ -301,7 +301,7 @@ def clin_anno_merge_flow(bucket: str, runner: str, clinical_variant_file_path: s
     clin_muts.to_csv(os.path.join(output_path, f"clin_muts_to_annotate_{dt}.tsv"), sep="\t", index=False) 
     
     runner_logger.info("Annotating clinical mutations")
-    anno_clin_muts, not_anno = annotate_clinical_variants(clin_muts.head(20), reference_genome)
+    anno_clin_muts, not_anno = annotate_clinical_variants(clin_muts, reference_genome)
     
     runner_logger.info("Saving annotated clinical mutations file")
     try:
