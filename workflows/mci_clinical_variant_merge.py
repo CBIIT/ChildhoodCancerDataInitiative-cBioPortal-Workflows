@@ -147,7 +147,7 @@ def annotate_clinical_variants(clin_muts: pd.DataFrame, reference_genome) -> pd.
     rows = list(clin_muts.itertuples(index=False))
     
     # Process variants in batches to manage memory and API load
-    batch_size = 100
+    batch_size = 20
     all_results = []
     
     logger.info(f"Processing {len(rows)} variants in batches of {batch_size}")
