@@ -50,7 +50,7 @@ def clin_file_prep(clin_file_path: str, maf_samples: list, reference_genome: str
     return clin_muts
 
 @task(name="fetch_variant", 
-    description="Fetches variant annotation from Genome Nexus API for a given variant"
+    description="Fetches variant annotation from Genome Nexus API for a given variant",
     tags=["vcf_anno_task-tag"],
     retries=3,
     retry_delay_seconds=[2, 5, 10])
