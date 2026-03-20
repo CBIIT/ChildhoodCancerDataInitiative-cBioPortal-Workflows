@@ -123,7 +123,7 @@ def annotate_clinical_variants(clin_muts: pd.DataFrame, reference_genome) -> pd.
     op_df = []
     
     # query variants against genome nexus
-    for batch in range(0, clin_muts.shape[0], 100):
+    for batch in range(0, clin_muts.shape[0], 10):
         batch_rows = list(clin_muts.iloc[batch:batch+100].itertuples(index=False))
         with ThreadPoolExecutor(max_workers=10) as executor:
             batch_results = list(executor.map(fetch_variant, batch_rows, repeat(reference_genome)))
