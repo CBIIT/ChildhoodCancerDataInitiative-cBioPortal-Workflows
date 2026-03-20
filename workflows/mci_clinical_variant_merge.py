@@ -318,7 +318,11 @@ def clin_anno_merge_flow(bucket: str, runner: str, clinical_variant_file_path: s
     clin_muts.to_csv(os.path.join(output_path, f"clin_muts_to_annotate_{dt}.tsv"), sep="\t", index=False) 
     
     runner_logger.info("Annotating clinical mutations")
-    anno_clin_muts, not_anno = annotate_clinical_variants(clin_muts, reference_genome)
+    try:
+        anno_clin_muts, not_anno = annotate_clinical_variants(clin_muts, reference_genome)
+    except Exception as e:
+        runner_logger.error(f"Error during annotation of clinical variants: {str(e)}")
+        raise e
     
     runner_logger.info("Saving annotated clinical mutations file")
     anno_clin_muts.to_csv(os.path.join(output_path, f"annotated_clin_muts_{dt}.tsv"), sep="\t", index=False) 
