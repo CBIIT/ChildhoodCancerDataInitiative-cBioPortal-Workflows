@@ -275,10 +275,14 @@ def merge_clinical_variants_to_maf(maf_concat_path: str, anno_clin_muts: pd.Data
     # convert Entrez ID back to integer, fill NA with ''
     maf_concat_sorted_deduped['Entrez_Gene_Id'] = maf_concat_sorted_deduped['Entrez_Gene_Id'].astype('str').str.replace(".0", "").replace('nan', '')
     
+    # convert Start_Position and End_Position to integer, fill NA with ''
+    maf_concat_sorted_deduped['Start_Position'] = maf_concat_sorted_deduped['Start_Position'].fillna('').astype(str).str.replace(".0", "")
+    maf_concat_sorted_deduped['End_Position'] = maf_concat_sorted_deduped['End_Position'].fillna('').astype(str).str.replace(".0", "")
+    
     # count rows in new concat maf 
     concat_rows = maf_concat_sorted_deduped.shape[0]
     
-    log_string = f"Number clinical variants: {clin_mut_rows}, \nNumber of variants in raw maf concat: {unannotated_rows} \nNumber of variants in merged maf: {concat_rows} \nNumber replaced: {clin_mut_rows-(concat_rows-unannotated_rows)} \nNumber NOT replaced: {concat_rows-unannotated_rows}\n"
+    log_string = f"Number clinical variants: {clin_mut_rows}, \nNumber of variants in raw maf concat: {unannotated_rows} \nNumber of variants in merged maf: {concat_rows} \nNumber clin variants de-duped: {clin_mut_rows-(concat_rows-unannotated_rows)} \nNumber clin variants added uniquely: {concat_rows-unannotated_rows}\n"
     
     return maf_concat_sorted_deduped, log_string
 
