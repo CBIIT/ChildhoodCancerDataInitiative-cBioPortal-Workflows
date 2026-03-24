@@ -248,10 +248,9 @@ deployments:
         apt install maven -y
       stream_output: true
   
-- name: TEST-cbio-mci-vcf-clinical-variant-merge
+- name: cbio-mci-vcf-clinical-variant-merge
   version: null
   tags:
-  - TEST
   - cbioportal
   - V3
   description: Annotate clinical variants with Genome Nexus Annotation Pipeline and merge to megaMAF of raw variants
@@ -271,7 +270,7 @@ deployments:
   - prefect.deployments.steps.git_clone:
       id: clone-step
       repository: https://github.com/CBIIT/ChildhoodCancerDataInitiative-cBioPortal-Workflows.git
-      branch: CBIO-572
+      branch: main
   - prefect.deployments.steps.pip_install_requirements:
       requirements_file: requirements.txt
       directory: "{{ clone-step.directory }}"
