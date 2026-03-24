@@ -163,13 +163,15 @@ def fetch_variant(row, reference_genome, retries=3) -> dict:
     description="Annotates clinical variants using Genome Nexus API", 
     log_prints=True,
     task_runner=ConcurrentTaskRunner(max_workers=10))
-def annotate_clinical_variants(clin_muts: pd.DataFrame, reference_genome) -> pd.DataFrame:
+def annotate_clinical_variants(clin_muts: pd.DataFrame, reference_genome: str) -> pd.DataFrame:
     """Annotates clinical variants using Genome Nexus API
     
     Args:
         clin_muts (pd.DataFrame): Dataframe of clinical variants to be annotated with necessary columns for annotation and query to Genome Nexus API
+        reference_genome (str): Reference genome to use for annotation (e.g., "GRCh38" or "GRCh37")
     Returns:
         pd.DataFrame: Dataframe of annotated clinical variants with annotation columns from Genome Nexus API added
+        not_anno (int): Number of clinical variants that were not annotated successfully (i.e. had missing annotation fields after API annotation)
     """
     from prefect import get_run_logger
     logger = get_run_logger()
@@ -236,10 +238,11 @@ def merge_clinical_variants_to_maf(maf_concat_path: str, anno_clin_muts: pd.Data
     """Merges annotated clinical variants to MAF file of raw variants, deduping with preference to clinical variants and adding annotation columns to maf
     
     Args:
-        anno_clin_muts (pd.DataFrame): Dataframe of annotated clinical variants with necessary columns for merging to maf
         maf_concat_path (str): S3 path to maf concat file of raw variants to be merged with annotated clinical variants
+        anno_clin_muts (pd.DataFrame): Dataframe of annotated clinical variants with necessary columns for merging to maf
     Returns:
         pd.DataFrame: Dataframe of merged maf with annotated clinical variants, deduped with preference to clinical variants and with annotation columns added
+        log_string (str): String containing stats about the merge for logging purposes
     """
     # read in maf concat file
     maf_concat = pd.read_csv(maf_concat_path, sep="\t", comment="#", low_memory=False)
@@ -288,7 +291,7 @@ def merge_clinical_variants_to_maf(maf_concat_path: str, anno_clin_muts: pd.Data
     # count rows in new concat maf 
     concat_rows = maf_concat_sorted_deduped.shape[0]
     
-    log_string = f"Number clinical variants: {clin_mut_rows}, \nNumber of variants in raw maf concat: {unannotated_rows} \nNumber of variants in merged maf: {concat_rows} \nNumber clin variants de-duped: {clin_mut_rows-(concat_rows-unannotated_rows)} \nNumber clin variants added uniquely: {concat_rows-unannotated_rows}\n"
+    log_string = f"Number of variants in raw maf concat: {unannotated_rows} \nNumber of variants in merged maf: {concat_rows} \nNumber clin variants de-duped: {clin_mut_rows-(concat_rows-unannotated_rows)} \nNumber clin variants added uniquely: {concat_rows-unannotated_rows}\n"
     
     return maf_concat_sorted_deduped, log_string
 
@@ -333,6 +336,8 @@ def clin_anno_merge_flow(bucket: str, runner: str, clinical_variant_file_path: s
     runner_logger.info("Prepping clinical mutations file")
     clin_muts = clin_file_prep(clin_var_local_path, maf_samples, reference_genome)
     
+    starting_count = clin_muts.shape[0]
+    
     runner_logger.info("Saving parsed clinical mutations file")
     clin_muts.to_csv(os.path.join(output_path, f"clin_muts_to_annotate_{dt}.tsv"), sep="\t", index=False) 
     
@@ -372,6 +377,7 @@ def clin_anno_merge_flow(bucket: str, runner: str, clinical_variant_file_path: s
         log_file.write(f"Input MAF: {maf_concat_local_path}\n")
         log_file.write(log_string)
         log_file.write(f"Number of clinical variants not annotated: {not_anno}\n")
+        log_file.write(f"Number of clinical variants at start: {starting_count}\n")
     log_file.close()
     
     # upload to s3
