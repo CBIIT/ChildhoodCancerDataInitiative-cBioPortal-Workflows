@@ -75,9 +75,8 @@ def fusion_file_prep(input_df: pd.DataFrame, sample_id: str) -> pd.DataFrame:
     
     fusion_df = input_df[input_df['INFO'].str.contains("SVTYPE=Fusion")].copy()
     
-    print(fusion_df)
-    
-    print(fusion_df.columns)
+    if len(fusion_df) == 0:
+        return pd.DataFrame(columns=["Sample_Id", "SV_Status", "Site1_Hugo_Symbol", "Site1_Region_Number", "Site2_Hugo_Symbol", "Site2_Region_Number", "NCBI_Build", "Class", "Method", "Event_Info", "Annotation", "DNA_Support", "RNA_Support", "Tumor_Read_Count", "Site1_Chromosome", "Site1_Position", "Site2_Chromosome", "Site2_Position"])
     
     # output array
     op = []
@@ -135,6 +134,9 @@ def fusion_flow(tumor_input_df: pd.DataFrame, tumor_sample_id: str, normal_input
     logger.info(f"{tumor_sample_id} Tumor fusion: {len(tumor_fusion)}" )
     print(f"{normal_sample_id} Normal fusion: {len(normal_fusion)}" )
     logger.info(f"{normal_sample_id} Normal fusion: {len(normal_fusion)}" )
+    
+    if len(tumor_fusion) == 0: #no fusions found in tumor sample, return empty df with correct columns
+        return tumor_fusion
     
     # remove from tumor fusion any fusions that are also in normal fusion based on Site1_Hugo_Symbol, Site2_Hugo_Symbol, Site1_Region_Number, and Site2_Region_Number
     merged_fusion = tumor_fusion.merge(normal_fusion, on=["Site1_Hugo_Symbol", "Site2_Hugo_Symbol", "Site1_Region_Number", "Site2_Region_Number"], how="left", indicator=True)
