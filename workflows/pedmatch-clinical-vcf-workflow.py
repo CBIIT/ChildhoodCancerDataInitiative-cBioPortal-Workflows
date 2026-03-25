@@ -79,7 +79,7 @@ def fusion_file_prep(input_df: pd.DataFrame, sample_id: str) -> pd.DataFrame:
     op = []
     
     # get uniq fusion ID by taking ID and removing _1 or _2 at the end 
-    fusion_df.loc[:, 'FUSION_ID'] = fusion_df.apply(lambda row: row['ID'].rsplit('_', 1)[0], axis=1)
+    fusion_df.loc[:, 'FUSION_ID'] = fusion_df['ID'].str.split("_", expand=True)[0]
     
     # get data  from INFO column; gene names are in the format GENE_NAME=<NAME>;
     fusion_df.loc[:, 'GENE'] = fusion_df['INFO'].str.extract(r'GENE_NAME=([^;]+)')
