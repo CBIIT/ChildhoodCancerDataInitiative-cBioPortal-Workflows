@@ -205,7 +205,7 @@ def pedmatch_clinical_vcf_flow(bucket: str, output_dir: str, manifest_path: str,
     file_dl(bucket, manifest_path)    
     
     # read in manifest
-    manifest_df = read_manifest(manifest_path)
+    manifest_df = read_manifest(os.path.basename(manifest_path))
     
     # download files:
     # reusing download cnv function since it performs the same steps 
@@ -225,6 +225,7 @@ def pedmatch_clinical_vcf_flow(bucket: str, output_dir: str, manifest_path: str,
         normal_df = group_df[group_df["sample_type"] == "blood"]
         if len(tumor_df) != 1 or len(normal_df) != 1:
             runner_logger.warning(f"Skipping participant {group_name} due to incorrect number of tumor or normal samples")
+            logger.warning(f"Participant {group_name} tumor samples: {len(tumor_df)}, normal samples: {len(normal_df)}")
             continue
         tumor_sample_id = tumor_df.iloc[0]["sample_id"]
         normal_sample_id = normal_df.iloc[0]["sample_id"]
