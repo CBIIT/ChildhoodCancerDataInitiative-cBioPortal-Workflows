@@ -160,7 +160,17 @@ def fusion_flow(tumor_input_df: pd.DataFrame, tumor_sample_id: str, normal_input
 # task to format cnv log2 continuous
 
 # flow for cnv
-
+# patient flow
+@flow(name="pt_paired_vcf_flow_", log_prints=True)
+def pt_paired_vcf_flow(tumor_vcf, tumor_sample_id, normal_vcf, normal_sample_id, logger):
+    # prep files
+    tumor_vcf_df = clin_vcf_file_prep(tumor_vcf, tumor_sample_id)
+    normal_vcf_df = clin_vcf_file_prep(normal_vcf, normal_sample_id)
+    
+    # process fusion data
+    fusion_results = fusion_flow(tumor_vcf_df, tumor_sample_id, normal_vcf_df, normal_sample_id, logger)
+    
+    return fusion_results
 
 # main flow:
 @flow(name="pedmatch_clinical_vcf_flow", log_prints=True)
@@ -238,12 +248,7 @@ def pedmatch_clinical_vcf_flow(bucket: str, output_dir: str, manifest_path: str,
         tumor_sample_id = tumor_df.iloc[0]["sample_id"]
         normal_sample_id = normal_df.iloc[0]["sample_id"]
         
-        # prep files
-        tumor_vcf_df = clin_vcf_file_prep(tumor_df.iloc[0]["file_name"], tumor_sample_id)
-        normal_vcf_df = clin_vcf_file_prep(normal_df.iloc[0]["file_name"], normal_sample_id)
-        
-        # process fusion data
-        fusion_results = fusion_flow(tumor_vcf_df, tumor_sample_id, normal_vcf_df, normal_sample_id, logger)
+        fusion_results = pt_paired_vcf_flow(tumor_df.iloc[0]["file_name"], tumor_sample_id, normal_df.iloc[0]["file_name"], normal_sample_id, logger)
         
         # add to output array
         fusion_op.append(fusion_results)
