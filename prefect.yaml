@@ -275,3 +275,31 @@ deployments:
       requirements_file: requirements.txt
       directory: "{{ clone-step.directory }}"
       stream_output: False
+      
+- name: TEST-cbio-pedmatch-clinical-vcf-workflow
+  version: null
+  tags:
+  - TEST
+  - cbioportal
+  - V3
+  description: Parse, format and annotate variants from clinical VCFs for pedmatch
+  entrypoint: workflows/pedmatch-clinical-vcf-workflow.py:pedmatch_clinical_vcf_flow
+  parameters:
+    bucket: "ccdi-validation"
+    output_dir: ""
+    manifest_path: ""
+    flow_type: "parse_transform"
+  work_pool:
+    name: ccdi-dcc-16gb-prefect-3.2.14-python3.9
+    work_queue_name:
+    job_variables: {}
+  schedules: []
+  pull:
+  - prefect.deployments.steps.git_clone:
+      id: clone-step
+      repository: https://github.com/CBIIT/ChildhoodCancerDataInitiative-cBioPortal-Workflows.git
+      branch: CBIO-457
+  - prefect.deployments.steps.pip_install_requirements:
+      requirements_file: requirements.txt
+      directory: "{{ clone-step.directory }}"
+      stream_output: False
