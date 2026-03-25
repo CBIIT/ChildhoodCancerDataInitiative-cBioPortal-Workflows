@@ -214,10 +214,11 @@ def pedmatch_clinical_vcf_flow(bucket: str, output_dir: str, manifest_path: str,
     # download files:
     # reusing download cnv function since it performs the same steps 
     # of downloading files from s3, checking md5sums and file sizes, and logging
-    #for i in range(0, len(manifest_df), 500):
+    #for i in range(0, len(manifest_df), batch_size):
+    batch_size = 10 # temp for testing with 10 files; change to 500 for full run
     for i in range(0, 10, 10): # temp for testing with 10 files
-        batch_df = manifest_df.iloc[i:i+500]
-        runner_logger.info(f"Downloading batch {i//500 + 1} of {len(manifest_df)//500 + 1}")
+        batch_df = manifest_df.iloc[i:i+batch_size]
+        runner_logger.info(f"Downloading batch {i//batch_size + 1} of {len(manifest_df)//batch_size + 1}")
         download_cnv(batch_df, logger)
     
     # array of pd.DataFrames to hold fusion results for each tumor normal pair
