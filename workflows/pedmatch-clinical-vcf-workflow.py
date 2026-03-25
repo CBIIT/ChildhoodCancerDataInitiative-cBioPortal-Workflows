@@ -75,11 +75,15 @@ def fusion_file_prep(input_df: pd.DataFrame, sample_id: str) -> pd.DataFrame:
     
     fusion_df = input_df[input_df['INFO'].str.contains("SVTYPE=Fusion")].copy()
     
+    print(fusion_df)
+    
+    print(fusion_df.columns)
+    
     # output array
     op = []
     
     # get uniq fusion ID by taking ID and removing _1 or _2 at the end 
-    fusion_df.loc[:, 'FUSION_ID'] = fusion_df['ID'].str.split("_", expand=True).str[0]
+    fusion_df.loc[:, 'FUSION_ID'] = fusion_df['ID'].iloc[:, 0].str.split("_", expand=True).str[0]
     
     # get data  from INFO column; gene names are in the format GENE_NAME=<NAME>;
     fusion_df.loc[:, 'GENE'] = fusion_df['INFO'].str.extract(r'GENE_NAME=([^;]+)')
