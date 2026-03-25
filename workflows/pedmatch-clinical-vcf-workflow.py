@@ -225,7 +225,7 @@ def pedmatch_clinical_vcf_flow(bucket: str, output_dir: str, manifest_path: str,
     fusion_op = []
     
     # iterate thru tumor normal pairs
-    for group_name, group_df in manifest_df.groupby("participant_id"):
+    for group_name, group_df in manifest_df.head(10).groupby("participant_id"):
         runner_logger.info(f"Processing participant: {group_name}")
         tumor_df = group_df[group_df["sample_type"] == "tissue"]
         normal_df = group_df[group_df["sample_type"] == "blood"]
