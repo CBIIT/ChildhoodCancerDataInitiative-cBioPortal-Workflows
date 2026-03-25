@@ -203,7 +203,7 @@ def pedmatch_clinical_vcf_flow(bucket: str, output_dir: str, manifest_path: str,
     os.makedirs(output_path, exist_ok=True)
     
     # create logger
-    log_filename = f"{output_path}/pedmatch_clinical_parse_transform.log"
+    log_filename = f"{output_path}/pedmatch_clinical_parse_transform"
     logger = get_logger(log_filename, "info")
     logger.info(f"Output path: {output_path}")
     
@@ -216,9 +216,9 @@ def pedmatch_clinical_vcf_flow(bucket: str, output_dir: str, manifest_path: str,
     # download files:
     # reusing download cnv function since it performs the same steps 
     # of downloading files from s3, checking md5sums and file sizes, and logging
-    #for i in range(0, len(manifest_df), batch_size):
-    batch_size = 10 # temp for testing with 10 files; change to 500 for full run
-    for i in range(0, 10, 10): # temp for testing with 10 files
+    batch_size = 500 # temp for testing with 10 files; change to 500 for full run
+    for i in range(0, len(manifest_df), batch_size):
+    #for i in range(0, 10, 10): # temp for testing with 10 files
         batch_df = manifest_df.iloc[i:i+batch_size]
         runner_logger.info(f"Downloading batch {i//batch_size + 1} of {len(manifest_df)//batch_size + 1}")
         download_cnv(batch_df, logger)
@@ -227,7 +227,7 @@ def pedmatch_clinical_vcf_flow(bucket: str, output_dir: str, manifest_path: str,
     fusion_op = []
     
     # iterate thru tumor normal pairs
-    for group_name, group_df in manifest_df.head(10).groupby("participant_id"):
+    for group_name, group_df in manifest_df.groupby("participant_id"):
         runner_logger.info(f"Processing participant: {group_name}")
         tumor_df = group_df[group_df["sample_type"] == "tissue"]
         normal_df = group_df[group_df["sample_type"] == "blood"]
