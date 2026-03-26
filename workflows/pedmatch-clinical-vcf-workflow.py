@@ -224,7 +224,7 @@ def cnv_file_prep(input_df: pd.DataFrame, sample_id: str) -> pd.DataFrame:
 
 # task to format cnv segment
 @task(name="cnv_segment_file_prep", log_prints=True)
-def cnv_segment_file_prep(input_df: pd.DataFrame) --> pd.DataFrame:
+def cnv_segment_file_prep(input_df: pd.DataFrame) -> pd.DataFrame:
     """Read in CNV segment file and prep pertinent columns for annotation and merging to maf"""
     
     # subset to required columns
@@ -234,7 +234,7 @@ def cnv_segment_file_prep(input_df: pd.DataFrame) --> pd.DataFrame:
     
 # task to format cnv discrete
 @task(name="cnv_discrete_file_prep", log_prints=True)
-def cnv_discrete_file_prep(input_df: pd.DataFrame) --> pd.DataFrame:
+def cnv_discrete_file_prep(input_df: pd.DataFrame) -> pd.DataFrame:
     """Read in CNV discrete file and prep pertinent columns for annotation and merging to maf"""
     
     # subset to required columns
@@ -259,7 +259,7 @@ def cnv_discrete_file_prep(input_df: pd.DataFrame) --> pd.DataFrame:
 
 # task to format cnv log2 continuous
 @task(name="cnv_log2_continuous_file_prep", log_prints=True)
-def cnv_log2_continuous_file_prep(input_df: pd.DataFrame) --> pd.DataFrame:
+def cnv_log2_continuous_file_prep(input_df: pd.DataFrame) -> pd.DataFrame:
     """Read in CNV discrete file and prep pertinent columns for annotation and merging to maf"""
     
     # subset to required columns
