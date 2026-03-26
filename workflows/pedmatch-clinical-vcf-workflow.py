@@ -83,7 +83,7 @@ def copy_number_to_log2(observed_cn, baseline_cn=2):
     if observed_cn <= 0:
         raise ValueError("Observed copy number must be > 0")
     
-    return math.log2(observed_cn / baseline_cn)
+    return round(math.log2(observed_cn / baseline_cn), 4)
 
 # task to format fusion data
 @task(name="fusion_file_prep", log_prints=True)
@@ -229,9 +229,14 @@ def cnv_segment_file_prep(input_df: pd.DataFrame) -> pd.DataFrame:
     """Read in CNV segment file and prep pertinent columns for annotation and merging to maf"""
     
     # subset to required columns
-    required_cols = ['ID', 'chrom', 'loc.start', 'loc.end', 'num.mark', 'seg.mean', 'copy_number']
+    required_cols = ['ID', 'chrom', 'loc.start', 'loc.end', 'num.mark', 'seg.mean']
+    cna_segment_df = input_df[required_cols].copy()
     
-    return input_df[required_cols].copy()
+    # make sure loc.start and loc.end are integers
+    cna_segment_df['loc.start'] = cna_segment_df['loc.start'].astype(int)
+    cna_segment_df['loc.end'] = cna_segment_df['loc.end'].astype(int)
+    
+    return cna_segment_df
     
 # task to format cnv discrete
 @task(name="cnv_discrete_file_prep", log_prints=True)
