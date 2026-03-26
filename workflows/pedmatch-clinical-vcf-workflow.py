@@ -244,8 +244,9 @@ def pt_paired_vcf_flow(tumor_vcf, tumor_sample_id, normal_vcf, normal_sample_id,
     
     # process fusion data
     fusion_results = fusion_flow(tumor_vcf_df, tumor_sample_id, normal_vcf_df, normal_sample_id, logger)
+    cnv_results = cnv_flow(tumor_vcf_df, tumor_sample_id, normal_vcf_df, normal_sample_id, logger)
     
-    return fusion_results
+    return fusion_results, cnv_results
 
 
 # batch flow
@@ -254,6 +255,7 @@ def batch_process(batch_df: pd.DataFrame, logger, runner_logger) -> None:
     
     # array of pd.DataFrames to hold fusion results for each tumor normal pair
     fusion_op = []
+    cnv_op = []
     
     # iterate thru tumor normal pairs
     for group_name, group_df in batch_df.groupby("participant_id"):
@@ -268,7 +270,7 @@ def batch_process(batch_df: pd.DataFrame, logger, runner_logger) -> None:
         normal_sample_id = normal_df.iloc[0]["sample_id"]
         
         try:
-            fusion_results = pt_paired_vcf_flow(tumor_df.iloc[0]["file_name"], tumor_sample_id, normal_df.iloc[0]["file_name"], normal_sample_id, logger)
+            fusion_results, cnv_results = pt_paired_vcf_flow(tumor_df.iloc[0]["file_name"], tumor_sample_id, normal_df.iloc[0]["file_name"], normal_sample_id, logger)
         except Exception as e:
             runner_logger.error(f"Error processing participant {group_name}: {e}")
             logger.error(f"Error processing participant {group_name}: {e}")
@@ -276,8 +278,9 @@ def batch_process(batch_df: pd.DataFrame, logger, runner_logger) -> None:
         
         # add to output array
         fusion_op.append(fusion_results)
+        cnv_op.append(cnv_results)
     
-    return fusion_op
+    return fusion_op, cnv_op
 
 # main flow:
 @flow(name="pedmatch_clinical_vcf_flow", log_prints=True)
@@ -341,18 +344,22 @@ def pedmatch_clinical_vcf_flow(bucket: str, output_dir: str, manifest_path: str,
         download_cnv(batch_df, logger)
     
     fusion_concat_results= []
+    cnv_concat_results = []
     
     # add batch loop here
     for i in range(0, len(manifest_df.head(200)), batch_size):
         batch_df = manifest_df.iloc[i:i+batch_size]
         runner_logger.info(f"Processing batch {i//batch_size + 1} of {len(manifest_df.head(200))//batch_size + 1}")
-        fusion_batch_op = batch_process(batch_df, logger, runner_logger)
+        fusion_batch_op, cnv_batch_op = batch_process(batch_df, logger, runner_logger)
         fusion_concat_results.extend(fusion_batch_op)
+        cnv_concat_results.extend(cnv_batch_op)
     
     # save output files
     fusion_output_path = os.path.join(output_path, "fusion_results.txt")
+    cnv_output_path = os.path.join(output_path, "cnv_results.txt")
     
     pd.concat(fusion_concat_results).to_csv(fusion_output_path, sep="\t", index=False)
+    pd.concat(cnv_concat_results).to_csv(cnv_output_path, sep="\t", index=False)
     
     # upload dir to s3
     upload_folder_to_s3(
