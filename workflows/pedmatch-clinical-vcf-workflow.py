@@ -90,7 +90,7 @@ def fusion_file_prep(input_df: pd.DataFrame, sample_id: str) -> pd.DataFrame:
     """Read in fusion file and prep pertinent columns for annotation and merging to maf"""
     
     fusion_df = input_df.copy()
-    fusion_df = input_df[input_df['INFO'].str.contains("SVTYPE=Fusion")]
+    fusion_df = fusion_df[fusion_df['INFO'].str.contains("SVTYPE=Fusion")]
     
     if len(fusion_df) == 0:
         return pd.DataFrame(columns=["Sample_Id", "SV_Status", "Site1_Hugo_Symbol", "Site1_Region_Number", "Site2_Hugo_Symbol", "Site2_Region_Number", "NCBI_Build", "Class", "Method", "Event_Info", "Annotation", "DNA_Support", "RNA_Support", "Tumor_Read_Count", "Site1_Chromosome", "Site1_Position", "Site2_Chromosome", "Site2_Position"])
