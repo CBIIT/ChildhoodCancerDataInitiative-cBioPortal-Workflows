@@ -147,10 +147,8 @@ def fusion_flow(tumor_input_df: pd.DataFrame, tumor_sample_id: str, normal_input
     tumor_fusion = fusion_file_prep(tumor_input_df, tumor_sample_id)
     normal_fusion = fusion_file_prep(normal_input_df, normal_sample_id)
     
-    print(f"{tumor_sample_id} Tumor fusion: {len(tumor_fusion)}" )
-    logger.info(f"{tumor_sample_id} Tumor fusion: {len(tumor_fusion)}" )
-    print(f"{normal_sample_id} Normal fusion: {len(normal_fusion)}" )
-    logger.info(f"{normal_sample_id} Normal fusion: {len(normal_fusion)}" )
+    logger.info(f"{tumor_sample_id} Tumor fusion: {len(tumor_fusion)}")
+    logger.info(f"{normal_sample_id} Normal fusion: {len(normal_fusion)}")
     
     if len(tumor_fusion) == 0: #no fusions found in tumor sample, return empty df with correct columns
         return tumor_fusion
@@ -211,8 +209,32 @@ def cnv_file_prep(input_df: pd.DataFrame, sample_id: str) -> pd.DataFrame:
 # task to format cnv log2 continuous
 
 # flow for cnv
+@flow(name="cnv_flow", log_prints=True)
+def cnv_flow(tumor_vcf, tumor_sample_id, normal_vcf, normal_sample_id, logger) -> pd.DataFrame:
+    """Flow to process CNV data from clinical VCFs for pedmatch"""
+    
+    tumor_cnv = cnv_file_prep(tumor_vcf, tumor_sample_id)
+    normal_cnv = cnv_file_prep(normal_vcf, normal_sample_id)
+    
+    logger.info(f"{tumor_sample_id} Tumor CNV: {len(tumor_cnv)}")
+    logger.info(f"{normal_sample_id} Normal CNV: {len(normal_cnv)}")
+    
+    if len(tumor_cnv) == 0: #no CNVs found in tumor sample, return empty df with correct columns
+        return tumor_cnv
+    
+    # remove from tumor cnv any cnvs that are also in normal cnv based on hugo symbol
+    merged_cnv = tumor_cnv.merge(normal_cnv, on=["Hugo_Symbol"], how="left", indicator=True)
+    merged_cnv.loc[merged_cnv["_merge"] == "both", "SV_Status"] = "GERMLINE"
+    merged_cnv = merged_cnv.drop(columns=["_merge"])
+    
+    # remove GERMLINE CNVs that are in tumor CNV from tumor CNV
+    merged_cnv = merged_cnv[merged_cnv["SV_Status"] != "GERMLINE"]
+    
+    print(f"Somatic CNV after removing germline CNVs for {tumor_sample_id}: {len(merged_cnv)}")
+    logger.info(f"Somatic CNV after removing germline CNVs for {tumor_sample_id}: {len(merged_cnv)}")
+
 # patient flow
-@flow(name=f"pt_paired_vcf_flow_{tumor_sample_id}_{normal_sample_id}", log_prints=True)
+@flow(name="pt_paired_vcf_flow_{tumor_sample_id}_{normal_sample_id}", log_prints=True)
 def pt_paired_vcf_flow(tumor_vcf, tumor_sample_id, normal_vcf, normal_sample_id, logger):
     # prep files
     tumor_vcf_df = clin_vcf_file_prep(tumor_vcf, tumor_sample_id)
