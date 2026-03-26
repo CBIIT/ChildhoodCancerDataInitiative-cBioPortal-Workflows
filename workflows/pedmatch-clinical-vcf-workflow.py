@@ -236,7 +236,7 @@ def cnv_flow(tumor_vcf, tumor_sample_id, normal_vcf, normal_sample_id, logger) -
     return merged_cnv
 
 # patient flow
-@flow(name="pt_paired_vcf_flow_{tumor_sample_id}_{normal_sample_id}", log_prints=True)
+@flow(name="pt_paired_vcf_flow", log_prints=True)
 def pt_paired_vcf_flow(tumor_vcf, tumor_sample_id, normal_vcf, normal_sample_id, logger):
     # prep files
     tumor_vcf_df = clin_vcf_file_prep(tumor_vcf, tumor_sample_id)
@@ -249,6 +249,7 @@ def pt_paired_vcf_flow(tumor_vcf, tumor_sample_id, normal_vcf, normal_sample_id,
 
 
 # batch flow
+@flow(name="batch_process", log_prints=True)
 def batch_process(batch_df: pd.DataFrame, logger, runner_logger) -> None:
     
     # array of pd.DataFrames to hold fusion results for each tumor normal pair
@@ -344,6 +345,7 @@ def pedmatch_clinical_vcf_flow(bucket: str, output_dir: str, manifest_path: str,
     # add batch loop here
     for i in range(0, len(manifest_df.head(200)), batch_size):
         batch_df = manifest_df.iloc[i:i+batch_size]
+        runner_logger.info(f"Processing batch {i//batch_size + 1} of {len(manifest_df.head(200))//batch_size + 1}")
         fusion_batch_op = batch_process(batch_df, logger, runner_logger)
         fusion_concat_results.extend(fusion_batch_op)
     
