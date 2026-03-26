@@ -348,20 +348,20 @@ def pedmatch_clinical_vcf_flow(bucket: str, output_dir: str, manifest_path: str,
     # download files:
     # reusing download cnv function since it performs the same steps 
     # of downloading files from s3, checking md5sums and file sizes, and logging
-    batch_size = 200 # temp for testing with 10 files; change to 500 for full run
+    batch_size = 100 # temp for testing with 10 files; change to 500 for full run
     #for i in range(0, len(manifest_df), batch_size):
-    for i in range(0, 200, batch_size): # temp for testing with 500 files
+    for i in range(0, 100, batch_size): # temp for testing with 500 files
         batch_df = manifest_df.iloc[i:i+batch_size]
-        runner_logger.info(f"Downloading batch {i//batch_size + 1} of {len(manifest_df)//batch_size + 1}")
+        runner_logger.info(f"Downloading batch {i//batch_size + 1} of {len(manifest_df.head(100))//batch_size + 1}")
         download_cnv(batch_df, logger)
     
     fusion_concat_results= []
     cnv_concat_results = []
     
     # add batch loop here
-    for i in range(0, len(manifest_df.head(200)), batch_size):
+    for i in range(0, len(manifest_df.head(100)), batch_size):
         batch_df = manifest_df.iloc[i:i+batch_size]
-        runner_logger.info(f"Processing batch {i//batch_size + 1} of {len(manifest_df.head(200))//batch_size + 1}")
+        runner_logger.info(f"Processing batch {i//batch_size + 1} of {len(manifest_df.head(100))//batch_size + 1}")
         fusion_batch_op, cnv_batch_op = batch_process(batch_df, logger, runner_logger)
         fusion_concat_results.extend(fusion_batch_op)
         cnv_concat_results.extend(cnv_batch_op)
