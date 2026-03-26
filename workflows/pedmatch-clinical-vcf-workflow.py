@@ -303,6 +303,21 @@ def cnv_flow(tumor_vcf, tumor_sample_id, normal_vcf, normal_sample_id, logger) -
     
     return filtered_cnv
 
+# snv file prep
+@task(name="snv_file_prep", log_prints=True)
+def snv_file_prep(input_df: pd.DataFrame, sample_id: str) -> pd.DataFrame:
+    """Read in SNV file and prep pertinent columns for annotation and merging to maf"""
+    
+    snv_df = input_df.copy()
+    snv_df = snv_df[~(snv_df.INFO.str.contains('SVTYPE')) & ~(snv_df[sample_id].str.contains("0/0")) & (snv_df.INFO.str.contains("'location':'exonic'"))]
+    
+    # save snv_df to int VCF
+    file_name = f"{sample_id}_intermediate.vcf"
+    snv_df.to_csv(file_name, sep="\t", index=False)
+    
+    # return file name of intermediate vcf for annotation step
+    return file_name
+
 # patient flow
 @flow(name="pt_paired_vcf_flow", log_prints=True)
 def pt_paired_vcf_flow(tumor_vcf, tumor_sample_id, normal_vcf, normal_sample_id, logger):
