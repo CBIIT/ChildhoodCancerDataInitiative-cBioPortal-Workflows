@@ -316,7 +316,6 @@ def pt_paired_vcf_flow(tumor_vcf, tumor_sample_id, normal_vcf, normal_sample_id,
     
     return fusion_results, cnv_results
 
-
 # batch flow
 @flow(name="batch_process", log_prints=True)
 def batch_process(batch_df: pd.DataFrame, logger, runner_logger) -> None:
@@ -448,8 +447,3 @@ def pedmatch_clinical_vcf_flow(bucket: str, output_dir: str, manifest_path: str,
             destination=output_dir,
             sub_folder=""
         )
-
-# parse files into constituent output files
-# perform comparisons of tumor and normal samples to get somatic variants
-# annotate clinical SNV variants with Genome Nexus API
-# upload files to s3
