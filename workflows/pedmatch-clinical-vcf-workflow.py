@@ -7,6 +7,7 @@ from src.utils import get_time, file_dl, upload_folder_to_s3, get_run_logger, ge
 from workflows.cnv import download_cnv, gistic_like_calls
 import shutil
 import math
+#from workflows.vcf_anno import install_nexus, annotator_flow
 
 # task to read in manifest file to dataframe and check columns
 @task(name="read_manifest", log_prints=True)
@@ -311,6 +312,10 @@ def snv_file_prep(input_df: pd.DataFrame, sample_id: str) -> pd.DataFrame:
     snv_df = input_df.copy()
     snv_df = snv_df[~(snv_df.INFO.str.contains('SVTYPE')) & ~(snv_df[sample_id].str.contains("0/0")) & (snv_df.INFO.str.contains("'location':'exonic'"))]
     
+    # get data  from INFO column
+    snv_df.loc[:, 't_alt_count'] = snv_df['INFO'].astype(str).str.extract(r'FAO=([^;]+)')
+    snv_df.loc[:, 't_ref_count'] = snv_df['INFO'].astype(str).str.extract(r'FRO=([^;]+)')
+
     # save snv_df to int VCF
     file_name = f"{sample_id}_intermediate.vcf"
     snv_df.to_csv(file_name, sep="\t", index=False)
