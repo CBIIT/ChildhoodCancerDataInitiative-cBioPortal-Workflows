@@ -208,12 +208,12 @@ def cnv_file_prep(input_df: pd.DataFrame, sample_id: str) -> pd.DataFrame:
     
     for _, row in cnv_df.iterrows():
         temp_dict = {
-            "Sample_Id": sample_id,
+            "ID": sample_id,
             "Patient_Id": sample_id.split("_")[0],
             "Hugo_Symbol": row["ID"],
-            "chromosome": row["CHROM"],
-            "start": row["POS"],
-            "end": row["End"],
+            "chrom": row["CHROM"],
+            "loc.start": row["POS"],
+            "loc.end": row["End"],
             "num.mark": row["Num_Probes"],
             "seg.mean": row["log2"], ##
             "copy_number": row["cn"], ##
@@ -223,10 +223,53 @@ def cnv_file_prep(input_df: pd.DataFrame, sample_id: str) -> pd.DataFrame:
     return pd.DataFrame(op)
 
 # task to format cnv segment
-
+@task(name="cnv_segment_file_prep", log_prints=True)
+def cnv_segment_file_prep(input_df: pd.DataFrame) --> pd.DataFrame:
+    """Read in CNV segment file and prep pertinent columns for annotation and merging to maf"""
+    
+    # subset to required columns
+    required_cols = ['ID', 'chrom', 'loc.start', 'loc.end', 'num.mark', 'seg.mean', 'copy_number']
+    
+    return input_df[required_cols].copy()
+    
 # task to format cnv discrete
+@task(name="cnv_discrete_file_prep", log_prints=True)
+def cnv_discrete_file_prep(input_df: pd.DataFrame) --> pd.DataFrame:
+    """Read in CNV discrete file and prep pertinent columns for annotation and merging to maf"""
+    
+    # subset to required columns
+    required_cols = ['ID', 'Hugo_Symbol', 'seg.mean']
+    
+    cna_discrete_df = input_df[required_cols].copy()
+    
+    # perform binning of values with gistic_like_calls function
+    cna_discrete_df.loc[:, 'discrete_copy_number'] = cna_discrete_df['seg.mean'].apply(lambda x: gistic_like_calls(x))
+    
+    cna_discrete_pivot = cna_discrete_df.pivot(
+        index='Hugo_Symbol',
+        columns='ID',
+        values='discrete_copy_number'
+    ).reset_index().fillna(0)
+    
+    return cna_discrete_pivot
 
 # task to format cnv log2 continuous
+@task(name="cnv_log2_continuous_file_prep", log_prints=True)
+def cnv_log2_continuous_file_prep(input_df: pd.DataFrame) --> pd.DataFrame:
+    """Read in CNV discrete file and prep pertinent columns for annotation and merging to maf"""
+    
+    # subset to required columns
+    required_cols = ['ID', 'Hugo_Symbol', 'seg.mean']
+    
+    cna_log2_df = input_df[required_cols].copy()
+    
+    cna_log2_pivot = cna_log2_df.pivot(
+        index='Hugo_Symbol',
+        columns='ID',
+        values='seg.mean'
+    ).reset_index().fillna('NA')
+    
+    return cna_log2_pivot
 
 # flow for cnv
 @flow(name="cnv_flow", log_prints=True)
@@ -370,13 +413,23 @@ def pedmatch_clinical_vcf_flow(bucket: str, output_dir: str, manifest_path: str,
         cnv_concat_results.extend(cnv_batch_op)
     
     # save output files
-    fusion_output_path = os.path.join(output_path, "fusion_results.txt")
-    cnv_output_path = os.path.join(output_path, "cnv_results.txt")
+    fusion_output_path = os.path.join(output_path, "data_sv.txt")
+    cnv_output_path = os.path.join(output_path, "cnv_int_results.txt")
     
     pd.concat(fusion_concat_results).to_csv(fusion_output_path, sep="\t", index=False)
-    pd.concat(cnv_concat_results).to_csv(cnv_output_path, sep="\t", index=False)
+    cnv_concat_results_df = pd.concat(cnv_concat_results)
+    cnv_concat_results_df.to_csv(cnv_output_path, sep="\t", index=False)
     
-    # TODO: post-hoc processing of cnvs into cBio format files
+    # post-hoc processing of cnvs into cBio format files
+    cna_seg = cnv_segment_file_prep(cnv_concat_results_df)
+    cna_discrete = cnv_discrete_file_prep(cnv_concat_results_df)
+    cna_log2_continuous = cnv_log2_continuous_file_prep(cnv_concat_results_df)
+    
+    # save cna files
+    cna_seg.to_csv(os.path.join(output_path, "data_cna_hg19.seg.txt"), sep="\t", index=False)
+    cna_discrete.to_csv(os.path.join(output_path, "data_cna.txt"), sep="\t", index=False)
+    cna_log2_continuous.to_csv(os.path.join(output_path, "data_log2_cna.txt"), sep="\t", index=False)
+    
     
     # upload dir to s3
     upload_folder_to_s3(
