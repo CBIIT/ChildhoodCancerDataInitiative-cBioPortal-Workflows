@@ -164,15 +164,18 @@ def fusion_flow(tumor_input_df: pd.DataFrame, tumor_sample_id: str, normal_input
     if len(tumor_fusion) == 0: #no fusions found in tumor sample, return empty df with correct columns
         return tumor_fusion
     
+    tumor_cols = tumor_fusion.columns.tolist()
+    
     # remove from tumor fusion any fusions that are also in normal fusion based on Site1_Hugo_Symbol, Site2_Hugo_Symbol, Site1_Region_Number, and Site2_Region_Number
-    merged_fusion = tumor_fusion.merge(normal_fusion, on=["Site1_Hugo_Symbol", "Site2_Hugo_Symbol", "Site1_Region_Number", "Site2_Region_Number"], how="left", indicator=True)
+    merged_fusion = tumor_fusion.merge(normal_fusion, on=["Site1_Hugo_Symbol", "Site2_Hugo_Symbol", "Site1_Region_Number", "Site2_Region_Number"], how="left", indicator=True, suffixes=("", "_normal"))
     merged_fusion.loc[merged_fusion["_merge"] == "both", "SV_Status"] = "GERMLINE"
-    merged_fusion = merged_fusion.drop(columns=["_merge"])
     
     # remove GERMLINE fusions that are in tumor fusion from tumor fusion
     merged_fusion = merged_fusion[merged_fusion["SV_Status"] != "GERMLINE"]
     
-    print(f"Somatic fusion after removing germline fusions for {tumor_sample_id}: {len(merged_fusion)}")
+    # remove columns from normal fusion that are not needed for output
+    merged_fusion = merged_fusion[tumor_cols]
+    
     logger.info(f"Somatic fusion after removing germline fusions for {tumor_sample_id}: {len(merged_fusion)}")
     
     return merged_fusion
