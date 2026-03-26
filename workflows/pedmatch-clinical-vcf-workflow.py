@@ -99,7 +99,7 @@ def fusion_file_prep(input_df: pd.DataFrame, sample_id: str) -> pd.DataFrame:
     op = []
     
     # get uniq fusion ID by taking ID and removing _1 or _2 at the end 
-    fusion_df.loc[:, 'FUSION_ID'] = fusion_df['ID'].iloc[:, 0].str.split("_", expand=True).str[0]
+    fusion_df.loc[:, 'FUSION_ID'] = fusion_df['ID'].str.split("_", expand=True).str[0]
     
     # get data  from INFO column; gene names are in the format GENE_NAME=<NAME>;
     fusion_df.loc[:, 'GENE'] = fusion_df['INFO'].str.extract(r'GENE_NAME=([^;]+)')
@@ -232,6 +232,8 @@ def cnv_flow(tumor_vcf, tumor_sample_id, normal_vcf, normal_sample_id, logger) -
     
     print(f"Somatic CNV after removing germline CNVs for {tumor_sample_id}: {len(merged_cnv)}")
     logger.info(f"Somatic CNV after removing germline CNVs for {tumor_sample_id}: {len(merged_cnv)}")
+    
+    return merged_cnv
 
 # patient flow
 @flow(name="pt_paired_vcf_flow_{tumor_sample_id}_{normal_sample_id}", log_prints=True)
