@@ -89,8 +89,19 @@ def copy_number_to_log2(observed_cn, baseline_cn=2):
 def fusion_file_prep(input_df: pd.DataFrame, sample_id: str) -> pd.DataFrame:
     """Read in fusion file and prep pertinent columns for annotation and merging to maf"""
     
+    # Check if required columns exist
+    required_cols = ['INFO', 'ID', 'CHROM', 'POS']
+    for col in required_cols:
+        if col not in input_df.columns:
+            return pd.DataFrame(columns=["Sample_Id", "SV_Status", "Site1_Hugo_Symbol", "Site1_Region_Number", "Site2_Hugo_Symbol", "Site2_Region_Number", "NCBI_Build", "Class", "Method", "Event_Info", "Annotation", "DNA_Support", "RNA_Support", "Tumor_Read_Count", "Site1_Chromosome", "Site1_Position", "Site2_Chromosome", "Site2_Position"])
+    
     fusion_df = input_df.copy()
-    fusion_df = fusion_df[fusion_df['INFO'].str.contains("SVTYPE=Fusion")]
+    
+    # Check if INFO column exists and has string data before filtering
+    if 'INFO' not in fusion_df.columns or fusion_df['INFO'].empty:
+        return pd.DataFrame(columns=["Sample_Id", "SV_Status", "Site1_Hugo_Symbol", "Site1_Region_Number", "Site2_Hugo_Symbol", "Site2_Region_Number", "NCBI_Build", "Class", "Method", "Event_Info", "Annotation", "DNA_Support", "RNA_Support", "Tumor_Read_Count", "Site1_Chromosome", "Site1_Position", "Site2_Chromosome", "Site2_Position"])
+    
+    fusion_df = fusion_df[fusion_df['INFO'].astype(str).str.contains("SVTYPE=Fusion", na=False)]
     
     if len(fusion_df) == 0:
         return pd.DataFrame(columns=["Sample_Id", "SV_Status", "Site1_Hugo_Symbol", "Site1_Region_Number", "Site2_Hugo_Symbol", "Site2_Region_Number", "NCBI_Build", "Class", "Method", "Event_Info", "Annotation", "DNA_Support", "RNA_Support", "Tumor_Read_Count", "Site1_Chromosome", "Site1_Position", "Site2_Chromosome", "Site2_Position"])
@@ -99,13 +110,13 @@ def fusion_file_prep(input_df: pd.DataFrame, sample_id: str) -> pd.DataFrame:
     op = []
     
     # get uniq fusion ID by taking ID and removing _1 or _2 at the end 
-    fusion_df.loc[:, 'FUSION_ID'] = fusion_df['ID'].str.split("_", expand=True).str[0]
+    fusion_df.loc[:, 'FUSION_ID'] = fusion_df['ID'].astype(str).str.split("_", expand=True).str[0]
     
     # get data  from INFO column; gene names are in the format GENE_NAME=<NAME>;
-    fusion_df.loc[:, 'GENE'] = fusion_df['INFO'].str.extract(r'GENE_NAME=([^;]+)')
-    fusion_df.loc[:, 'EXON'] = fusion_df['INFO'].str.extract(r'EXON_NUM=([^;]+)')
-    fusion_df.loc[:, 'Annotation'] = fusion_df['INFO'].str.extract(r'ANNOTATION=([^;]+)')
-    fusion_df.loc[:, 'Tumor_Read_Count'] = fusion_df['INFO'].str.extract(r'READ_COUNT=([^;]+)')
+    fusion_df.loc[:, 'GENE'] = fusion_df['INFO'].astype(str).str.extract(r'GENE_NAME=([^;]+)')
+    fusion_df.loc[:, 'EXON'] = fusion_df['INFO'].astype(str).str.extract(r'EXON_NUM=([^;]+)')
+    fusion_df.loc[:, 'Annotation'] = fusion_df['INFO'].astype(str).str.extract(r'ANNOTATION=([^;]+)')
+    fusion_df.loc[:, 'Tumor_Read_Count'] = fusion_df['INFO'].astype(str).str.extract(r'READ_COUNT=([^;]+)')
     
     for group_name, group_df in fusion_df.groupby("FUSION_ID"):
         
@@ -171,16 +182,22 @@ def fusion_flow(tumor_input_df: pd.DataFrame, tumor_sample_id: str, normal_input
 def cnv_file_prep(input_df: pd.DataFrame, sample_id: str) -> pd.DataFrame:
     """Read in CNV file and prep pertinent columns for annotation and merging to maf"""
     
+    # Check if required columns exist
+    required_cols = ['ALT', 'FILTER', 'INFO', 'ID', 'CHROM', 'POS']
+    for col in required_cols:
+        if col not in input_df.columns:
+            return pd.DataFrame(columns=["Sample_Id", "Patient_Id", "Hugo_Symbol", "chromosome", "start", "end", "num.mark", "seg.mean", "copy_number"])
+    
     cnv_df = input_df.copy()
-    cnv_df = cnv_df[(cnv_df.ALT == "<CNV>") & (cnv_df.FILTER == 'PASS') & (cnv_df.INFO.str.contains('Amplification'))]
+    cnv_df = cnv_df[(cnv_df.ALT == "<CNV>") & (cnv_df.FILTER == 'PASS') & (cnv_df.INFO.astype(str).str.contains('Amplification', na=False))]
     
     if len(cnv_df) == 0:
         return pd.DataFrame(columns=["Sample_Id", "Patient_Id", "Hugo_Symbol", "chromosome", "start", "end", "num.mark", "seg.mean", "copy_number"])
     
     # get data  from INFO column
-    cnv_df.loc[:, 'Num_Probes'] = cnv_df['INFO'].str.extract(r'NUMTILES=([^;]+)')
-    cnv_df.loc[:, 'End'] = cnv_df['INFO'].str.extract(r'END=([^;]+)')
-    cnv_df.loc[:, 'cn'] = cnv_df['INFO'].str.extract(r'RAW_CN=([^;]+)')
+    cnv_df.loc[:, 'Num_Probes'] = cnv_df['INFO'].astype(str).str.extract(r'NUMTILES=([^;]+)')
+    cnv_df.loc[:, 'End'] = cnv_df['INFO'].astype(str).str.extract(r'END=([^;]+)')
+    cnv_df.loc[:, 'cn'] = cnv_df['INFO'].astype(str).str.extract(r'RAW_CN=([^;]+)')
     cnv_df.loc[:, 'log2'] = cnv_df['cn'].apply(lambda x: copy_number_to_log2(float(x)))
     
     # op array
@@ -223,17 +240,12 @@ def cnv_flow(tumor_vcf, tumor_sample_id, normal_vcf, normal_sample_id, logger) -
         return tumor_cnv
     
     # remove from tumor cnv any cnvs that are also in normal cnv based on hugo symbol
-    merged_cnv = tumor_cnv.merge(normal_cnv, on=["Hugo_Symbol"], how="left", indicator=True)
-    merged_cnv.loc[merged_cnv["_merge"] == "both", "SV_Status"] = "GERMLINE"
-    merged_cnv = merged_cnv.drop(columns=["_merge"])
+    filtered_cnv = tumor_cnv[~tumor_cnv["Hugo_Symbol"].isin(normal_cnv["Hugo_Symbol"])]
     
-    # remove GERMLINE CNVs that are in tumor CNV from tumor CNV
-    merged_cnv = merged_cnv[merged_cnv["SV_Status"] != "GERMLINE"]
+    print(f"Somatic CNV after removing germline CNVs for {tumor_sample_id}: {len(filtered_cnv)}")
+    logger.info(f"Somatic CNV after removing germline CNVs for {tumor_sample_id}: {len(filtered_cnv)}")
     
-    print(f"Somatic CNV after removing germline CNVs for {tumor_sample_id}: {len(merged_cnv)}")
-    logger.info(f"Somatic CNV after removing germline CNVs for {tumor_sample_id}: {len(merged_cnv)}")
-    
-    return merged_cnv
+    return filtered_cnv
 
 # patient flow
 @flow(name="pt_paired_vcf_flow", log_prints=True)
@@ -360,6 +372,8 @@ def pedmatch_clinical_vcf_flow(bucket: str, output_dir: str, manifest_path: str,
     
     pd.concat(fusion_concat_results).to_csv(fusion_output_path, sep="\t", index=False)
     pd.concat(cnv_concat_results).to_csv(cnv_output_path, sep="\t", index=False)
+    
+    # TODO: post-hoc processing of cnvs into cBio format files
     
     # upload dir to s3
     upload_folder_to_s3(
