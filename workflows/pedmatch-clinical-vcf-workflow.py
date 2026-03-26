@@ -251,6 +251,10 @@ def cnv_discrete_file_prep(input_df: pd.DataFrame) --> pd.DataFrame:
         values='discrete_copy_number'
     ).reset_index().fillna(0)
     
+    # convert all values to int
+    for col in cna_discrete_pivot.columns[1:]:
+        cna_discrete_pivot[col] = cna_discrete_pivot[col].astype(int)
+    
     return cna_discrete_pivot
 
 # task to format cnv log2 continuous
@@ -428,7 +432,7 @@ def pedmatch_clinical_vcf_flow(bucket: str, output_dir: str, manifest_path: str,
     # save cna files
     cna_seg.to_csv(os.path.join(output_path, "data_cna_hg19.seg.txt"), sep="\t", index=False)
     cna_discrete.to_csv(os.path.join(output_path, "data_cna.txt"), sep="\t", index=False)
-    cna_log2_continuous.to_csv(os.path.join(output_path, "data_log2_cna.txt"), sep="\t", index=False)
+    cna_log2_continuous.to_csv(os.path.join(output_path, "data_log2_cna.txt"), sep="\t", index=False, quoting=csv.QUOTE_NONE, escapechar='\\')
     
     
     # upload dir to s3
