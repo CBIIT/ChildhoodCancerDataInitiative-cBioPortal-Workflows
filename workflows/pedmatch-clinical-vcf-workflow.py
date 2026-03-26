@@ -223,6 +223,37 @@ def pt_paired_vcf_flow(tumor_vcf, tumor_sample_id, normal_vcf, normal_sample_id,
     
     return fusion_results
 
+
+# batch flow
+def batch_process(batch_df: pd.DataFrame, logger, runner_logger) -> None:
+    
+    # array of pd.DataFrames to hold fusion results for each tumor normal pair
+    fusion_op = []
+    
+    # iterate thru tumor normal pairs
+    for group_name, group_df in batch_df.groupby("participant_id"):
+        runner_logger.info(f"Processing participant: {group_name}")
+        tumor_df = group_df[group_df["sample_type"] == "tissue"]
+        normal_df = group_df[group_df["sample_type"] == "blood"]
+        if len(tumor_df) != 1 or len(normal_df) != 1:
+            runner_logger.warning(f"Skipping participant {group_name} due to incorrect number of tumor or normal samples")
+            logger.warning(f"Participant {group_name} tumor samples: {len(tumor_df)}, normal samples: {len(normal_df)}")
+            continue
+        tumor_sample_id = tumor_df.iloc[0]["sample_id"]
+        normal_sample_id = normal_df.iloc[0]["sample_id"]
+        
+        try:
+            fusion_results = pt_paired_vcf_flow(tumor_df.iloc[0]["file_name"], tumor_sample_id, normal_df.iloc[0]["file_name"], normal_sample_id, logger)
+        except Exception as e:
+            runner_logger.error(f"Error processing participant {group_name}: {e}")
+            logger.error(f"Error processing participant {group_name}: {e}")
+            continue
+        
+        # add to output array
+        fusion_op.append(fusion_results)
+    
+    return fusion_op
+
 # main flow:
 @flow(name="pedmatch_clinical_vcf_flow", log_prints=True)
 def pedmatch_clinical_vcf_flow(bucket: str, output_dir: str, manifest_path: str, flow_type: DropDownChoices):
@@ -284,36 +315,18 @@ def pedmatch_clinical_vcf_flow(bucket: str, output_dir: str, manifest_path: str,
         runner_logger.info(f"Downloading batch {i//batch_size + 1} of {len(manifest_df)//batch_size + 1}")
         download_cnv(batch_df, logger)
     
-    # array of pd.DataFrames to hold fusion results for each tumor normal pair
-    fusion_op = []
+    fusion_concat_results= []
     
-    # iterate thru tumor normal pairs
-    for group_name, group_df in manifest_df.head(200).groupby("participant_id"): ##TESTING
-        runner_logger.info(f"Processing participant: {group_name}")
-        tumor_df = group_df[group_df["sample_type"] == "tissue"]
-        normal_df = group_df[group_df["sample_type"] == "blood"]
-        if len(tumor_df) != 1 or len(normal_df) != 1:
-            runner_logger.warning(f"Skipping participant {group_name} due to incorrect number of tumor or normal samples")
-            logger.warning(f"Participant {group_name} tumor samples: {len(tumor_df)}, normal samples: {len(normal_df)}")
-            continue
-        tumor_sample_id = tumor_df.iloc[0]["sample_id"]
-        normal_sample_id = normal_df.iloc[0]["sample_id"]
-        
-        try:
-            fusion_results = pt_paired_vcf_flow(tumor_df.iloc[0]["file_name"], tumor_sample_id, normal_df.iloc[0]["file_name"], normal_sample_id, logger)
-        except Exception as e:
-            runner_logger.error(f"Error processing participant {group_name}: {e}")
-            logger.error(f"Error processing participant {group_name}: {e}")
-            continue
-        
-        # add to output array
-        fusion_op.append(fusion_results)
-        
+    # add batch loop here
+    for i in range(0, len(manifest_df.head(200)), batch_size):
+        batch_df = manifest_df.iloc[i:i+batch_size]
+        fusion_batch_op = batch_process(batch_df, logger, runner_logger)
+        fusion_concat_results.extend(fusion_batch_op)
     
     # save output files
     fusion_output_path = os.path.join(output_path, "fusion_results.txt")
     
-    pd.concat(fusion_op).to_csv(fusion_output_path, sep="\t", index=False)
+    pd.concat(fusion_concat_results).to_csv(fusion_output_path, sep="\t", index=False)
     
     # upload dir to s3
     upload_folder_to_s3(
