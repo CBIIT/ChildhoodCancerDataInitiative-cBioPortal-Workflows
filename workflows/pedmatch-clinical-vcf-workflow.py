@@ -250,7 +250,7 @@ def pedmatch_clinical_vcf_flow(bucket: str, output_dir: str, manifest_path: str,
         
         try:
             fusion_results = pt_paired_vcf_flow(tumor_df.iloc[0]["file_name"], tumor_sample_id, normal_df.iloc[0]["file_name"], normal_sample_id, logger)
-        except:
+        except Exception as e:
             runner_logger.error(f"Error processing participant {group_name}: {e}")
             logger.error(f"Error processing participant {group_name}: {e}")
             continue
