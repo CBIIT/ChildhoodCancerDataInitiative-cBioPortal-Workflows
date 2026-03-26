@@ -110,7 +110,7 @@ def fusion_file_prep(input_df: pd.DataFrame, sample_id: str) -> pd.DataFrame:
     op = []
     
     # get uniq fusion ID by taking ID and removing _1 or _2 at the end 
-    fusion_df.loc[:, 'FUSION_ID'] = fusion_df['ID'].astype(str).str.split("_", expand=True).str[0]
+    fusion_df.loc[:, 'FUSION_ID'] = fusion_df['ID'].str.split("_").str[0]
     
     # get data  from INFO column; gene names are in the format GENE_NAME=<NAME>;
     fusion_df.loc[:, 'GENE'] = fusion_df['INFO'].astype(str).str.extract(r'GENE_NAME=([^;]+)')
@@ -189,7 +189,7 @@ def cnv_file_prep(input_df: pd.DataFrame, sample_id: str) -> pd.DataFrame:
             return pd.DataFrame(columns=["Sample_Id", "Patient_Id", "Hugo_Symbol", "chromosome", "start", "end", "num.mark", "seg.mean", "copy_number"])
     
     cnv_df = input_df.copy()
-    cnv_df = cnv_df[(cnv_df.ALT == "<CNV>") & (cnv_df.FILTER == 'PASS') & (cnv_df.INFO.astype(str).str.contains('Amplification', na=False))]
+    cnv_df = cnv_df[(cnv_df.ALT == "<CNV>") & (cnv_df.INFO.astype(str).str.contains('Amplification', na=False))]
     
     if len(cnv_df) == 0:
         return pd.DataFrame(columns=["Sample_Id", "Patient_Id", "Hugo_Symbol", "chromosome", "start", "end", "num.mark", "seg.mean", "copy_number"])
