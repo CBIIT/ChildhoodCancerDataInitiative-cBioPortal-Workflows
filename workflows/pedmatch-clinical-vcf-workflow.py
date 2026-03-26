@@ -5,6 +5,7 @@ from prefect.task_runners import ConcurrentTaskRunner
 from src.utils import get_time, file_dl, upload_folder_to_s3, get_run_logger, get_time, get_logger
 from workflows.cnv import download_cnv, gistic_like_calls
 import shutil
+import math
 
 # task to read in manifest file to dataframe and check columns
 @task(name="read_manifest", log_prints=True)
@@ -67,13 +68,29 @@ def clin_vcf_file_prep(file_path: str, sample_id: str) -> pd.DataFrame:
     
     return vcf_df
 
+def copy_number_to_log2(observed_cn, baseline_cn=2):
+    """
+    Convert observed copy number to log2 copy number ratio.
+    
+    Parameters:
+        observed_cn (float): observed copy number
+        baseline_cn (float): baseline (normal) copy number, default = 2
+        
+    Returns:
+        float: log2 copy number ratio
+    """
+    if observed_cn <= 0:
+        raise ValueError("Observed copy number must be > 0")
+    
+    return math.log2(observed_cn / baseline_cn)
 
 # task to format fusion data
 @task(name="fusion_file_prep", log_prints=True)
 def fusion_file_prep(input_df: pd.DataFrame, sample_id: str) -> pd.DataFrame:
     """Read in fusion file and prep pertinent columns for annotation and merging to maf"""
     
-    fusion_df = input_df[input_df['INFO'].str.contains("SVTYPE=Fusion")].copy()
+    fusion_df = input_df.copy()
+    fusion_df = input_df[input_df['INFO'].str.contains("SVTYPE=Fusion")]
     
     if len(fusion_df) == 0:
         return pd.DataFrame(columns=["Sample_Id", "SV_Status", "Site1_Hugo_Symbol", "Site1_Region_Number", "Site2_Hugo_Symbol", "Site2_Region_Number", "NCBI_Build", "Class", "Method", "Event_Info", "Annotation", "DNA_Support", "RNA_Support", "Tumor_Read_Count", "Site1_Chromosome", "Site1_Position", "Site2_Chromosome", "Site2_Position"])
@@ -152,6 +169,40 @@ def fusion_flow(tumor_input_df: pd.DataFrame, tumor_sample_id: str, normal_input
     return merged_fusion
 
 # task for cnv file prep
+@task(name="cnv_file_prep", log_prints=True)
+def cnv_file_prep(input_df: pd.DataFrame, sample_id: str) -> pd.DataFrame:
+    """Read in CNV file and prep pertinent columns for annotation and merging to maf"""
+    
+    cnv_df = input_df.copy()
+    cnv_df = cnv_df[(cnv_df.ALT == "<CNV>") & (cnv_df.FILTER == 'PASS') & (cnv_df.INFO.str.contains('Amplification'))]
+    
+    if len(cnv_df) == 0:
+        return pd.DataFrame(columns=["Sample_Id", "Patient_Id", "Hugo_Symbol", "chromosome", "start", "end", "num.mark", "seg.mean", "copy_number"])
+    
+    # get data  from INFO column
+    cnv_df.loc[:, 'Num_Probes'] = cnv_df['INFO'].str.extract(r'NUMTILES=([^;]+)')
+    cnv_df.loc[:, 'End'] = cnv_df['INFO'].str.extract(r'END=([^;]+)')
+    cnv_df.loc[:, 'cn'] = cnv_df['INFO'].str.extract(r'RAW_CN=([^;]+)')
+    cnv_df.loc[:, 'log2'] = cnv_df['cn'].apply(lambda x: copy_number_to_log2(float(x)))
+    
+    # op array
+    op = []
+    
+    for _, row in cnv_df.iterrows():
+        temp_dict = {
+            "Sample_Id": sample_id,
+            "Patient_Id": sample_id.split("_")[0],
+            "Hugo_Symbol": row["ID"],
+            "chromosome": row["CHROM"],
+            "start": row["POS"],
+            "end": row["End"],
+            "num.mark": row["Num_Probes"],
+            "seg.mean": row["log2"], ##
+            "copy_number": row["cn"], ##
+        }
+        op.append(temp_dict)
+    
+    return pd.DataFrame(op)
 
 # task to format cnv segment
 
@@ -161,7 +212,7 @@ def fusion_flow(tumor_input_df: pd.DataFrame, tumor_sample_id: str, normal_input
 
 # flow for cnv
 # patient flow
-@flow(name="pt_paired_vcf_flow_", log_prints=True)
+@flow(name=f"pt_paired_vcf_flow_{tumor_sample_id}_{normal_sample_id}", log_prints=True)
 def pt_paired_vcf_flow(tumor_vcf, tumor_sample_id, normal_vcf, normal_sample_id, logger):
     # prep files
     tumor_vcf_df = clin_vcf_file_prep(tumor_vcf, tumor_sample_id)
@@ -226,9 +277,9 @@ def pedmatch_clinical_vcf_flow(bucket: str, output_dir: str, manifest_path: str,
     # download files:
     # reusing download cnv function since it performs the same steps 
     # of downloading files from s3, checking md5sums and file sizes, and logging
-    batch_size = 500 # temp for testing with 10 files; change to 500 for full run
-    for i in range(0, len(manifest_df), batch_size):
-    #for i in range(0, 10, 10): # temp for testing with 10 files
+    batch_size = 200 # temp for testing with 10 files; change to 500 for full run
+    #for i in range(0, len(manifest_df), batch_size):
+    for i in range(0, 200, batch_size): # temp for testing with 500 files
         batch_df = manifest_df.iloc[i:i+batch_size]
         runner_logger.info(f"Downloading batch {i//batch_size + 1} of {len(manifest_df)//batch_size + 1}")
         download_cnv(batch_df, logger)
@@ -237,7 +288,7 @@ def pedmatch_clinical_vcf_flow(bucket: str, output_dir: str, manifest_path: str,
     fusion_op = []
     
     # iterate thru tumor normal pairs
-    for group_name, group_df in manifest_df.groupby("participant_id"):
+    for group_name, group_df in manifest_df.head(200).groupby("participant_id"): ##TESTING
         runner_logger.info(f"Processing participant: {group_name}")
         tumor_df = group_df[group_df["sample_type"] == "tissue"]
         normal_df = group_df[group_df["sample_type"] == "blood"]
