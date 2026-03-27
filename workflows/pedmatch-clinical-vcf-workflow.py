@@ -358,11 +358,17 @@ def snv_flow(tumor_vcf: str, tumor_sample_id: str, normal_vcf: str, normal_sampl
     shell_op = ShellOperation(commands=command)
     shell_op.run()
     
+    # lsit intermediate dir to check files
+    print(f"Intermediate files in {intermediate_dir}: {os.listdir(intermediate_dir)}")
+    
     # merge tumor and normal vcf files using bcftools merge
     print(f"Merging tumor and normal VCF files for {tumor_sample_id} and {normal_sample_id}")
     command = [f"bcftools merge -m id -O z -o {intermediate_dir}/{tumor_sample_id}_merged.vcf.gz {intermediate_dir}/{tumor_sample_id}_tumor.sorted.vcf.gz {intermediate_dir}/{normal_sample_id}_normal.sorted.vcf.gz"]
     shell_op = ShellOperation(commands=command)
     shell_op.run()
+    
+    # lsit intermediate dir to check files
+    print(f"Intermediate files in {intermediate_dir}: {os.listdir(intermediate_dir)}")
     
     # split multiallelic sites in merged vcf file using bcftools norm
     print(f"Splitting multiallelic sites in merged VCF file for {tumor_sample_id} and {normal_sample_id}")
@@ -370,11 +376,17 @@ def snv_flow(tumor_vcf: str, tumor_sample_id: str, normal_vcf: str, normal_sampl
     shell_op = ShellOperation(commands=command)
     shell_op.run()
     
+    # lsit intermediate dir to check files
+    print(f"Intermediate files in {intermediate_dir}: {os.listdir(intermediate_dir)}")
+    
     # apply somatic filter
     print(f"Applying somatic filter to merged VCF file for {tumor_sample_id} and {normal_sample_id}")
     command = [f"bcftools view -i 'FORMAT/DP[0] >= 20 && FORMAT/DP[1] >= 15 && FORMAT/AF[0:0] >= 0.05 && FORMAT/AF[1:0] <= 0.02' {intermediate_dir}/{tumor_sample_id}_merged.split.vcf.gz -O z -o {intermediate_dir}/{tumor_sample_id}_somatic.vcf.gz"]
     shell_op = ShellOperation(commands=command)
     shell_op.run()
+    
+    # lsit intermediate dir to check files
+    print(f"Intermediate files in {intermediate_dir}: {os.listdir(intermediate_dir)}")
     
     # func to extract GT
     def gt_extract(gt_str):
