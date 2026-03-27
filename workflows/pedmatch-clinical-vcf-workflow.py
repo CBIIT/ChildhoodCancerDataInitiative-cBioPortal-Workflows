@@ -325,11 +325,15 @@ def snv_flow(tumor_vcf: str, tumor_sample_id: str, normal_vcf: str, normal_sampl
     # preserve FILTER as FT in tumor and normal vcf files
     print(f"Preserving FILTER as FT in VCF files for {tumor_sample_id} and {normal_sample_id}")
     #command = [f"bcftools annotate -c FORMAT/FT:=FILTER {tumor_vcf} -o {intermediate_dir}/{tumor_sample_id}_tumor.withFT.vcf && bcftools annotate -c FORMAT/FT:=FILTER {normal_vcf} -o {intermediate_dir}/{normal_sample_id}_normal.withFT.vcf"]
-    def preserve_filter(vcf):
+    def preserve_filter(vcf, intermediate_dir):
         file_lines = open(vcf).readlines()
+        # insert into lines header line at line 170 for new FT field in FORMAT column and new value in sample column
+        filter_header = "##FORMAT=<ID=FT,Number=1,Type=String,Description=\"Filter status of the variant\">\n"
+        file_lines.insert(170, filter_header)
+        #open(os.path.join(intermediate_dir, os.path.basename(vcf).replace(".vcf", ".withFT.vcf")), "w").write(filter_header)
         for line in file_lines:
             if line.startswith("#"):
-                continue
+                open(os.path.join(intermediate_dir, os.path.basename(vcf).replace(".vcf", ".withFT.vcf")), "a").write(line)
             else:
                 cols = line.strip().split("\t")
                 filter_col = cols[6]
@@ -342,12 +346,12 @@ def snv_flow(tumor_vcf: str, tumor_sample_id: str, normal_vcf: str, normal_sampl
                 new_line = "\t".join(cols) + "\n"
                 open(os.path.join(intermediate_dir, os.path.basename(vcf).replace(".vcf", ".withFT.vcf")), "a").write(new_line)
     
-    preserve_filter(tumor_vcf)
-    preserve_filter(normal_vcf)
+    preserve_filter(tumor_vcf, intermediate_dir)
+    preserve_filter(normal_vcf, intermediate_dir)
     
     # sort and tabix index the files
     print(f"Sorting and indexing VCF files for {tumor_sample_id} and {normal_sample_id}")
-    command = [f"bcftools sort -O z -o {intermediate_dir}/{tumor_sample_id}_tumor.sorted.vcf.gz {intermediate_dir}/{tumor_sample_id}_tumor.withFT.vcf && bcftools sort -O z -o {intermediate_dir}/{normal_sample_id}_normal.sorted.vcf.gz {intermediate_dir}/{normal_sample_id}_normal.withFT.vcf && tabix -p vcf {intermediate_dir}/{tumor_sample_id}_tumor.sorted.vcf.gz && tabix -p vcf {intermediate_dir}/{normal_sample_id}_normal.sorted.vcf.gz"]
+    command = [f"bcftools sort -O z -o {intermediate_dir}/{tumor_sample_id}_tumor.sorted.vcf.gz {intermediate_dir}/{tumor_sample_id}.withFT.vcf && bcftools sort -O z -o {intermediate_dir}/{normal_sample_id}_normal.sorted.vcf.gz {intermediate_dir}/{normal_sample_id}.withFT.vcf && tabix -p vcf {intermediate_dir}/{tumor_sample_id}_tumor.sorted.vcf.gz && tabix -p vcf {intermediate_dir}/{normal_sample_id}_normal.sorted.vcf.gz"]
     shell_op = ShellOperation(commands=command)
     shell_op.run()
     
