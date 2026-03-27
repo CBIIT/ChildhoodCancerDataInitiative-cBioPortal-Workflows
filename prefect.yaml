@@ -306,6 +306,5 @@ deployments:
   - prefect.deployments.steps.run_shell_script:
       script: |
         apt-get update -y
-        apt-get install -y bcftools
-        apt-get install -y htslib
+        apt-get install -y libhts-dev bcftools 
       stream_output: true
