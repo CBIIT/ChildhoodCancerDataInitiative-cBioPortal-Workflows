@@ -314,7 +314,7 @@ def snv_flow(tumor_vcf: str, tumor_sample_id: str, normal_vcf: str, normal_sampl
     intermediate_dir = os.path.join(output_path, f"{tumor_sample_id}_intermediate_files")
     
     # rename barcodes in vcf files
-    command = f"sed -i 's/{tumor_sample_id.split("_")[0]}/{tumor_sample_id}/g' {tumor_vcf} && sed -i 's/{normal_sample_id.split("_")[0]}/{normal_sample_id}/g' {normal_vcf}"
+    command = f"sed -i 's/{tumor_sample_id.split('_')[0]}/{tumor_sample_id}/g' {tumor_vcf} && sed -i 's/{normal_sample_id.split('_')[0]}/{normal_sample_id}/g' {normal_vcf}"
     shell_op = ShellOperation(command=command)
     shell_op.run()
     
