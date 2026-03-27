@@ -7,6 +7,7 @@ from src.utils import get_time, file_dl, upload_folder_to_s3, get_run_logger, ge
 from workflows.cnv import download_cnv, gistic_like_calls
 import shutil
 import math
+from prefect_shell import ShellOperation
 #from workflows.vcf_anno import install_nexus, annotator_flow
 
 # task to read in manifest file to dataframe and check columns
@@ -304,24 +305,41 @@ def cnv_flow(tumor_vcf, tumor_sample_id, normal_vcf, normal_sample_id, logger) -
     
     return filtered_cnv
 
-# snv file prep
-@task(name="snv_file_prep", log_prints=True)
-def snv_file_prep(input_df: pd.DataFrame, sample_id: str) -> pd.DataFrame:
-    """Read in SNV file and prep pertinent columns for annotation and merging to maf"""
+# snv flow
+@flow(name="snv_flow", log_prints=True)
+def snv_flow(tumor_vcf: str, tumor_sample_id: str, normal_vcf: str, normal_sample_id: str, output_path :str, logger) -> pd.DataFrame:
+    """Flow to process SNV data from clinical VCFs for pedmatch"""
     
-    snv_df = input_df.copy()
-    snv_df = snv_df[~(snv_df.INFO.str.contains('SVTYPE')) & ~(snv_df[sample_id].str.contains("0/0")) & (snv_df.INFO.str.contains("'location':'exonic'"))]
+    # dir for intermediate files
+    intermediate_dir = os.path.join(output_path, f"{tumor_sample_id}_intermediate_files")
     
-    # get data  from INFO column
-    snv_df.loc[:, 't_alt_count'] = snv_df['INFO'].astype(str).str.extract(r'FAO=([^;]+)')
-    snv_df.loc[:, 't_ref_count'] = snv_df['INFO'].astype(str).str.extract(r'FRO=([^;]+)')
-
-    # save snv_df to int VCF
-    file_name = f"{sample_id}_intermediate.vcf"
-    snv_df.to_csv(file_name, sep="\t", index=False)
+    # rename barcodes in vcf files
+    command = f"sed -i 's/{tumor_sample_id.split("_")[0]}/{tumor_sample_id}/g' {tumor_vcf} && sed -i 's/{normal_sample_id.split("_")[0]}/{normal_sample_id}/g' {normal_vcf}"
+    shell_op = ShellOperation(command=command)
+    shell_op.run()
     
-    # return file name of intermediate vcf for annotation step
-    return file_name
+    # sort and tabix index the files
+    command = f"bcftools sort -O z -o {intermediate_dir}/{tumor_sample_id}_tumor.sorted.vcf.gz {tumor_vcf} && bcftools sort -O z -o {intermediate_dir}/{normal_sample_id}_normal.sorted.vcf.gz {normal_vcf} && tabix -p vcf {intermediate_dir}/{tumor_sample_id}_tumor.sorted.vcf.gz && tabix -p vcf {intermediate_dir}/{normal_sample_id}_normal.sorted.vcf.gz"
+    shell_op = ShellOperation(command=command)
+    shell_op.run()
+    
+    # merge tumor and normal vcf files using bcftools merge
+    command = f"bcftools merge -m id -O z -o {intermediate_dir}/{tumor_sample_id}_merged.vcf.gz {intermediate_dir}/{tumor_sample_id}_tumor.sorted.vcf.gz {intermediate_dir}/{normal_sample_id}_normal.sorted.vcf.gz"
+    shell_op = ShellOperation(command=command)
+    shell_op.run()
+    
+    # apply somatic filter
+    command = f"bcftools view -i 'FORMAT/DP[0] >= 20 && FORMAT/DP[1] >= 15 && FORMAT/AF[0:0] >= 0.05 && FORMAT/AF[1:0] <= 0.02' {intermediate_dir}/{tumor_sample_id}_merged.vcf.gz -O z -o {intermediate_dir}/{tumor_sample_id}_somatic.vcf.gz"
+    shell_op = ShellOperation(command=command)
+    shell_op.run()
+    
+    # read in somatic vcf file with pandas, filter and return dataframe
+    somatic_vcf_df = pd.read_csv(f"{intermediate_dir}/{tumor_sample_id}_somatic.vcf.gz", sep="\t", comment="#", names=VCF_HEADER_COLS+[tumor_sample_id, normal_sample_id], low_memory=False)
+    somatic_vcf_df = somatic_vcf_df[(somatic_vcf_df['FILTER'] == 'PASS') & ~(somatic_vcf_df.INFO.str.contains('SVTYPE')) & ~(somatic_vcf_df[tumor_sample_id].str.contains("0/0"))]
+    
+    logger.info(f"Somatic SNVs after filtering for {tumor_sample_id}: {len(somatic_vcf_df)}")
+    
+    return None
 
 # patient flow
 @flow(name="pt_paired_vcf_flow", log_prints=True)
@@ -333,6 +351,7 @@ def pt_paired_vcf_flow(tumor_vcf, tumor_sample_id, normal_vcf, normal_sample_id,
     # process fusion data
     fusion_results = fusion_flow(tumor_vcf_df, tumor_sample_id, normal_vcf_df, normal_sample_id, logger)
     cnv_results = cnv_flow(tumor_vcf_df, tumor_sample_id, normal_vcf_df, normal_sample_id, logger)
+    snv_flow(tumor_vcf, tumor_sample_id, normal_vcf, normal_sample_id, "/usr/local/data/pedmatch", logger)
     
     return fusion_results, cnv_results
 
