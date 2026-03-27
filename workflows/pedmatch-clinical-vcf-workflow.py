@@ -313,32 +313,40 @@ def snv_flow(tumor_vcf: str, tumor_sample_id: str, normal_vcf: str, normal_sampl
     # dir for intermediate files
     intermediate_dir = os.path.join(output_path, f"{tumor_sample_id}_intermediate_files")
     
+    # create dir for intermediate files
+    os.makedirs(intermediate_dir, exist_ok=True)
+    
     # rename barcodes in vcf files
+    print(f"Renaming barcodes in VCF files for {tumor_sample_id} and {normal_sample_id}")
     command = [f"sed -i 's/{tumor_sample_id.split('_')[0]}/{tumor_sample_id}/g' {tumor_vcf} && sed -i 's/{normal_sample_id.split('_')[0]}/{normal_sample_id}/g' {normal_vcf}"]
     shell_op = ShellOperation(commands=command)
     shell_op.run()
     
     # sort and tabix index the files
+    print(f"Sorting and indexing VCF files for {tumor_sample_id} and {normal_sample_id}")
     command = [f"bcftools sort -O z -o {intermediate_dir}/{tumor_sample_id}_tumor.sorted.vcf.gz {tumor_vcf} && bcftools sort -O z -o {intermediate_dir}/{normal_sample_id}_normal.sorted.vcf.gz {normal_vcf} && tabix -p vcf {intermediate_dir}/{tumor_sample_id}_tumor.sorted.vcf.gz && tabix -p vcf {intermediate_dir}/{normal_sample_id}_normal.sorted.vcf.gz"]
     shell_op = ShellOperation(commands=command)
     shell_op.run()
     
     # merge tumor and normal vcf files using bcftools merge
+    print(f"Merging tumor and normal VCF files for {tumor_sample_id} and {normal_sample_id}")
     command = [f"bcftools merge -m id -O z -o {intermediate_dir}/{tumor_sample_id}_merged.vcf.gz {intermediate_dir}/{tumor_sample_id}_tumor.sorted.vcf.gz {intermediate_dir}/{normal_sample_id}_normal.sorted.vcf.gz"]
     shell_op = ShellOperation(commands=command)
     shell_op.run()
     
     # apply somatic filter
+    print(f"Applying somatic filter to merged VCF file for {tumor_sample_id} and {normal_sample_id}")
     command = [f"bcftools view -i 'FORMAT/DP[0] >= 20 && FORMAT/DP[1] >= 15 && FORMAT/AF[0:0] >= 0.05 && FORMAT/AF[1:0] <= 0.02' {intermediate_dir}/{tumor_sample_id}_merged.vcf.gz -O z -o {intermediate_dir}/{tumor_sample_id}_somatic.vcf.gz"]
     shell_op = ShellOperation(commands=command)
     shell_op.run()
     
     # read in somatic vcf file with pandas, filter and return dataframe
+    print(f"Reading in somatic VCF file for {tumor_sample_id} and {normal_sample_id}")
     somatic_vcf_df = pd.read_csv(f"{intermediate_dir}/{tumor_sample_id}_somatic.vcf.gz", sep="\t", comment="#", names=VCF_HEADER_COLS+[tumor_sample_id, normal_sample_id], low_memory=False)
     somatic_vcf_df = somatic_vcf_df[(somatic_vcf_df['FILTER'] == 'PASS') & ~(somatic_vcf_df.INFO.str.contains('SVTYPE')) & ~(somatic_vcf_df[tumor_sample_id].str.contains("0/0"))]
     
     logger.info(f"Somatic SNVs after filtering for {tumor_sample_id}: {len(somatic_vcf_df)}")
-    
+    print(f"Somatic SNVs after filtering for {tumor_sample_id}: {len(somatic_vcf_df)}")
     return None
 
 # patient flow
