@@ -322,15 +322,21 @@ def snv_flow(tumor_vcf: str, tumor_sample_id: str, normal_vcf: str, normal_sampl
     shell_op = ShellOperation(commands=command)
     shell_op.run()
     
+    # preserve FILTER as FT in tumor and normal vcf files
+    print(f"Preserving FILTER as FT in VCF files for {tumor_sample_id} and {normal_sample_id}")
+    command = [f"bcftools annotate -c FORMAT/FT:=FILTER {tumor_vcf} -o {intermediate_dir}/{tumor_sample_id}_tumor.withFT.vcf && bcftools annotate -c FORMAT/FT:=FILTER {normal_vcf} -o {intermediate_dir}/{normal_sample_id}_normal.withFT.vcf"]
+    shell_op = ShellOperation(commands=command)
+    shell_op.run()
+    
     # sort and tabix index the files
     print(f"Sorting and indexing VCF files for {tumor_sample_id} and {normal_sample_id}")
-    command = [f"bcftools sort -O z -o {intermediate_dir}/{tumor_sample_id}_tumor.sorted.vcf.gz {tumor_vcf} && bcftools sort -O z -o {intermediate_dir}/{normal_sample_id}_normal.sorted.vcf.gz {normal_vcf} && tabix -p vcf {intermediate_dir}/{tumor_sample_id}_tumor.sorted.vcf.gz && tabix -p vcf {intermediate_dir}/{normal_sample_id}_normal.sorted.vcf.gz"]
+    command = [f"bcftools sort -O z -o {intermediate_dir}/{tumor_sample_id}_tumor.sorted.vcf.gz {intermediate_dir}/{tumor_sample_id}_tumor.withFT.vcf && bcftools sort -O z -o {intermediate_dir}/{normal_sample_id}_normal.sorted.vcf.gz {intermediate_dir}/{normal_sample_id}_normal.withFT.vcf && tabix -p vcf {intermediate_dir}/{tumor_sample_id}_tumor.sorted.vcf.gz && tabix -p vcf {intermediate_dir}/{normal_sample_id}_normal.sorted.vcf.gz"]
     shell_op = ShellOperation(commands=command)
     shell_op.run()
     
     # merge tumor and normal vcf files using bcftools merge
     print(f"Merging tumor and normal VCF files for {tumor_sample_id} and {normal_sample_id}")
-    command = [f"bcftools merge -f PASS -m id -O z -o {intermediate_dir}/{tumor_sample_id}_merged.vcf.gz {intermediate_dir}/{tumor_sample_id}_tumor.sorted.vcf.gz {intermediate_dir}/{normal_sample_id}_normal.sorted.vcf.gz"]
+    command = [f"bcftools merge -m id -O z -o {intermediate_dir}/{tumor_sample_id}_merged.vcf.gz {intermediate_dir}/{tumor_sample_id}_tumor.sorted.vcf.gz {intermediate_dir}/{normal_sample_id}_normal.sorted.vcf.gz"]
     shell_op = ShellOperation(commands=command)
     shell_op.run()
     
@@ -352,6 +358,13 @@ def snv_flow(tumor_vcf: str, tumor_sample_id: str, normal_vcf: str, normal_sampl
             return "NA"
         else:
             return gt_str.split(":")[0]
+        
+    # func to extract FILTER
+    def filter_extract(filter_str):
+        if pd.isna(filter_str):
+            return "NA"
+        else:
+            return filter_str.split(":")[-1]
     
     # read in somatic vcf file with pandas, filter and return dataframe
     print(f"Reading in somatic VCF file for {tumor_sample_id} and {normal_sample_id}")
@@ -361,9 +374,13 @@ def snv_flow(tumor_vcf: str, tumor_sample_id: str, normal_vcf: str, normal_sampl
     somatic_vcf_df.loc[:, "tumor_gt"] = somatic_vcf_df[tumor_sample_id].apply(lambda x: gt_extract(x))
     # normal GT
     somatic_vcf_df.loc[:, "normal_gt"] = somatic_vcf_df[normal_sample_id].apply(lambda x: gt_extract(x))
+    # tumor FILTER
+    somatic_vcf_df.loc[:, "tumor_filter"] = somatic_vcf_df[tumor_sample_id].apply(lambda x: filter_extract(x))
+    # normal FILTER
+    somatic_vcf_df.loc[:, "normal_filter"] = somatic_vcf_df[normal_sample_id].apply(lambda x: filter_extract(x))
     
     #filter somatic filters 
-    somatic_vcf_df = somatic_vcf_df[(somatic_vcf_df['FILTER'] == 'PASS') & ~(somatic_vcf_df.INFO.str.contains('SVTYPE')) & (somatic_vcf_df["tumor_gt"] != ("0/0")) & (somatic_vcf_df["normal_gt"] != somatic_vcf_df["tumor_gt"])]
+    somatic_vcf_df = somatic_vcf_df[(somatic_vcf_df['tumor_filter'] == 'PASS') & ~(somatic_vcf_df.INFO.str.contains('SVTYPE')) & (somatic_vcf_df["tumor_gt"] != ("0/0")) & (somatic_vcf_df["normal_gt"] != somatic_vcf_df["tumor_gt"])]
     
     somatic_vcf_df.to_csv(os.path.join(intermediate_dir, f"{tumor_sample_id}_somatic_snvs.vcf"), sep="\t", index=False)    
     
