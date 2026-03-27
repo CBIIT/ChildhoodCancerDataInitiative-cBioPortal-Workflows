@@ -349,6 +349,9 @@ def snv_flow(tumor_vcf: str, tumor_sample_id: str, normal_vcf: str, normal_sampl
     preserve_filter(tumor_vcf, intermediate_dir)
     preserve_filter(normal_vcf, intermediate_dir)
     
+    # lsit intermediate dir to check files
+    print(f"Intermediate files in {intermediate_dir}: {os.listdir(intermediate_dir)}")
+    
     # sort and tabix index the files
     print(f"Sorting and indexing VCF files for {tumor_sample_id} and {normal_sample_id}")
     command = [f"bcftools sort -O z -o {intermediate_dir}/{tumor_sample_id}_tumor.sorted.vcf.gz {intermediate_dir}/{tumor_sample_id}.withFT.vcf && bcftools sort -O z -o {intermediate_dir}/{normal_sample_id}_normal.sorted.vcf.gz {intermediate_dir}/{normal_sample_id}.withFT.vcf && tabix -p vcf {intermediate_dir}/{tumor_sample_id}_tumor.sorted.vcf.gz && tabix -p vcf {intermediate_dir}/{normal_sample_id}_normal.sorted.vcf.gz"]
