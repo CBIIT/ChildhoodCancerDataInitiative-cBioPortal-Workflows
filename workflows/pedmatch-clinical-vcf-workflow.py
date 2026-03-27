@@ -330,7 +330,7 @@ def snv_flow(tumor_vcf: str, tumor_sample_id: str, normal_vcf: str, normal_sampl
     
     # merge tumor and normal vcf files using bcftools merge
     print(f"Merging tumor and normal VCF files for {tumor_sample_id} and {normal_sample_id}")
-    command = [f"bcftools merge -m id -O z -o {intermediate_dir}/{tumor_sample_id}_merged.vcf.gz {intermediate_dir}/{tumor_sample_id}_tumor.sorted.vcf.gz {intermediate_dir}/{normal_sample_id}_normal.sorted.vcf.gz"]
+    command = [f"bcftools merge -f PASS -m id -O z -o {intermediate_dir}/{tumor_sample_id}_merged.vcf.gz {intermediate_dir}/{tumor_sample_id}_tumor.sorted.vcf.gz {intermediate_dir}/{normal_sample_id}_normal.sorted.vcf.gz"]
     shell_op = ShellOperation(commands=command)
     shell_op.run()
     
@@ -364,6 +364,8 @@ def snv_flow(tumor_vcf: str, tumor_sample_id: str, normal_vcf: str, normal_sampl
     
     #filter somatic filters 
     somatic_vcf_df = somatic_vcf_df[(somatic_vcf_df['FILTER'] == 'PASS') & ~(somatic_vcf_df.INFO.str.contains('SVTYPE')) & (somatic_vcf_df["tumor_gt"] != ("0/0")) & (somatic_vcf_df["normal_gt"] != somatic_vcf_df["tumor_gt"])]
+    
+    somatic_vcf_df.to_csv(os.path.join(intermediate_dir, f"{tumor_sample_id}_somatic_snvs.vcf"), sep="\t", index=False)    
     
     logger.info(f"Somatic SNVs after filtering for {tumor_sample_id}: {len(somatic_vcf_df)}")
     print(f"Somatic SNVs after filtering for {tumor_sample_id}: {len(somatic_vcf_df)}")
