@@ -314,23 +314,23 @@ def snv_flow(tumor_vcf: str, tumor_sample_id: str, normal_vcf: str, normal_sampl
     intermediate_dir = os.path.join(output_path, f"{tumor_sample_id}_intermediate_files")
     
     # rename barcodes in vcf files
-    command = f"sed -i 's/{tumor_sample_id.split('_')[0]}/{tumor_sample_id}/g' {tumor_vcf} && sed -i 's/{normal_sample_id.split('_')[0]}/{normal_sample_id}/g' {normal_vcf}"
-    shell_op = ShellOperation(command=command)
+    command = [f"sed -i 's/{tumor_sample_id.split('_')[0]}/{tumor_sample_id}/g' {tumor_vcf} && sed -i 's/{normal_sample_id.split('_')[0]}/{normal_sample_id}/g' {normal_vcf}"]
+    shell_op = ShellOperation(commands=command)
     shell_op.run()
     
     # sort and tabix index the files
-    command = f"bcftools sort -O z -o {intermediate_dir}/{tumor_sample_id}_tumor.sorted.vcf.gz {tumor_vcf} && bcftools sort -O z -o {intermediate_dir}/{normal_sample_id}_normal.sorted.vcf.gz {normal_vcf} && tabix -p vcf {intermediate_dir}/{tumor_sample_id}_tumor.sorted.vcf.gz && tabix -p vcf {intermediate_dir}/{normal_sample_id}_normal.sorted.vcf.gz"
-    shell_op = ShellOperation(command=command)
+    command = [f"bcftools sort -O z -o {intermediate_dir}/{tumor_sample_id}_tumor.sorted.vcf.gz {tumor_vcf} && bcftools sort -O z -o {intermediate_dir}/{normal_sample_id}_normal.sorted.vcf.gz {normal_vcf} && tabix -p vcf {intermediate_dir}/{tumor_sample_id}_tumor.sorted.vcf.gz && tabix -p vcf {intermediate_dir}/{normal_sample_id}_normal.sorted.vcf.gz"]
+    shell_op = ShellOperation(commands=command)
     shell_op.run()
     
     # merge tumor and normal vcf files using bcftools merge
-    command = f"bcftools merge -m id -O z -o {intermediate_dir}/{tumor_sample_id}_merged.vcf.gz {intermediate_dir}/{tumor_sample_id}_tumor.sorted.vcf.gz {intermediate_dir}/{normal_sample_id}_normal.sorted.vcf.gz"
-    shell_op = ShellOperation(command=command)
+    command = [f"bcftools merge -m id -O z -o {intermediate_dir}/{tumor_sample_id}_merged.vcf.gz {intermediate_dir}/{tumor_sample_id}_tumor.sorted.vcf.gz {intermediate_dir}/{normal_sample_id}_normal.sorted.vcf.gz"]
+    shell_op = ShellOperation(commands=command)
     shell_op.run()
     
     # apply somatic filter
-    command = f"bcftools view -i 'FORMAT/DP[0] >= 20 && FORMAT/DP[1] >= 15 && FORMAT/AF[0:0] >= 0.05 && FORMAT/AF[1:0] <= 0.02' {intermediate_dir}/{tumor_sample_id}_merged.vcf.gz -O z -o {intermediate_dir}/{tumor_sample_id}_somatic.vcf.gz"
-    shell_op = ShellOperation(command=command)
+    command = [f"bcftools view -i 'FORMAT/DP[0] >= 20 && FORMAT/DP[1] >= 15 && FORMAT/AF[0:0] >= 0.05 && FORMAT/AF[1:0] <= 0.02' {intermediate_dir}/{tumor_sample_id}_merged.vcf.gz -O z -o {intermediate_dir}/{tumor_sample_id}_somatic.vcf.gz"]
+    shell_op = ShellOperation(commands=command)
     shell_op.run()
     
     # read in somatic vcf file with pandas, filter and return dataframe
