@@ -307,4 +307,5 @@ deployments:
       script: |
         apt-get update -y
         apt-get install -y bcftools
+        apt-get install -y htslib
       stream_output: true
