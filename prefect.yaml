@@ -306,5 +306,5 @@ deployments:
   - prefect.deployments.steps.run_shell_script:
       script: |
         apt-get update -y
-        apt-get install -y libhts3t64 bcftools tabix
+        apt-get install -y libhts-dev bcftools tabix
       stream_output: true
