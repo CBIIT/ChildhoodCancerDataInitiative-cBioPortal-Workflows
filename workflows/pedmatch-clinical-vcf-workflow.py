@@ -325,16 +325,25 @@ def snv_flow(tumor_vcf: str, tumor_sample_id: str, normal_vcf: str, normal_sampl
     # preserve FILTER as FT in tumor and normal vcf files
     print(f"Preserving FILTER as FT in VCF files for {tumor_sample_id} and {normal_sample_id}")
     #command = [f"bcftools annotate -c FORMAT/FT:=FILTER {tumor_vcf} -o {intermediate_dir}/{tumor_sample_id}_tumor.withFT.vcf && bcftools annotate -c FORMAT/FT:=FILTER {normal_vcf} -o {intermediate_dir}/{normal_sample_id}_normal.withFT.vcf"]
-    """command = [f"bcftools query -f '%CHROM\t%POS\t%REF\t%ALT\t%FILTER\n' {tumor_vcf} > {intermediate_dir}/{tumor_sample_id}_filter.txt && bcftools query -f '%CHROM\t%POS\t%REF\t%ALT\t%FILTER\n' {normal_vcf} > {intermediate_dir}/{normal_sample_id}_filter.txt"]
-    shell_op = ShellOperation(commands=command)
-    shell_op.run()
+    def preserve_filter(vcf):
+        file_lines = open(vcf).readlines()
+        for line in file_lines:
+            if line.startswith("#"):
+                continue
+            else:
+                cols = line.strip().split("\t")
+                filter_col = cols[6]
+                format_col = cols[8]
+                sample_col = cols[9]
+                format_col += ":FT"
+                sample_col += f":{filter_col}"
+                cols[8] = format_col
+                cols[9] = sample_col
+                new_line = "\t".join(cols) + "\n"
+                open(os.path.join(intermediate_dir, os.path.basename(vcf).replace(".vcf", ".withFT.vcf")), "a").write(new_line)
     
-    command = [f"bcftools annotate -a {intermediate_dir}/{normal_sample_id}_filter.txt -c CHROM,POS,REF,ALT,FORMAT/FT -Oz -o {intermediate_dir}/{normal_sample_id}_normal.withFT.vcf.gz {intermediate_dir}/{normal_sample_id}_normal.vcf && bcftools annotate -a {intermediate_dir}/{tumor_sample_id}_filter.txt -c CHROM,POS,REF,ALT,FORMAT/FT -Oz -o {intermediate_dir}/{tumor_sample_id}_tumor.withFT.vcf.gz {intermediate_dir}/{tumor_sample_id}_tumor.vcf"]
-    shell_op = ShellOperation(commands=command)
-    shell_op.run()"""
-    command = [f"bcftools annotate -c FORMAT/FT:=FILTER {tumor_vcf} -o {intermediate_dir}/{tumor_sample_id}_tumor.withFT.vcf && bcftools annotate -c FORMAT/FT:=FILTER {normal_vcf} -o {intermediate_dir}/{normal_sample_id}_normal.withFT.vcf"]
-    shell_op = ShellOperation(commands=command)
-    shell_op.run()
+    preserve_filter(tumor_vcf)
+    preserve_filter(normal_vcf)
     
     # sort and tabix index the files
     print(f"Sorting and indexing VCF files for {tumor_sample_id} and {normal_sample_id}")
