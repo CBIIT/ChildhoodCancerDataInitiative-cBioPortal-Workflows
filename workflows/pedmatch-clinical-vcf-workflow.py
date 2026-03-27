@@ -351,7 +351,7 @@ def snv_flow(tumor_vcf: str, tumor_sample_id: str, normal_vcf: str, normal_sampl
 
 # patient flow
 @flow(name="pt_paired_vcf_flow", log_prints=True)
-def pt_paired_vcf_flow(tumor_vcf, tumor_sample_id, normal_vcf, normal_sample_id, logger):
+def pt_paired_vcf_flow(tumor_vcf, tumor_sample_id, normal_vcf, normal_sample_id, output_path, logger):
     # prep files
     tumor_vcf_df = clin_vcf_file_prep(tumor_vcf, tumor_sample_id)
     normal_vcf_df = clin_vcf_file_prep(normal_vcf, normal_sample_id)
@@ -359,13 +359,13 @@ def pt_paired_vcf_flow(tumor_vcf, tumor_sample_id, normal_vcf, normal_sample_id,
     # process fusion data
     fusion_results = fusion_flow(tumor_vcf_df, tumor_sample_id, normal_vcf_df, normal_sample_id, logger)
     cnv_results = cnv_flow(tumor_vcf_df, tumor_sample_id, normal_vcf_df, normal_sample_id, logger)
-    snv_flow(tumor_vcf, tumor_sample_id, normal_vcf, normal_sample_id, "/usr/local/data/pedmatch", logger)
+    snv_flow(tumor_vcf, tumor_sample_id, normal_vcf, normal_sample_id, output_path, logger)
     
     return fusion_results, cnv_results
 
 # batch flow
 @flow(name="batch_process", log_prints=True)
-def batch_process(batch_df: pd.DataFrame, logger, runner_logger) -> None:
+def batch_process(batch_df: pd.DataFrame, output_path, logger, runner_logger) -> None:
     
     # array of pd.DataFrames to hold fusion results for each tumor normal pair
     fusion_op = []
@@ -384,7 +384,7 @@ def batch_process(batch_df: pd.DataFrame, logger, runner_logger) -> None:
         normal_sample_id = normal_df.iloc[0]["sample_id"]
         
         try:
-            fusion_results, cnv_results = pt_paired_vcf_flow(tumor_df.iloc[0]["file_name"], tumor_sample_id, normal_df.iloc[0]["file_name"], normal_sample_id, logger)
+            fusion_results, cnv_results = pt_paired_vcf_flow(tumor_df.iloc[0]["file_name"], tumor_sample_id, normal_df.iloc[0]["file_name"], normal_sample_id, output_path, logger)
         except Exception as e:
             runner_logger.error(f"Error processing participant {group_name}: {e}")
             logger.error(f"Error processing participant {group_name}: {e}")
@@ -464,7 +464,7 @@ def pedmatch_clinical_vcf_flow(bucket: str, output_dir: str, manifest_path: str,
     for i in range(0, len(manifest_df.head(100)), batch_size):
         batch_df = manifest_df.iloc[i:i+batch_size]
         runner_logger.info(f"Processing batch {i//batch_size + 1} of {len(manifest_df.head(100))//batch_size + 1}")
-        fusion_batch_op, cnv_batch_op = batch_process(batch_df, logger, runner_logger)
+        fusion_batch_op, cnv_batch_op = batch_process(batch_df, output_path, logger, runner_logger)
         fusion_concat_results.extend(fusion_batch_op)
         cnv_concat_results.extend(cnv_batch_op)
     
