@@ -334,16 +334,36 @@ def snv_flow(tumor_vcf: str, tumor_sample_id: str, normal_vcf: str, normal_sampl
     shell_op = ShellOperation(commands=command)
     shell_op.run()
     
-    # apply somatic filter
-    print(f"Applying somatic filter to merged VCF file for {tumor_sample_id} and {normal_sample_id}")
-    command = [f"bcftools view -i 'FORMAT/DP[0] >= 20 && FORMAT/DP[1] >= 15 && FORMAT/AF[0:0] >= 0.05 && FORMAT/AF[1:0] <= 0.02' {intermediate_dir}/{tumor_sample_id}_merged.vcf.gz -O z -o {intermediate_dir}/{tumor_sample_id}_somatic.vcf.gz"]
+    # split multiallelic sites in merged vcf file using bcftools norm
+    print(f"Splitting multiallelic sites in merged VCF file for {tumor_sample_id} and {normal_sample_id}")
+    command = [f"bcftools norm -m -any -O z -o {intermediate_dir}/{tumor_sample_id}_merged.split.vcf.gz {intermediate_dir}/{tumor_sample_id}_merged.vcf.gz && tabix -p vcf {intermediate_dir}/{tumor_sample_id}_merged.split.vcf.gz"]
     shell_op = ShellOperation(commands=command)
     shell_op.run()
+    
+    # apply somatic filter
+    print(f"Applying somatic filter to merged VCF file for {tumor_sample_id} and {normal_sample_id}")
+    command = [f"bcftools view -i 'FORMAT/DP[0] >= 20 && FORMAT/DP[1] >= 15 && FORMAT/AF[0:0] >= 0.05 && FORMAT/AF[1:0] <= 0.02' {intermediate_dir}/{tumor_sample_id}_merged.split.vcf.gz -O z -o {intermediate_dir}/{tumor_sample_id}_somatic.vcf.gz"]
+    shell_op = ShellOperation(commands=command)
+    shell_op.run()
+    
+    # func to extract GT
+    def gt_extract(gt_str):
+        if pd.isna(gt_str):
+            return "NA"
+        else:
+            return gt_str.split(":")[0]
     
     # read in somatic vcf file with pandas, filter and return dataframe
     print(f"Reading in somatic VCF file for {tumor_sample_id} and {normal_sample_id}")
     somatic_vcf_df = pd.read_csv(f"{intermediate_dir}/{tumor_sample_id}_somatic.vcf.gz", sep="\t", comment="#", names=VCF_HEADER_COLS+[tumor_sample_id, normal_sample_id], low_memory=False)
-    somatic_vcf_df = somatic_vcf_df[(somatic_vcf_df['FILTER'] == 'PASS') & ~(somatic_vcf_df.INFO.str.contains('SVTYPE')) & ~(somatic_vcf_df[tumor_sample_id].str.contains("0/0")) & (somatic_vcf_df[normal_sample_id].str.contains("0/0"))]
+    
+    # tumor GT
+    somatic_vcf_df.loc[:, "tumor_gt"] = somatic_vcf_df[tumor_sample_id].apply(lambda x: gt_extract(x))
+    # normal GT
+    somatic_vcf_df.loc[:, "normal_gt"] = somatic_vcf_df[normal_sample_id].apply(lambda x: gt_extract(x))
+    
+    #filter somatic filters 
+    somatic_vcf_df = somatic_vcf_df[(somatic_vcf_df['FILTER'] == 'PASS') & ~(somatic_vcf_df.INFO.str.contains('SVTYPE')) & (somatic_vcf_df["tumor_gt"] != ("0/0")) & (somatic_vcf_df["normal_gt"] != somatic_vcf_df["tumor_gt"])]
     
     logger.info(f"Somatic SNVs after filtering for {tumor_sample_id}: {len(somatic_vcf_df)}")
     print(f"Somatic SNVs after filtering for {tumor_sample_id}: {len(somatic_vcf_df)}")
