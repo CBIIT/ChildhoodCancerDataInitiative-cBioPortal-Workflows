@@ -325,11 +325,14 @@ def snv_flow(tumor_vcf: str, tumor_sample_id: str, normal_vcf: str, normal_sampl
     # preserve FILTER as FT in tumor and normal vcf files
     print(f"Preserving FILTER as FT in VCF files for {tumor_sample_id} and {normal_sample_id}")
     #command = [f"bcftools annotate -c FORMAT/FT:=FILTER {tumor_vcf} -o {intermediate_dir}/{tumor_sample_id}_tumor.withFT.vcf && bcftools annotate -c FORMAT/FT:=FILTER {normal_vcf} -o {intermediate_dir}/{normal_sample_id}_normal.withFT.vcf"]
-    command = [f"bcftools query -f '%CHROM\t%POS\t%REF\t%ALT\t%FILTER\n' {tumor_vcf} > {intermediate_dir}/{tumor_sample_id}_filter.txt && bcftools query -f '%CHROM\t%POS\t%REF\t%ALT\t%FILTER\n' {normal_vcf} > {intermediate_dir}/{normal_sample_id}_filter.txt"]
+    """command = [f"bcftools query -f '%CHROM\t%POS\t%REF\t%ALT\t%FILTER\n' {tumor_vcf} > {intermediate_dir}/{tumor_sample_id}_filter.txt && bcftools query -f '%CHROM\t%POS\t%REF\t%ALT\t%FILTER\n' {normal_vcf} > {intermediate_dir}/{normal_sample_id}_filter.txt"]
     shell_op = ShellOperation(commands=command)
     shell_op.run()
     
     command = [f"bcftools annotate -a {intermediate_dir}/{normal_sample_id}_filter.txt -c CHROM,POS,REF,ALT,FORMAT/FT -Oz -o {intermediate_dir}/{normal_sample_id}_normal.withFT.vcf.gz {intermediate_dir}/{normal_sample_id}_normal.vcf && bcftools annotate -a {intermediate_dir}/{tumor_sample_id}_filter.txt -c CHROM,POS,REF,ALT,FORMAT/FT -Oz -o {intermediate_dir}/{tumor_sample_id}_tumor.withFT.vcf.gz {intermediate_dir}/{tumor_sample_id}_tumor.vcf"]
+    shell_op = ShellOperation(commands=command)
+    shell_op.run()"""
+    command = [f"bcftools annotate -c FORMAT/FT:=FILTER {tumor_vcf} -o {intermediate_dir}/{tumor_sample_id}_tumor.withFT.vcf && bcftools annotate -c FORMAT/FT:=FILTER {normal_vcf} -o {intermediate_dir}/{normal_sample_id}_normal.withFT.vcf"]
     shell_op = ShellOperation(commands=command)
     shell_op.run()
     
