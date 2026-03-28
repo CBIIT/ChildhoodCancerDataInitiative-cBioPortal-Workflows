@@ -327,9 +327,9 @@ def snv_flow(tumor_vcf: str, tumor_sample_id: str, normal_vcf: str, normal_sampl
     #command = [f"bcftools annotate -c FORMAT/FT:=FILTER {tumor_vcf} -o {intermediate_dir}/{tumor_sample_id}_tumor.withFT.vcf && bcftools annotate -c FORMAT/FT:=FILTER {normal_vcf} -o {intermediate_dir}/{normal_sample_id}_normal.withFT.vcf"]
     def preserve_filter(vcf, intermediate_dir):
         file_lines = open(vcf).readlines()
-        # insert into lines header line at line 170 for new FT field in FORMAT column and new value in sample column
-        filter_header = "##FORMAT=<ID=FT,Number=1,Type=String,Description=\"Filter status of the variant\">\n"
-        file_lines.insert(170, filter_header)
+        # insert into lines header line at line 100 for new FT field in FORMAT column and new value in sample column
+        filter_header = '##FORMAT=<ID=FT,Number=1,Type=String,Description="Filter status of the variant">\n'
+        file_lines.insert(100, filter_header)
         #open(os.path.join(intermediate_dir, os.path.basename(vcf).replace(".vcf", ".withFT.vcf")), "w").write(filter_header)
         for line in file_lines:
             if line.startswith("#"):
