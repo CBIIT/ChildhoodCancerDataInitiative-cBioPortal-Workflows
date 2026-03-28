@@ -346,8 +346,8 @@ def snv_flow(tumor_vcf: str, tumor_sample_id: str, normal_vcf: str, normal_sampl
                 new_line = "\t".join(cols) + "\n"
                 open(os.path.join(intermediate_dir, os.path.basename(vcf).replace(".vcf", ".withFT.vcf")), "a").write(new_line)
     
-    preserve_filter(tumor_vcf, intermediate_dir)
-    preserve_filter(normal_vcf, intermediate_dir)
+    #preserve_filter(tumor_vcf, intermediate_dir)
+    #preserve_filter(normal_vcf, intermediate_dir)
     
     # lsit intermediate dir to check files
     print(f"Intermediate files in {intermediate_dir}: {os.listdir(intermediate_dir)}")
@@ -404,19 +404,23 @@ def snv_flow(tumor_vcf: str, tumor_sample_id: str, normal_vcf: str, normal_sampl
     
     # read in somatic vcf file with pandas, filter and return dataframe
     print(f"Reading in somatic VCF file for {tumor_sample_id} and {normal_sample_id}")
-    somatic_vcf_df = pd.read_csv(f"{intermediate_dir}/{tumor_sample_id}_somatic.vcf.gz", sep="\t", comment="#", names=VCF_HEADER_COLS+[tumor_sample_id, normal_sample_id], low_memory=False)
+    somatic_vcf_df = pd.read_csv(f"{intermediate_dir}/{tumor_sample_id}_somatic.vcf.gz", sep="\t", comment="#", names=VCF_HEADER_COLS+[tumor_sample_id, normal_sample_id], low_memory=False).drop("FILTER", axis=1)
+    
+    # read in oroginal tumor vcf to get FILTER values for same CHROM, POS, REF, ALT sites
+    original_tumor_vcf_df = pd.read_csv(tumor_vcf, sep="\t", comment="#", names=VCF_HEADER_COLS+[tumor_sample_id], low_memory=False)[["CHROM", "POS", "REF", "ALT", "FILTER"]]
+    somatic_vcf_df = somatic_vcf_df.merge(original_tumor_vcf_df, on=["CHROM", "POS", "REF", "ALT"], how="left")
     
     # tumor GT
     somatic_vcf_df.loc[:, "tumor_gt"] = somatic_vcf_df[tumor_sample_id].apply(lambda x: gt_extract(x))
     # normal GT
     somatic_vcf_df.loc[:, "normal_gt"] = somatic_vcf_df[normal_sample_id].apply(lambda x: gt_extract(x))
     # tumor FILTER
-    somatic_vcf_df.loc[:, "tumor_filter"] = somatic_vcf_df[tumor_sample_id].apply(lambda x: filter_extract(x))
+    #somatic_vcf_df.loc[:, "tumor_filter"] = somatic_vcf_df[tumor_sample_id].apply(lambda x: filter_extract(x))
     # normal FILTER
-    somatic_vcf_df.loc[:, "normal_filter"] = somatic_vcf_df[normal_sample_id].apply(lambda x: filter_extract(x))
+    #somatic_vcf_df.loc[:, "normal_filter"] = somatic_vcf_df[normal_sample_id].apply(lambda x: filter_extract(x))
     
     #filter somatic filters 
-    somatic_vcf_df = somatic_vcf_df[(somatic_vcf_df['tumor_filter'] == 'PASS') & ~(somatic_vcf_df.INFO.str.contains('SVTYPE')) & (somatic_vcf_df["tumor_gt"] != ("0/0")) & (somatic_vcf_df["normal_gt"] != somatic_vcf_df["tumor_gt"])]
+    somatic_vcf_df = somatic_vcf_df[(somatic_vcf_df['FILTER'] == 'PASS') & ~(somatic_vcf_df.INFO.str.contains('SVTYPE')) & (somatic_vcf_df["tumor_gt"] != ("0/0")) & (somatic_vcf_df["normal_gt"] != somatic_vcf_df["tumor_gt"])]
     
     somatic_vcf_df.to_csv(os.path.join(intermediate_dir, f"{tumor_sample_id}_somatic_snvs.vcf"), sep="\t", index=False)    
     
