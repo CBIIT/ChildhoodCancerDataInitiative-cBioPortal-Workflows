@@ -8,8 +8,7 @@ from workflows.cnv import download_cnv, gistic_like_calls
 import shutil
 import math
 from prefect_shell import ShellOperation
-#from workflows.vcf_anno import install_nexus, annotator_flow
-
+from workflows.vcf_anno import install_nexus, annotator, concat_mafs, concat_maf_check
 # task to read in manifest file to dataframe and check columns
 @task(name="read_manifest", log_prints=True)
 def read_manifest(manifest_name: str) -> pd.DataFrame:
@@ -324,7 +323,6 @@ def snv_flow(tumor_vcf: str, tumor_sample_id: str, normal_vcf: str, normal_sampl
     
     # preserve FILTER as FT in tumor and normal vcf files
     print(f"Preserving FILTER as FT in VCF files for {tumor_sample_id} and {normal_sample_id}")
-    #command = [f"bcftools annotate -c FORMAT/FT:=FILTER {tumor_vcf} -o {intermediate_dir}/{tumor_sample_id}_tumor.withFT.vcf && bcftools annotate -c FORMAT/FT:=FILTER {normal_vcf} -o {intermediate_dir}/{normal_sample_id}_normal.withFT.vcf"]
     def preserve_filter(vcf, intermediate_dir):
         file_lines = open(vcf).readlines()
         # insert into lines header line at line 100 for new FT field in FORMAT column and new value in sample column
@@ -347,7 +345,7 @@ def snv_flow(tumor_vcf: str, tumor_sample_id: str, normal_vcf: str, normal_sampl
                 open(os.path.join(intermediate_dir, os.path.basename(vcf).replace(".vcf", ".withFT.vcf")), "a").write(new_line)
     
     preserve_filter(tumor_vcf, intermediate_dir)
-    preserve_filter(normal_vcf, intermediate_dir) 
+    preserve_filter(normal_vcf, intermediate_dir)
     
     # sort and tabix index the files
     print(f"Sorting and indexing VCF files for {tumor_sample_id} and {normal_sample_id}")
@@ -423,12 +421,14 @@ def snv_flow(tumor_vcf: str, tumor_sample_id: str, normal_vcf: str, normal_sampl
     
     #filter somatic filters 
     somatic_vcf_df = somatic_vcf_df[(somatic_vcf_df['tumor_filter'] == 'PASS') & ~(somatic_vcf_df.INFO.str.contains('SVTYPE')) & (somatic_vcf_df["tumor_gt"] != ("0/0")) & (somatic_vcf_df["normal_gt"] != somatic_vcf_df["tumor_gt"])]
-    
-    somatic_vcf_df.to_csv(os.path.join(intermediate_dir, f"{tumor_sample_id}_somatic_snvs.vcf"), sep="\t", index=False)    
+    somatic_vcf_name = f"{tumor_sample_id}_somatic_snvs.vcf"
+    somatic_vcf_df.to_csv(os.path.join(intermediate_dir, somatic_vcf_name), sep="\t", index=False)    
     
     logger.info(f"Somatic SNVs after filtering for {tumor_sample_id}: {len(somatic_vcf_df)}")
     print(f"Somatic SNVs after filtering for {tumor_sample_id}: {len(somatic_vcf_df)}")
-    return None
+    if len(somatic_vcf_df) == 0: #no SNVs found in tumor sample, return empty df with correct columns
+        return None
+    return somatic_vcf_name
 
 # patient flow
 @flow(name="pt_paired_vcf_flow", log_prints=True)
@@ -440,9 +440,9 @@ def pt_paired_vcf_flow(tumor_vcf, tumor_sample_id, normal_vcf, normal_sample_id,
     # process fusion data
     fusion_results = fusion_flow(tumor_vcf_df, tumor_sample_id, normal_vcf_df, normal_sample_id, logger)
     cnv_results = cnv_flow(tumor_vcf_df, tumor_sample_id, normal_vcf_df, normal_sample_id, logger)
-    snv_flow(tumor_vcf, tumor_sample_id, normal_vcf, normal_sample_id, output_path, logger)
+    somatic_vcf_name = snv_flow(tumor_vcf, tumor_sample_id, normal_vcf, normal_sample_id, output_path, logger)
     
-    return fusion_results, cnv_results
+    return fusion_results, cnv_results, somatic_vcf_name
 
 # batch flow
 @flow(name="batch_process", log_prints=True)
@@ -451,6 +451,7 @@ def batch_process(batch_df: pd.DataFrame, output_path, logger, runner_logger) ->
     # array of pd.DataFrames to hold fusion results for each tumor normal pair
     fusion_op = []
     cnv_op = []
+    somatic_vcf_op = []
     
     # iterate thru tumor normal pairs
     for group_name, group_df in batch_df.groupby("participant_id"):
@@ -465,17 +466,19 @@ def batch_process(batch_df: pd.DataFrame, output_path, logger, runner_logger) ->
         normal_sample_id = normal_df.iloc[0]["sample_id"]
         
         try:
-            fusion_results, cnv_results = pt_paired_vcf_flow(tumor_df.iloc[0]["file_name"], tumor_sample_id, normal_df.iloc[0]["file_name"], normal_sample_id, output_path, logger)
+            fusion_results, cnv_results, somatic_vcf_name = pt_paired_vcf_flow(tumor_df.iloc[0]["file_name"], tumor_sample_id, normal_df.iloc[0]["file_name"], normal_sample_id, output_path, logger)
         except Exception as e:
             runner_logger.error(f"Error processing participant {group_name}: {e}")
             logger.error(f"Error processing participant {group_name}: {e}")
             continue
         
-        # add to output array
+        # add to output arrays
         fusion_op.append(fusion_results)
         cnv_op.append(cnv_results)
+        if somatic_vcf_name is not None:
+            somatic_vcf_op.append({'vcf_file' : somatic_vcf_name, 'sample_barcode' : tumor_sample_id, 'download_dir': os.path.join(output_path, f"{tumor_sample_id}_intermediate_files"), 'output_dir': output_path, 'reference_genome': "GRCh37"}) 
     
-    return fusion_op, cnv_op
+    return fusion_op, cnv_op, somatic_vcf_op
 
 # main flow:
 @flow(name="pedmatch_clinical_vcf_flow", log_prints=True)
@@ -513,7 +516,7 @@ def pedmatch_clinical_vcf_flow(bucket: str, output_dir: str, manifest_path: str,
     
     runner_logger.info("Starting pedmatch clinical VCF workflow")
     
-    # change working directory to mounted drive
+    # make output directory on mounted drive
     output_path = os.path.join("/usr/local/data/pedmatch", "pedmatch_run_"+dt)
     os.makedirs(output_path, exist_ok=True)
     
@@ -531,23 +534,25 @@ def pedmatch_clinical_vcf_flow(bucket: str, output_dir: str, manifest_path: str,
     # download files:
     # reusing download cnv function since it performs the same steps 
     # of downloading files from s3, checking md5sums and file sizes, and logging
-    batch_size = 100 # temp for testing with 10 files; change to 500 for full run
+    batch_size = 20 # temp for testing with 20 files; change to 500 for full run
     #for i in range(0, len(manifest_df), batch_size):
-    for i in range(0, 100, batch_size): # temp for testing with 500 files
+    for i in range(0, 20, batch_size): # temp for testing with 500 files
         batch_df = manifest_df.iloc[i:i+batch_size]
-        runner_logger.info(f"Downloading batch {i//batch_size + 1} of {len(manifest_df.head(100))//batch_size + 1}")
+        runner_logger.info(f"Downloading batch {i//batch_size + 1} of {len(manifest_df.head(20))//batch_size + 1}")
         download_cnv(batch_df, logger)
     
     fusion_concat_results= []
     cnv_concat_results = []
+    snv_int_results = []
     
     # add batch loop here
-    for i in range(0, len(manifest_df.head(100)), batch_size):
+    for i in range(0, len(manifest_df.head(20)), batch_size):
         batch_df = manifest_df.iloc[i:i+batch_size]
-        runner_logger.info(f"Processing batch {i//batch_size + 1} of {len(manifest_df.head(100))//batch_size + 1}")
-        fusion_batch_op, cnv_batch_op = batch_process(batch_df, output_path, logger, runner_logger)
+        runner_logger.info(f"Processing batch {i//batch_size + 1} of {len(manifest_df.head(20))//batch_size + 1}")
+        fusion_batch_op, cnv_batch_op, snv_batch_op = batch_process(batch_df, output_path, logger, runner_logger)
         fusion_concat_results.extend(fusion_batch_op)
         cnv_concat_results.extend(cnv_batch_op)
+        snv_int_results.extend(snv_batch_op)
     
     # save output files
     fusion_output_path = os.path.join(output_path, "data_sv.txt")
@@ -567,6 +572,24 @@ def pedmatch_clinical_vcf_flow(bucket: str, output_dir: str, manifest_path: str,
     cna_discrete.to_csv(os.path.join(output_path, "data_cna.txt"), sep="\t", index=False)
     cna_log2_continuous.to_csv(os.path.join(output_path, "data_log2_cna.txt"), sep="\t", index=False, quoting=csv.QUOTE_NONE, escapechar='\\')
     
+    # genome nexus annotation of snvs
+    install_nexus()
+    
+    # annotate VCFs
+    @flow(name="snv_annotation", log_prints=True)
+    def snv_annotation_prep(snv_dict_list: list):
+        annotation = annotator.map(snv_dict_list, logger)
+        return annotation.result()
+    
+    for snv_batch in range(0, len(snv_int_results), batch_size):
+        snv_batch_op = snv_int_results[snv_batch:snv_batch+batch_size]
+        snv_annotation_prep(snv_batch_op, logger)
+        
+    # concat MAFs and save
+    maf_files = [f for f in os.listdir(output_path) if f.endswith(".maf")]
+    concat_mafs(maf_files, output_path, "data_mutations.txt", dt, logger, runner_logger)
+    
+    # TODO: concat merged MAF line check per sample
     
     # upload dir to s3
     upload_folder_to_s3(
