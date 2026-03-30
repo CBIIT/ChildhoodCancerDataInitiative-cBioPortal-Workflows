@@ -347,19 +347,13 @@ def snv_flow(tumor_vcf: str, tumor_sample_id: str, normal_vcf: str, normal_sampl
                 open(os.path.join(intermediate_dir, os.path.basename(vcf).replace(".vcf", ".withFT.vcf")), "a").write(new_line)
     
     preserve_filter(tumor_vcf, intermediate_dir)
-    preserve_filter(normal_vcf, intermediate_dir)
-    
-    # lsit intermediate dir to check files
-    print(f"Intermediate files in {intermediate_dir}: {os.listdir(intermediate_dir)}")
+    preserve_filter(normal_vcf, intermediate_dir) 
     
     # sort and tabix index the files
     print(f"Sorting and indexing VCF files for {tumor_sample_id} and {normal_sample_id}")
     command = [f"bcftools sort -O z -o {intermediate_dir}/{tumor_sample_id}_tumor.sorted.vcf.gz {intermediate_dir}/{os.path.basename(tumor_vcf).replace('.vcf', '.withFT.vcf')} && bcftools sort -O z -o {intermediate_dir}/{normal_sample_id}_normal.sorted.vcf.gz {intermediate_dir}/{os.path.basename(normal_vcf).replace('.vcf', '.withFT.vcf')} && tabix -p vcf {intermediate_dir}/{tumor_sample_id}_tumor.sorted.vcf.gz && tabix -p vcf {intermediate_dir}/{normal_sample_id}_normal.sorted.vcf.gz"]
     shell_op = ShellOperation(commands=command)
-    shell_op.run()
-    
-    # lsit intermediate dir to check files
-    print(f"Intermediate files in {intermediate_dir}: {os.listdir(intermediate_dir)}")
+    shell_op.run()   
     
     # merge tumor and normal vcf files using bcftools merge
     print(f"Merging tumor and normal VCF files for {tumor_sample_id} and {normal_sample_id}")
@@ -367,26 +361,17 @@ def snv_flow(tumor_vcf: str, tumor_sample_id: str, normal_vcf: str, normal_sampl
     shell_op = ShellOperation(commands=command)
     shell_op.run()
     
-    # lsit intermediate dir to check files
-    print(f"Intermediate files in {intermediate_dir}: {os.listdir(intermediate_dir)}")
-    
     # split multiallelic sites in merged vcf file using bcftools norm
     print(f"Splitting multiallelic sites in merged VCF file for {tumor_sample_id} and {normal_sample_id}")
     command = [f"bcftools norm -m -any -O z -o {intermediate_dir}/{tumor_sample_id}_merged.split.vcf.gz {intermediate_dir}/{tumor_sample_id}_merged.vcf.gz && tabix -p vcf {intermediate_dir}/{tumor_sample_id}_merged.split.vcf.gz"]
     shell_op = ShellOperation(commands=command)
     shell_op.run()
     
-    # lsit intermediate dir to check files
-    print(f"Intermediate files in {intermediate_dir}: {os.listdir(intermediate_dir)}")
-    
     # apply somatic filter
     print(f"Applying somatic filter to merged VCF file for {tumor_sample_id} and {normal_sample_id}")
     command = [f"bcftools view -i 'FORMAT/DP[0] >= 20 && FORMAT/DP[1] >= 15 && FORMAT/AF[0:0] >= 0.05 && FORMAT/AF[1:0] <= 0.02' {intermediate_dir}/{tumor_sample_id}_merged.split.vcf.gz -O z -o {intermediate_dir}/{tumor_sample_id}_somatic.vcf.gz"]
     shell_op = ShellOperation(commands=command)
     shell_op.run()
-    
-    # lsit intermediate dir to check files
-    print(f"Intermediate files in {intermediate_dir}: {os.listdir(intermediate_dir)}")
     
     # func to extract GT
     def gt_extract(gt_str):
@@ -401,6 +386,18 @@ def snv_flow(tumor_vcf: str, tumor_sample_id: str, normal_vcf: str, normal_sampl
             return "NA"
         else:
             return filter_str.split(":")[-1]
+            
+    def af_extract(af_str):
+        if pd.isna(af_str):
+            return "NA"
+        else:
+            return af_str.split(":")[8]
+    
+    def dp_extract(dp_str):
+        if pd.isna(dp_str):
+            return "NA"
+        else:
+            return dp_str.split(":")[2]
     
     # read in somatic vcf file with pandas, filter and return dataframe
     print(f"Reading in somatic VCF file for {tumor_sample_id} and {normal_sample_id}")
@@ -414,6 +411,15 @@ def snv_flow(tumor_vcf: str, tumor_sample_id: str, normal_vcf: str, normal_sampl
     somatic_vcf_df.loc[:, "tumor_filter"] = somatic_vcf_df[tumor_sample_id].apply(lambda x: filter_extract(x))
     # normal FILTER
     somatic_vcf_df.loc[:, "normal_filter"] = somatic_vcf_df[normal_sample_id].apply(lambda x: filter_extract(x))
+    # tumor AF
+    somatic_vcf_df.loc[:, "tumor_af"] = somatic_vcf_df[tumor_sample_id].apply(lambda x: af_extract(x))
+    # normal AF
+    somatic_vcf_df.loc[:, "normal_af"] = somatic_vcf_df[normal_sample_id].apply(lambda x: af_extract(x))
+    # tumor DP
+    somatic_vcf_df.loc[:, "tumor_dp"] = somatic_vcf_df[tumor_sample_id].apply(lambda x: dp_extract(x))
+    # normal DP
+    somatic_vcf_df.loc[:, "normal_dp"] = somatic_vcf_df[normal_sample_id].apply(lambda x: dp_extract(x))
+
     
     #filter somatic filters 
     somatic_vcf_df = somatic_vcf_df[(somatic_vcf_df['tumor_filter'] == 'PASS') & ~(somatic_vcf_df.INFO.str.contains('SVTYPE')) & (somatic_vcf_df["tumor_gt"] != ("0/0")) & (somatic_vcf_df["normal_gt"] != somatic_vcf_df["tumor_gt"])]
