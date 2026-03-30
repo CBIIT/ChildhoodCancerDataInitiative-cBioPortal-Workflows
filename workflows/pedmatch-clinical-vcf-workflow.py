@@ -577,7 +577,7 @@ def pedmatch_clinical_vcf_flow(bucket: str, output_dir: str, manifest_path: str,
     
     # annotate VCFs
     @flow(name="snv_annotation", log_prints=True)
-    def snv_annotation_prep(snv_dict_list: list):
+    def snv_annotation_prep(snv_dict_list: list[dict], logger):
         annotation = annotator.map(snv_dict_list, logger)
         return annotation.result()
     
