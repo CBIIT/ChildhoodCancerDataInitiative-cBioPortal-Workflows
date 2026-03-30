@@ -297,7 +297,7 @@ def annotator(anno_parameter: dict, logger) -> None:
         Returns:
             int: End position
         """
-        return row['Start_Position'] + len(row['Reference_Allele']) - 1
+        return int(row['Start_Position']) + len(row['Reference_Allele']) - 1
     
     # annotate end position
     vcf['End_Position'] = vcf.apply(end_position, axis=1)
