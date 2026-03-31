@@ -1,7 +1,7 @@
 import os, pandas as pd
 import csv
 from typing import Literal
-from prefect import flow, task, unmapped
+from prefect import flow, task
 from prefect.task_runners import ConcurrentTaskRunner
 from src.utils import get_time, file_dl, upload_folder_to_s3, get_run_logger, get_time, get_logger
 from workflows.cnv import download_cnv, gistic_like_calls
@@ -545,9 +545,10 @@ def concat_maf_check(output_path: str, concatenated_maf_name: str, line_count_fi
 
     return None
 
-# patient flow
-@flow(name="pt_paired_vcf_flow", log_prints=True)
-def pt_paired_vcf_flow(tumor_vcf, tumor_sample_id, normal_vcf, normal_sample_id, output_path, logger):
+# patient task - converted from flow to task for concurrent mapping
+@task(name="pt_paired_vcf_task", log_prints=True, retries=2, retry_delay_seconds=30, task_run_name="process-{tumor_sample_id}")
+def pt_paired_vcf_task(tumor_vcf, tumor_sample_id, normal_vcf, normal_sample_id, output_path, logger):
+    """Process a single patient's tumor/normal VCF pair concurrently"""
     # prep files
     tumor_vcf_df = clin_vcf_file_prep(tumor_vcf, tumor_sample_id)
     normal_vcf_df = clin_vcf_file_prep(normal_vcf, normal_sample_id)
@@ -559,44 +560,89 @@ def pt_paired_vcf_flow(tumor_vcf, tumor_sample_id, normal_vcf, normal_sample_id,
     
     return fusion_results, cnv_results, somatic_vcf_name
 
-# batch flow
-@flow(name="batch_process", log_prints=True)
-def batch_process(batch_df: pd.DataFrame, output_path, logger, runner_logger) -> None:
+@task(name="prepare_patient_data", log_prints=True)
+def prepare_patient_data(batch_df: pd.DataFrame, logger, runner_logger):
+    """Prepare patient data for concurrent processing"""
+    patient_data = []
     
-    # array of pd.DataFrames to hold fusion results for each tumor normal pair
-    fusion_op = []
-    cnv_op = []
-    somatic_vcf_op = []
-    
-    # iterate thru tumor normal pairs
+    # iterate thru tumor normal pairs to prepare data
     for group_name, group_df in batch_df.groupby("participant_id"):
-        runner_logger.info(f"Processing participant: {group_name}")
         tumor_df = group_df[group_df["sample_type"] == "tissue"]
         normal_df = group_df[group_df["sample_type"] == "blood"]
+        
         if len(tumor_df) != 1 or len(normal_df) != 1:
             runner_logger.warning(f"Skipping participant {group_name} due to incorrect number of tumor or normal samples")
             logger.warning(f"Participant {group_name} tumor samples: {len(tumor_df)}, normal samples: {len(normal_df)}")
             continue
-        tumor_sample_id = tumor_df.iloc[0]["sample_id"]
-        normal_sample_id = normal_df.iloc[0]["sample_id"]
-        
-        try:
-            fusion_results, cnv_results, somatic_vcf_name = pt_paired_vcf_flow(tumor_df.iloc[0]["file_name"], tumor_sample_id, normal_df.iloc[0]["file_name"], normal_sample_id, output_path, logger)
-        except Exception as e:
-            runner_logger.error(f"Error processing participant {group_name}: {e}")
-            logger.error(f"Error processing participant {group_name}: {e}")
+            
+        patient_data.append({
+            'participant_id': group_name,
+            'tumor_vcf': tumor_df.iloc[0]["file_name"],
+            'tumor_sample_id': tumor_df.iloc[0]["sample_id"],
+            'normal_vcf': normal_df.iloc[0]["file_name"], 
+            'normal_sample_id': normal_df.iloc[0]["sample_id"]
+        })
+    
+    return patient_data
+
+@task(name="process_patient_results", log_prints=True)
+def process_patient_results(results, patient_data, output_path, logger, runner_logger):
+    """Process results from concurrent patient processing"""
+    fusion_op = []
+    cnv_op = []
+    somatic_vcf_op = []
+    
+    for i, result in enumerate(results):
+        if result is None:  # Handle failed tasks
+            runner_logger.warning(f"Skipping failed patient processing task {i}")
             continue
+            
+        fusion_results, cnv_results, somatic_vcf_name = result
+        patient = patient_data[i]
         
         # add to output arrays
         fusion_op.append(fusion_results)
         cnv_op.append(cnv_results)
         if somatic_vcf_name is not None:
-            somatic_vcf_op.append({'vcf_file' : somatic_vcf_name, 'sample_barcode' : tumor_sample_id, 'download_dir': os.path.join(output_path, f"{tumor_sample_id}_intermediate_files"), 'output_dir': output_path, 'reference_genome': "GRCh37"}) 
+            somatic_vcf_op.append({
+                'vcf_file': somatic_vcf_name, 
+                'sample_barcode': patient['tumor_sample_id'], 
+                'download_dir': os.path.join(output_path, f"{patient['tumor_sample_id']}_intermediate_files"), 
+                'output_dir': output_path, 
+                'reference_genome': "GRCh37"
+            })
     
     return fusion_op, cnv_op, somatic_vcf_op
 
+# batch flow with concurrent processing
+@flow(name="batch_process", log_prints=True, task_runner=ConcurrentTaskRunner(max_workers=4))
+def batch_process(batch_df: pd.DataFrame, output_path, logger, runner_logger) -> None:
+    """Process patients concurrently using Prefect task mapping"""
+    
+    # Prepare patient data for concurrent processing
+    patient_data = prepare_patient_data(batch_df, logger, runner_logger)
+    
+    if not patient_data:
+        runner_logger.warning("No valid patient data to process")
+        return [], [], []
+    
+    runner_logger.info(f"Processing {len(patient_data)} patients concurrently with max 4 workers")
+    
+    # Process patients concurrently using task mapping
+    patient_results = pt_paired_vcf_task.map(
+        [p['tumor_vcf'] for p in patient_data],
+        [p['tumor_sample_id'] for p in patient_data], 
+        [p['normal_vcf'] for p in patient_data],
+        [p['normal_sample_id'] for p in patient_data],
+        [output_path] * len(patient_data),  # Replicate static parameter
+        [logger] * len(patient_data)  # Replicate static parameter
+    )
+    
+    # Process results
+    return process_patient_results(patient_results, patient_data, output_path, logger, runner_logger)
+
 # main flow:
-@flow(name="pedmatch_clinical_vcf_flow", log_prints=True)
+@flow(name="pedmatch_clinical_vcf_flow", log_prints=True, task_runner=ConcurrentTaskRunner(max_workers=2))
 def pedmatch_clinical_vcf_flow(bucket: str, output_dir: str, manifest_path: str, flow_type: DropDownChoices):
     """Parse, format and annotate variants from clinical VCFs for pedmatch
 
@@ -690,15 +736,21 @@ def pedmatch_clinical_vcf_flow(bucket: str, output_dir: str, manifest_path: str,
     # genome nexus annotation of snvs
     install_nexus()
     
-    # annotate VCFs
-    @flow(name="snv_annotation", log_prints=True)
-    def snv_annotation_prep(snv_dict_list: list[dict], logger):
-        annotation = annotator.map(snv_dict_list, unmapped(logger))
-        return annotation.result()
+    # annotate VCFs concurrently
+    @flow(name="snv_annotation", log_prints=True, task_runner=ConcurrentTaskRunner(max_workers=10))
+    def snv_annotation_flow(snv_dict_list: list[dict], logger):
+        """Annotate SNVs using concurrent processing"""
+        if not snv_dict_list:
+            return []
+        runner_logger.info(f"Annotating {len(snv_dict_list)} VCF files concurrently with max 10 workers")
+        return annotator.map(
+            snv_dict_list, 
+            [logger] * len(snv_dict_list)  # Replicate logger for each task
+        )
     
-    for snv_batch in range(0, len(snv_int_results), batch_size):
-        snv_batch_op = snv_int_results[snv_batch:snv_batch+batch_size]
-        snv_annotation_prep(snv_batch_op, logger)
+    # Process all SNV annotations at once instead of batching
+    if snv_int_results:
+        snv_annotation_flow(snv_int_results, logger)
         
     # add VAF back to MAFs
     maf_files = [f for f in os.listdir(output_path) if f.endswith(".maf")]
@@ -716,13 +768,20 @@ def pedmatch_clinical_vcf_flow(bucket: str, output_dir: str, manifest_path: str,
         maf_df = maf_df.merge(af_df, left_on=['Chromosome', 'Start_Position'], right_on=['Chromosome', 'Start_Position'], how='left')
         maf_df.to_csv(os.path.join(output_path, maf_file), sep="\t", index=False)
     
-    @flow(name="add_vaf_flow", log_prints=True)
-    def add_vaf_flow(maf_files_batch, output_path):
-        add_vaf.map(maf_files_batch, unmapped(output_path))
+    @flow(name="add_vaf_flow", log_prints=True, task_runner=ConcurrentTaskRunner(max_workers=8))
+    def add_vaf_flow(maf_files: list, output_path):
+        """Add VAF data to MAF files concurrently"""
+        if not maf_files:
+            return
+        runner_logger.info(f"Adding VAF to {len(maf_files)} MAF files concurrently with max 8 workers")
+        return add_vaf.map(
+            maf_files, 
+            [output_path] * len(maf_files)  # Replicate output_path for each task
+        )
         
-    for maf_batch in range(0, len(maf_files), batch_size):
-        maf_files_batch = maf_files[maf_batch:maf_batch+batch_size]
-        add_vaf_flow(maf_files_batch, output_path)
+    # Process all MAF files at once instead of batching
+    if maf_files:
+        add_vaf_flow(maf_files, output_path)
     
     # concat MAFs and save
     concat_mafs(maf_files, output_path, "data_mutations.txt", dt, logger, runner_logger)
