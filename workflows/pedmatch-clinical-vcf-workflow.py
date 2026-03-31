@@ -437,12 +437,23 @@ def snv_flow(tumor_vcf: str, tumor_sample_id: str, normal_vcf: str, normal_sampl
     #filter somatic filters 
     somatic_vcf_df = somatic_vcf_df[(somatic_vcf_df['tumor_filter'] == 'PASS') & ~(somatic_vcf_df.INFO.str.contains('SVTYPE')) & (somatic_vcf_df["tumor_gt"] != ("0/0")) & (somatic_vcf_df["normal_gt"] != somatic_vcf_df["tumor_gt"])]
     somatic_vcf_name = f"{tumor_sample_id}_somatic_snvs.vcf"
+    # save VCF for processing
     somatic_vcf_df.to_csv(os.path.join(intermediate_dir, somatic_vcf_name), sep="\t", index=False)    
+    
+    #save backup for filter details
+    somatic_vcf_df.to_csv(os.path.join(intermediate_dir, f"{tumor_sample_id}_somatic_snvs_backup.vcf"), sep="\t", index=False)    
     
     logger.info(f"Somatic SNVs after filtering for {tumor_sample_id}: {len(somatic_vcf_df)}")
     print(f"Somatic SNVs after filtering for {tumor_sample_id}: {len(somatic_vcf_df)}")
     if len(somatic_vcf_df) == 0: #no SNVs found in tumor sample, return empty df with correct columns
         return None
+        
+    # write allele fractoion data to separate file for use in annotation
+    af_df = somatic_vcf_df[["CHROM", "POS", "t_alt_count", "t_ref_count"]].copy()
+    af_df.columns = ["Chromosome", "Start_Position", "t_alt_count", "t_ref_count"]
+    af_df['Tumor_Sample_Barcode'] = tumor_sample_id
+    af_df.to_csv(os.path.join(intermediate_dir, f"{tumor_sample_id}_af.tsv"), sep="\t", index=False)    
+    
     return somatic_vcf_name
 
 
@@ -524,7 +535,7 @@ def concat_maf_check(output_path: str, concatenated_maf_name: str, line_count_fi
         logger.info(f"Cleaned concatenated MAF file saved as {concatenated_maf_name.replace('.maf', '_cleaned.maf')}")
         
         #create new manifest df for samples to rerun
-        rerun_manifest_df = manifest_df[manifest_df['sample'].isin(samples_to_rerun)]
+        rerun_manifest_df = manifest_df[manifest_df['sample_id'].isin(samples_to_rerun)]
         rerun_manifest_df.to_csv(os.path.join(output_path, f"vcf_annotation_rerun_manifest_{dt}.csv"), index=False)
         runner_logger.info(f"Rerun manifest file saved as vcf_annotation_rerun_manifest_{dt}.csv")
         logger.info(f"Rerun manifest file saved as vcf_annotation_rerun_manifest_{dt}.csv")
@@ -689,8 +700,26 @@ def pedmatch_clinical_vcf_flow(bucket: str, output_dir: str, manifest_path: str,
         snv_batch_op = snv_int_results[snv_batch:snv_batch+batch_size]
         snv_annotation_prep(snv_batch_op, logger)
         
-    # concat MAFs and save
+    # add VAF back to MAFs
     maf_files = [f for f in os.listdir(output_path) if f.endswith(".maf")]
+    @task(name="add_vaf", log_prints=True, tags=["vcf_anno_task-tag"], retries=3, retry_delay_seconds=10)
+    def add_vaf(maf_file, output_path):
+        maf_df = pd.read_csv(os.path.join(output_path, maf_file), sep="\t", comment="#", low_memory=False)
+        sample_id = maf_df['Tumor_Sample_Barcode'].iloc[0]
+        af_file = os.path.join(output_path, f"{sample_id}_intermediate_files", f"{sample_id}_af.tsv")
+        af_df = pd.read_csv(af_file, sep="\t")[["Chromosome", "Start_Position", "t_alt_count", "t_ref_count"]]
+        maf_df = maf_df.merge(af_df, left_on=['Chromosome', 'Start_Position'], right_on=['Chromosome', 'Start_Position'], how='left')
+        maf_df.to_csv(os.path.join(output_path, maf_file), sep="\t", index=False)
+    
+    @flow(name="add_vaf_flow", log_prints=True)
+    def add_vaf_flow(maf_files_batch, output_path):
+        add_vaf.map(maf_files_batch, unmapped(output_path))
+        
+    for maf_batch in range(0, len(maf_files), batch_size):
+        maf_files_batch = maf_files[maf_batch:maf_batch+batch_size]
+        add_vaf_flow(maf_files_batch, output_path)
+    
+    # concat MAFs and save
     concat_mafs(maf_files, output_path, "data_mutations.txt", dt, logger, runner_logger)
     
     # concat merged MAF line check per sample
