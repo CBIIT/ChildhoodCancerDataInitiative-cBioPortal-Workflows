@@ -485,7 +485,7 @@ def concat_maf_check(output_path: str, concatenated_maf_name: str, line_count_fi
     
     # map samples to line counts by transformed file name
     manifest_df = manifest_df[manifest_df.sample_type == 'tissue'].copy()
-    manifest_df['file_name'] = manifest_df['s3_url'].apply(lambda x: os.path.basename(x).split("_")[0]+"_vcf_tissue_somatic_snvs.vcf")
+    manifest_df['file_name'] = manifest_df['s3_url'].apply(lambda x: os.path.basename(x).split("_")[0]+"_vcf_tissue_somatic_snvs_annotated.maf")
     merged_df = pd.merge(manifest_df, line_counts, on='file_name', how='left')
     
     # read in concatenated MAF file and get line count by Tumor_Sample_Barcode
