@@ -748,9 +748,9 @@ def pedmatch_clinical_vcf_flow(bucket: str, output_dir: str, manifest_path: str,
     # of downloading files from s3, checking md5sums and file sizes, and logging
     batch_size = 20 # temp for testing with 20 files; change to 500 for full run
     #for i in range(0, len(manifest_df), batch_size):
-    for i in range(0, 20, batch_size): # temp for testing with 500 files
+    for i in range(0, 100, batch_size): # temp for testing with 500 files
         batch_df = manifest_df.iloc[i:i+batch_size]
-        runner_logger.info(f"Downloading batch {i//batch_size + 1} of {len(manifest_df.head(20))//batch_size + 1}")
+        runner_logger.info(f"Downloading batch {i//batch_size + 1} of {len(manifest_df.head(100))//batch_size + 1}")
         download_cnv(batch_df, logger)
     
     fusion_concat_results= []
@@ -758,9 +758,9 @@ def pedmatch_clinical_vcf_flow(bucket: str, output_dir: str, manifest_path: str,
     snv_int_results = []
     
     # add batch loop here
-    for i in range(0, len(manifest_df.head(20)), batch_size):
+    for i in range(0, len(manifest_df.head(100)), batch_size):
         batch_df = manifest_df.iloc[i:i+batch_size]
-        runner_logger.info(f"Processing batch {i//batch_size + 1} of {len(manifest_df.head(20))//batch_size + 1}")
+        runner_logger.info(f"Processing batch {i//batch_size + 1} of {len(manifest_df.head(100))//batch_size + 1}")
         fusion_batch_op, cnv_batch_op, snv_batch_op = batch_process(batch_df, output_path, logger, runner_logger)
         fusion_concat_results.extend(fusion_batch_op)
         cnv_concat_results.extend(cnv_batch_op)
@@ -802,7 +802,7 @@ def pedmatch_clinical_vcf_flow(bucket: str, output_dir: str, manifest_path: str,
     concat_mafs(maf_files, output_path, "data_mutations_unchecked.txt", dt, logger, runner_logger)
     
     # concat merged MAF line check per sample
-    concat_maf_check(output_path, "data_mutations_unchecked.txt", f"vcf_annotated_line_counts_{dt}.txt", manifest_df.head(20), dt, logger, runner_logger)
+    concat_maf_check(output_path, "data_mutations_unchecked.txt", f"vcf_annotated_line_counts_{dt}.txt", manifest_df.head(100), dt, logger, runner_logger)
     
     # upload dir to s3
     upload_folder_to_s3(
