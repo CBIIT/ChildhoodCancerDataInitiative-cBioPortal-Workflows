@@ -306,6 +306,7 @@ deployments:
   - prefect.deployments.steps.run_shell_script:
       script: |
         apt-get update -y
+        apt-get install -y apt-utils
         apt-get install -y libhts-dev bcftools tabix
         apt-get install -y ca-certificates
         apt-get install -y wget
