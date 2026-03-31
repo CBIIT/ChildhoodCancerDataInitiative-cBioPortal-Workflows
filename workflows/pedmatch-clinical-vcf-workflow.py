@@ -501,10 +501,10 @@ def concat_maf_check(output_path: str, concatenated_maf_name: str, line_count_fi
     if not fail_check_df.empty:
         runner_logger.error("Samples with FAILED annotations found in concatenated MAF:")
         logger.error("Samples with FAILED annotations found in concatenated MAF:")
-        for sample in fail_check_df.index:
-            runner_logger.error(f"Sample: {sample}, Failed annotations: {fail_check_df[sample]}")
-            logger.error(f"Sample: {sample}, Failed annotations: {fail_check_df[sample]}")
-            samples_to_rerun.append(sample)
+        for sample_id in fail_check_df.index:
+            runner_logger.error(f"Sample: {sample_id}, Failed annotations: {fail_check_df[sample_id]}")
+            logger.error(f"Sample: {sample_id}, Failed annotations: {fail_check_df[sample_id]}")
+            samples_to_rerun.append(sample_id)
             
     # check for misformatted variants with null/missing Tumor_Sample_Barcode
     misformatted_df = concat_maf[concat_maf['Tumor_Sample_Barcode'].isnull() | (concat_maf['Tumor_Sample_Barcode'] == '')]
