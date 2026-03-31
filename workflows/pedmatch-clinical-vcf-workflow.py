@@ -233,6 +233,9 @@ def cnv_segment_file_prep(input_df: pd.DataFrame) -> pd.DataFrame:
     required_cols = ['ID', 'chrom', 'loc.start', 'loc.end', 'num.mark', 'seg.mean']
     cna_segment_df = input_df[required_cols].copy()
     
+    # remove "chr" from chrom column if present
+    cna_segment_df['chrom'] = cna_segment_df['chrom'].astype(str).str.replace("chr", "")
+    
     # make sure loc.start and loc.end are integers
     cna_segment_df['loc.start'] = cna_segment_df['loc.start'].astype(int)
     cna_segment_df['loc.end'] = cna_segment_df['loc.end'].astype(int)
