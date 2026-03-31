@@ -768,6 +768,12 @@ def pedmatch_clinical_vcf_flow(bucket: str, output_dir: str, manifest_path: str,
         # replace t_alt_count and t_ref_count in maf_df with values from af_df
         maf_df['t_alt_count'] = maf_df.apply(lambda row: af_df[(af_df['Chromosome'] == row['Chromosome']) & (af_df['Start_Position'] == row['Start_Position'])]['t_alt_count'].values[0] if len(af_df[(af_df['Chromosome'] == row['Chromosome']) & (af_df['Start_Position'] == row['Start_Position'])]) > 0 else '', axis=1)
         maf_df['t_ref_count'] = maf_df.apply(lambda row: af_df[(af_df['Chromosome'] == row['Chromosome']) & (af_df['Start_Position'] == row['Start_Position'])]['t_ref_count'].values[0] if len(af_df[(af_df['Chromosome'] == row['Chromosome']) & (af_df['Start_Position'] == row['Start_Position'])]) > 0 else '', axis=1)
+        
+        #convert final cols to string and remove .0 from values
+        cols_int = ['Entrez_Gene_Id', 'Start_Position', 'End_Position', 't_alt_count', 't_ref_count', 'Protein_position']
+        for col in cols_int:
+            maf_df[col] = maf_df[col].fillna('').astype(str).str.replace('.0', '', regex=False)
+        
         maf_df.to_csv(os.path.join(output_path, maf_file), sep="\t", index=False)
         
     @flow(name="add_vaf_flow", log_prints=True, task_runner=ConcurrentTaskRunner(max_workers=8))
