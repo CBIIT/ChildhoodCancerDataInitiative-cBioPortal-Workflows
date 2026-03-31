@@ -681,15 +681,14 @@ def add_vaf(maf_file, output_path):
     maf_df.to_csv(os.path.join(output_path, maf_file), sep="\t", index=False)
     
 @flow(name="add_vaf_flow", log_prints=True, task_runner=ConcurrentTaskRunner(max_workers=8))
-def add_vaf_flow(maf_files: list, output_path: str, runner_logger):
+def add_vaf_flow(maf_files: list, output_path: str):
     """Add VAF data to MAF files concurrently"""
     if not maf_files:
         return
-    runner_logger.info(f"Adding VAF to {len(maf_files)} MAF files concurrently with max 8 workers")
+    print(f"Adding VAF to {len(maf_files)} MAF files concurrently with max 8 workers")
     return add_vaf.map(
         maf_files, 
-        [output_path] * len(maf_files),  # Replicate output_path for each task
-        [runner_logger] * len(maf_files)  # Replicate runner_logger for each task
+        [output_path] * len(maf_files)  # Replicate output_path for each task
     )
 
 
@@ -797,7 +796,7 @@ def pedmatch_clinical_vcf_flow(bucket: str, output_dir: str, manifest_path: str,
         
     # Process all MAF files at once instead of batching
     if maf_files:
-        add_vaf_flow(maf_files, output_path, runner_logger)
+        add_vaf_flow(maf_files, output_path)
     
     # concat MAFs and save
     concat_mafs(maf_files, output_path, "data_mutations_unchecked.txt", dt, logger, runner_logger)
