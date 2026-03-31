@@ -1,7 +1,7 @@
 import os, pandas as pd
 import csv
 from typing import Literal
-from prefect import flow, task
+from prefect import flow, task, unmapped
 from prefect.task_runners import ConcurrentTaskRunner
 from src.utils import get_time, file_dl, upload_folder_to_s3, get_run_logger, get_time, get_logger
 from workflows.cnv import download_cnv, gistic_like_calls
@@ -578,7 +578,7 @@ def pedmatch_clinical_vcf_flow(bucket: str, output_dir: str, manifest_path: str,
     # annotate VCFs
     @flow(name="snv_annotation", log_prints=True)
     def snv_annotation_prep(snv_dict_list: list[dict], logger):
-        annotation = annotator.map(snv_dict_list, logger)
+        annotation = annotator.map(snv_dict_list, unmapped(logger))
         return annotation.result()
     
     for snv_batch in range(0, len(snv_int_results), batch_size):
