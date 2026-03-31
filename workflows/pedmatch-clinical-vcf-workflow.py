@@ -8,7 +8,7 @@ from workflows.cnv import download_cnv, gistic_like_calls
 import shutil
 import math
 from prefect_shell import ShellOperation
-from workflows.vcf_anno import install_nexus, annotator, concat_mafs, concat_maf_check
+from workflows.vcf_anno import install_nexus, annotator, concat_mafs
 # task to read in manifest file to dataframe and check columns
 @task(name="read_manifest", log_prints=True)
 def read_manifest(manifest_name: str) -> pd.DataFrame:
@@ -397,6 +397,18 @@ def snv_flow(tumor_vcf: str, tumor_sample_id: str, normal_vcf: str, normal_sampl
         else:
             return dp_str.split(":")[2]
     
+    def fao_extract(dp_str):
+        if pd.isna(dp_str):
+            return "NA"
+        else:
+            return dp_str.split(":")[7]
+    
+    def fro_extract(dp_str):
+        if pd.isna(dp_str):
+            return "NA"
+        else:
+            return dp_str.split(":")[5]
+        
     # read in somatic vcf file with pandas, filter and return dataframe
     print(f"Reading in somatic VCF file for {tumor_sample_id} and {normal_sample_id}")
     somatic_vcf_df = pd.read_csv(f"{intermediate_dir}/{tumor_sample_id}_somatic.vcf.gz", sep="\t", comment="#", names=VCF_HEADER_COLS+[tumor_sample_id, normal_sample_id], low_memory=False)
@@ -414,10 +426,13 @@ def snv_flow(tumor_vcf: str, tumor_sample_id: str, normal_vcf: str, normal_sampl
     # normal AF
     somatic_vcf_df.loc[:, "normal_af"] = somatic_vcf_df[normal_sample_id].apply(lambda x: af_extract(x))
     # tumor DP
-    somatic_vcf_df.loc[:, "tumor_dp"] = somatic_vcf_df[tumor_sample_id].apply(lambda x: dp_extract(x))
+    somatic_vcf_df.loc[:, "t_depth"] = somatic_vcf_df[tumor_sample_id].apply(lambda x: dp_extract(x))
     # normal DP
-    somatic_vcf_df.loc[:, "normal_dp"] = somatic_vcf_df[normal_sample_id].apply(lambda x: dp_extract(x))
-
+    somatic_vcf_df.loc[:, "n_depth"] = somatic_vcf_df[normal_sample_id].apply(lambda x: dp_extract(x))
+    # t_alt_count
+    somatic_vcf_df.loc[:, "t_alt_count"] = somatic_vcf_df[tumor_sample_id].apply(lambda x: fao_extract(x))
+    # t_ref_count
+    somatic_vcf_df.loc[:, "t_ref_count"] = somatic_vcf_df[tumor_sample_id].apply(lambda x: fro_extract(x))
     
     #filter somatic filters 
     somatic_vcf_df = somatic_vcf_df[(somatic_vcf_df['tumor_filter'] == 'PASS') & ~(somatic_vcf_df.INFO.str.contains('SVTYPE')) & (somatic_vcf_df["tumor_gt"] != ("0/0")) & (somatic_vcf_df["normal_gt"] != somatic_vcf_df["tumor_gt"])]
@@ -429,6 +444,94 @@ def snv_flow(tumor_vcf: str, tumor_sample_id: str, normal_vcf: str, normal_sampl
     if len(somatic_vcf_df) == 0: #no SNVs found in tumor sample, return empty df with correct columns
         return None
     return somatic_vcf_name
+
+
+@task(name="concat_maf_check", log_prints=True)
+def concat_maf_check(output_path: str, concatenated_maf_name: str, line_count_filename: str, manifest_df: pd.DataFrame, dt: str, logger, runner_logger) -> None:
+    """Check concatenated MAF file line counts
+
+    Args:
+        output_path (str): Path to output directory
+        concatenated_maf_name (str): Name of concatenated MAF file
+        line_count_filename (str): Name of line count file
+        manifest_df (pd.DataFrame): Dataframe of manifest file
+        dt (str): Date string
+        logger: Logger object
+        runner_logger: Runner logger object
+    """
+    
+    # samples to rerun init
+    samples_to_rerun = []
+    
+    # read in line count file
+    line_counts = pd.read_csv(os.path.join(output_path, line_count_filename), sep='\s+', header=None, names=['line_count', 'file_name'])
+    
+    # add in file_name for mapping to line_counts
+    line_counts['file_name'] = line_counts['file_name'].apply(lambda x: os.path.basename(x))
+    
+    # remove count of header line from line counts
+    line_counts['line_count'] = line_counts['line_count'].astype(int) - 1
+    
+    # map samples to line counts by transformed file name
+    manifest_df['file_name'] = manifest_df[manifest_df.sample_type == 'tissue']['s3_url'].apply(lambda x: os.path.basename(x).split("_")[0]+"_vcf_tissue_somatic_snvs.vcf")
+    merged_df = pd.merge(manifest_df, line_counts, on='file_name', how='left')
+    
+    # read in concatenated MAF file and get line count by Tumor_Sample_Barcode
+    concat_maf = pd.read_csv(os.path.join(output_path, concatenated_maf_name), sep='\t', comment='#', low_memory=False)
+    concat_line_counts = concat_maf['Tumor_Sample_Barcode'].value_counts().reset_index()
+    concat_line_counts.columns = ['Tumor_Sample_Barcode', 'line_count']
+    
+    # rename columns for merging
+    merged_df = pd.merge(merged_df, concat_line_counts, left_on='sample_id', right_on='Tumor_Sample_Barcode', how='left', suffixes=('_individual', '_concat'))
+    
+    # compare line counts
+    discrepancies = merged_df[merged_df['line_count_individual'] != merged_df['line_count_concat']]
+    if not discrepancies.empty:
+        runner_logger.error("Discrepancies found in line counts between individual MAFs and concatenated MAF:")
+        logger.error("Discrepancies found in line counts between individual MAFs and concatenated MAF:")
+        for _, row in discrepancies.iterrows():
+            runner_logger.error(f"Sample: {row['sample_id']}, Individual line count: {row['line_count_individual']}, Concatenated line count: {row['line_count_concat']}")
+            logger.error(f"Sample: {row['sample_id']}, Individual line count: {row['line_count_individual']}, Concatenated line count: {row['line_count_concat']}")
+            samples_to_rerun.append(row['sample_id'])
+    
+    # check for FAILED annotations in col Annotation_Status
+    fail_check_df = concat_maf[(concat_maf.Annotation_Status == 'FAILED') & ~(concat_maf.Chromosome.str.contains('KI2'))].groupby('Tumor_Sample_Barcode').size()
+    
+    if not fail_check_df.empty:
+        runner_logger.error("Samples with FAILED annotations found in concatenated MAF:")
+        logger.error("Samples with FAILED annotations found in concatenated MAF:")
+        for sample in fail_check_df.index:
+            runner_logger.error(f"Sample: {sample}, Failed annotations: {fail_check_df[sample]}")
+            logger.error(f"Sample: {sample}, Failed annotations: {fail_check_df[sample]}")
+            samples_to_rerun.append(sample)
+            
+    # check for misformatted variants with null/missin Tumor_Sample_Barcode
+    misformatted_df = concat_maf[concat_maf['Tumor_Sample_Barcode'].isnull() | (concat_maf['Tumor_Sample_Barcode'] == '')]
+    if not misformatted_df.empty:
+        runner_logger.error("Misformatted variants with null/missing Tumor_Sample_Barcode found in concatenated MAF:")
+        logger.error("Misformatted variants with null/missing Tumor_Sample_Barcode found in concatenated MAF:")
+        for _, row in misformatted_df.iterrows():
+            runner_logger.error(f"Variant: {row['Chromosome']}:{row['Start_Position']} {row['Reference_Allele']}>{row['Tumor_Seq_Allele1']}")
+            logger.error(f"Variant: {row['Chromosome']}:{row['Start_Position']} {row['Reference_Allele']}>{row['Tumor_Seq_Allele1']}")
+
+    # save new concat MAF without samples identified in samples_to_rerun OR Tumor_Sample_Barcode null/missing
+    if samples_to_rerun or not misformatted_df.empty:
+        cleaned_concat_maf = concat_maf[~concat_maf['Tumor_Sample_Barcode'].isin(samples_to_rerun)]
+        cleaned_concat_maf = cleaned_concat_maf[~(cleaned_concat_maf['Tumor_Sample_Barcode'].isnull() | (cleaned_concat_maf['Tumor_Sample_Barcode'] == ''))]
+        cleaned_concat_maf.to_csv(os.path.join(output_path, concatenated_maf_name.replace('.maf', '_cleaned.maf')), sep='\t', index=False)
+        runner_logger.info(f"Cleaned concatenated MAF file saved as {concatenated_maf_name.replace('.maf', '_cleaned.maf')}")
+        logger.info(f"Cleaned concatenated MAF file saved as {concatenated_maf_name.replace('.maf', '_cleaned.maf')}")
+        
+        #create new manifest df for samples to rerun
+        rerun_manifest_df = manifest_df[manifest_df['sample'].isin(samples_to_rerun)]
+        rerun_manifest_df.to_csv(os.path.join(output_path, f"vcf_annotation_rerun_manifest_{dt}.csv"), index=False)
+        runner_logger.info(f"Rerun manifest file saved as vcf_annotation_rerun_manifest_{dt}.csv")
+        logger.info(f"Rerun manifest file saved as vcf_annotation_rerun_manifest_{dt}.csv")
+    else:
+        runner_logger.info("No discrepancies found in concatenated MAF file.")
+        logger.info("No discrepancies found in concatenated MAF file.")
+
+    return None
 
 # patient flow
 @flow(name="pt_paired_vcf_flow", log_prints=True)
@@ -589,7 +692,8 @@ def pedmatch_clinical_vcf_flow(bucket: str, output_dir: str, manifest_path: str,
     maf_files = [f for f in os.listdir(output_path) if f.endswith(".maf")]
     concat_mafs(maf_files, output_path, "data_mutations.txt", dt, logger, runner_logger)
     
-    # TODO: concat merged MAF line check per sample
+    # concat merged MAF line check per sample
+    concat_maf_check(output_path, "data_mutations.txt", f"vcf_annotated_line_counts_{dt}.txt", manifest_df.head(20), dt, logger, runner_logger)
     
     # upload dir to s3
     upload_folder_to_s3(
