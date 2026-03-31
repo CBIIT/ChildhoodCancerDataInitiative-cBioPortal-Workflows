@@ -530,9 +530,13 @@ def concat_maf_check(output_path: str, concatenated_maf_name: str, line_count_fi
     if samples_to_rerun or not misformatted_df.empty:
         cleaned_concat_maf = concat_maf[~concat_maf['Tumor_Sample_Barcode'].isin(samples_to_rerun)]
         cleaned_concat_maf = cleaned_concat_maf[~(cleaned_concat_maf['Tumor_Sample_Barcode'].isnull() | (cleaned_concat_maf['Tumor_Sample_Barcode'] == ''))]
-        cleaned_concat_maf.to_csv(os.path.join(output_path, concatenated_maf_name.replace('.maf', '_cleaned.maf')), sep='\t', index=False)
-        runner_logger.info(f"Cleaned concatenated MAF file saved as {concatenated_maf_name.replace('.maf', '_cleaned.maf')}")
-        logger.info(f"Cleaned concatenated MAF file saved as {concatenated_maf_name.replace('.maf', '_cleaned.maf')}")
+        #convert final cols to string and remove .0 from values
+        cols_int = ['Entrez_Gene_Id', 'Start_Position', 'End_Position', 't_alt_count', 't_ref_count', 'Protein_position']
+        for col in cols_int:
+            cleaned_concat_maf[col] = cleaned_concat_maf[col].fillna('').astype(str).str.replace('.0', '', regex=False)
+        cleaned_concat_maf.to_csv(os.path.join(output_path, concatenated_maf_name.replace('.txt', '_cleaned.txt')), sep='\t', index=False)
+        runner_logger.info(f"Cleaned concatenated MAF file saved as {concatenated_maf_name.replace('.txt', '_cleaned.txt')}")
+        logger.info(f"Cleaned concatenated MAF file saved as {concatenated_maf_name.replace('.txt', '_cleaned.txt')}")
         
         #create new manifest df for samples to rerun
         rerun_manifest_df = manifest_df[manifest_df['sample_id'].isin(samples_to_rerun)]
@@ -540,6 +544,11 @@ def concat_maf_check(output_path: str, concatenated_maf_name: str, line_count_fi
         runner_logger.info(f"Rerun manifest file saved as vcf_annotation_rerun_manifest_{dt}.csv")
         logger.info(f"Rerun manifest file saved as vcf_annotation_rerun_manifest_{dt}.csv")
     else:
+        cleaned_concat_maf = concat_maf.copy()
+        cols_int = ['Entrez_Gene_Id', 'Start_Position', 'End_Position', 't_alt_count', 't_ref_count', 'Protein_position']
+        for col in cols_int:
+            cleaned_concat_maf[col] = cleaned_concat_maf[col].fillna('').astype(str).str.replace('.0', '', regex=False)
+        cleaned_concat_maf.to_csv(os.path.join(output_path, concatenated_maf_name.replace('.txt', '_cleaned.txt')), sep='\t', index=False)
         runner_logger.info("No discrepancies found in concatenated MAF file.")
         logger.info("No discrepancies found in concatenated MAF file.")
 
@@ -641,6 +650,49 @@ def batch_process(batch_df: pd.DataFrame, output_path, logger, runner_logger) ->
     # Process results
     return process_patient_results(patient_results, patient_data, output_path, logger, runner_logger)
 
+# annotate VCFs concurrently
+@flow(name="snv_annotation", log_prints=True, task_runner=ConcurrentTaskRunner(max_workers=10))
+def snv_annotation_flow(snv_dict_list: list[dict], runner_logger, logger):
+    """Annotate SNVs using concurrent processing"""
+    if not snv_dict_list:
+        return []
+    runner_logger.info(f"Annotating {len(snv_dict_list)} VCF files concurrently with max 10 workers")
+    return annotator.map(
+        snv_dict_list, 
+        [logger] * len(snv_dict_list)  # Replicate logger for each task
+    )
+
+
+@task(name="add_vaf", log_prints=True, tags=["vcf_anno_task-tag"], retries=3, retry_delay_seconds=10)
+def add_vaf(maf_file, output_path):
+    maf_df = pd.read_csv(os.path.join(output_path, maf_file), sep="\t", comment="#", low_memory=False)
+    sample_id = maf_df['Tumor_Sample_Barcode'].iloc[0]
+    af_file = os.path.join(output_path, f"{sample_id}_intermediate_files", f"{sample_id}_af.tsv")
+    af_df = pd.read_csv(af_file, sep="\t")[["Chromosome", "Start_Position", "t_alt_count", "t_ref_count"]]
+    # Chromosome and Start_postion astype(int)
+    maf_df.loc[:, 'Start_Position'] = maf_df['Start_Position'].astype(int)
+    af_df.loc[:, 'Start_Position'] = af_df['Start_Position'].astype(int)
+    maf_df.loc[:, 'Chromosome'] = maf_df['Chromosome'].astype(int)
+    af_df.loc[:, 'Chromosome'] = af_df['Chromosome'].str.replace('chr', '').astype(int)
+    # replace t_alt_count and t_ref_count in maf_df with values from af_df
+    maf_df['t_alt_count'] = maf_df.apply(lambda row: af_df[(af_df['Chromosome'] == row['Chromosome']) & (af_df['Start_Position'] == row['Start_Position'])]['t_alt_count'].values[0] if len(af_df[(af_df['Chromosome'] == row['Chromosome']) & (af_df['Start_Position'] == row['Start_Position'])]) > 0 else '', axis=1)
+    maf_df['t_ref_count'] = maf_df.apply(lambda row: af_df[(af_df['Chromosome'] == row['Chromosome']) & (af_df['Start_Position'] == row['Start_Position'])]['t_ref_count'].values[0] if len(af_df[(af_df['Chromosome'] == row['Chromosome']) & (af_df['Start_Position'] == row['Start_Position'])]) > 0 else '', axis=1)
+    
+    maf_df.to_csv(os.path.join(output_path, maf_file), sep="\t", index=False)
+    
+@flow(name="add_vaf_flow", log_prints=True, task_runner=ConcurrentTaskRunner(max_workers=8))
+def add_vaf_flow(maf_files: list, output_path: str, runner_logger):
+    """Add VAF data to MAF files concurrently"""
+    if not maf_files:
+        return
+    runner_logger.info(f"Adding VAF to {len(maf_files)} MAF files concurrently with max 8 workers")
+    return add_vaf.map(
+        maf_files, 
+        [output_path] * len(maf_files),  # Replicate output_path for each task
+        [runner_logger] * len(maf_files)  # Replicate runner_logger for each task
+    )
+
+
 # main flow:
 @flow(name="pedmatch_clinical_vcf_flow", log_prints=True, task_runner=ConcurrentTaskRunner(max_workers=2))
 def pedmatch_clinical_vcf_flow(bucket: str, output_dir: str, manifest_path: str, flow_type: DropDownChoices):
@@ -736,66 +788,22 @@ def pedmatch_clinical_vcf_flow(bucket: str, output_dir: str, manifest_path: str,
     # genome nexus annotation of snvs
     install_nexus()
     
-    # annotate VCFs concurrently
-    @flow(name="snv_annotation", log_prints=True, task_runner=ConcurrentTaskRunner(max_workers=10))
-    def snv_annotation_flow(snv_dict_list: list[dict], logger):
-        """Annotate SNVs using concurrent processing"""
-        if not snv_dict_list:
-            return []
-        runner_logger.info(f"Annotating {len(snv_dict_list)} VCF files concurrently with max 10 workers")
-        return annotator.map(
-            snv_dict_list, 
-            [logger] * len(snv_dict_list)  # Replicate logger for each task
-        )
-    
     # Process all SNV annotations at once instead of batching
     if snv_int_results:
-        snv_annotation_flow(snv_int_results, logger)
+        snv_annotation_flow(snv_int_results, runner_logger, logger)
         
     # add VAF back to MAFs
     maf_files = [f for f in os.listdir(output_path) if f.endswith(".maf")]
-    @task(name="add_vaf", log_prints=True, tags=["vcf_anno_task-tag"], retries=3, retry_delay_seconds=10)
-    def add_vaf(maf_file, output_path):
-        maf_df = pd.read_csv(os.path.join(output_path, maf_file), sep="\t", comment="#", low_memory=False)
-        sample_id = maf_df['Tumor_Sample_Barcode'].iloc[0]
-        af_file = os.path.join(output_path, f"{sample_id}_intermediate_files", f"{sample_id}_af.tsv")
-        af_df = pd.read_csv(af_file, sep="\t")[["Chromosome", "Start_Position", "t_alt_count", "t_ref_count"]]
-        # Chromosome and Start_postion astype(int)
-        maf_df.loc[:, 'Start_Position'] = maf_df['Start_Position'].astype(int)
-        af_df.loc[:, 'Start_Position'] = af_df['Start_Position'].astype(int)
-        maf_df.loc[:, 'Chromosome'] = maf_df['Chromosome'].astype(int)
-        af_df.loc[:, 'Chromosome'] = af_df['Chromosome'].str.replace('chr', '').astype(int)
-        # replace t_alt_count and t_ref_count in maf_df with values from af_df
-        maf_df['t_alt_count'] = maf_df.apply(lambda row: af_df[(af_df['Chromosome'] == row['Chromosome']) & (af_df['Start_Position'] == row['Start_Position'])]['t_alt_count'].values[0] if len(af_df[(af_df['Chromosome'] == row['Chromosome']) & (af_df['Start_Position'] == row['Start_Position'])]) > 0 else '', axis=1)
-        maf_df['t_ref_count'] = maf_df.apply(lambda row: af_df[(af_df['Chromosome'] == row['Chromosome']) & (af_df['Start_Position'] == row['Start_Position'])]['t_ref_count'].values[0] if len(af_df[(af_df['Chromosome'] == row['Chromosome']) & (af_df['Start_Position'] == row['Start_Position'])]) > 0 else '', axis=1)
-        
-        #convert final cols to string and remove .0 from values
-        cols_int = ['Entrez_Gene_Id', 'Start_Position', 'End_Position', 't_alt_count', 't_ref_count', 'Protein_position']
-        for col in cols_int:
-            maf_df[col] = maf_df[col].fillna('').astype(str).str.replace('.0', '', regex=False)
-        
-        maf_df.to_csv(os.path.join(output_path, maf_file), sep="\t", index=False)
-        
-    @flow(name="add_vaf_flow", log_prints=True, task_runner=ConcurrentTaskRunner(max_workers=8))
-    def add_vaf_flow(maf_files: list, output_path):
-        """Add VAF data to MAF files concurrently"""
-        if not maf_files:
-            return
-        runner_logger.info(f"Adding VAF to {len(maf_files)} MAF files concurrently with max 8 workers")
-        return add_vaf.map(
-            maf_files, 
-            [output_path] * len(maf_files)  # Replicate output_path for each task
-        )
         
     # Process all MAF files at once instead of batching
     if maf_files:
-        add_vaf_flow(maf_files, output_path)
+        add_vaf_flow(maf_files, output_path, runner_logger)
     
     # concat MAFs and save
-    concat_mafs(maf_files, output_path, "data_mutations.txt", dt, logger, runner_logger)
+    concat_mafs(maf_files, output_path, "data_mutations_unchecked.txt", dt, logger, runner_logger)
     
     # concat merged MAF line check per sample
-    concat_maf_check(output_path, "data_mutations.txt", f"vcf_annotated_line_counts_{dt}.txt", manifest_df.head(20), dt, logger, runner_logger)
+    concat_maf_check(output_path, "data_mutations_unchecked.txt", f"vcf_annotated_line_counts_{dt}.txt", manifest_df.head(20), dt, logger, runner_logger)
     
     # upload dir to s3
     upload_folder_to_s3(
