@@ -473,7 +473,8 @@ def concat_maf_check(output_path: str, concatenated_maf_name: str, line_count_fi
     line_counts['line_count'] = line_counts['line_count'].astype(int) - 1
     
     # map samples to line counts by transformed file name
-    manifest_df['file_name'] = manifest_df[manifest_df.sample_type == 'tissue']['s3_url'].apply(lambda x: os.path.basename(x).split("_")[0]+"_vcf_tissue_somatic_snvs.vcf")
+    manifest_df = manifest_df[manifest_df.sample_type == 'tissue'].copy()
+    manifest_df['file_name'] = manifest_df['s3_url'].apply(lambda x: os.path.basename(x).split("_")[0]+"_vcf_tissue_somatic_snvs.vcf")
     merged_df = pd.merge(manifest_df, line_counts, on='file_name', how='left')
     
     # read in concatenated MAF file and get line count by Tumor_Sample_Barcode
@@ -495,7 +496,7 @@ def concat_maf_check(output_path: str, concatenated_maf_name: str, line_count_fi
             samples_to_rerun.append(row['sample_id'])
     
     # check for FAILED annotations in col Annotation_Status
-    fail_check_df = concat_maf[(concat_maf.Annotation_Status == 'FAILED') & ~(concat_maf.Chromosome.str.contains('KI2'))].groupby('Tumor_Sample_Barcode').size()
+    fail_check_df = concat_maf[(concat_maf.Annotation_Status == 'FAILED')].groupby('Tumor_Sample_Barcode').size()
     
     if not fail_check_df.empty:
         runner_logger.error("Samples with FAILED annotations found in concatenated MAF:")
@@ -505,7 +506,7 @@ def concat_maf_check(output_path: str, concatenated_maf_name: str, line_count_fi
             logger.error(f"Sample: {sample}, Failed annotations: {fail_check_df[sample]}")
             samples_to_rerun.append(sample)
             
-    # check for misformatted variants with null/missin Tumor_Sample_Barcode
+    # check for misformatted variants with null/missing Tumor_Sample_Barcode
     misformatted_df = concat_maf[concat_maf['Tumor_Sample_Barcode'].isnull() | (concat_maf['Tumor_Sample_Barcode'] == '')]
     if not misformatted_df.empty:
         runner_logger.error("Misformatted variants with null/missing Tumor_Sample_Barcode found in concatenated MAF:")
