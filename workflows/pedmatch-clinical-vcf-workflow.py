@@ -763,7 +763,7 @@ def pedmatch_clinical_vcf_flow(bucket: str, output_dir: str, manifest_path: str,
         # Chromosome and Start_postion astype(int)
         maf_df.loc[:, 'Start_Position'] = maf_df['Start_Position'].astype(int)
         af_df.loc[:, 'Start_Position'] = af_df['Start_Position'].astype(int)
-        maf_df.loc[:, 'Chromosome'] = maf_df['Chromosome'].str.replace('chr', '').astype(int)
+        maf_df.loc[:, 'Chromosome'] = maf_df['Chromosome'].astype(int)
         af_df.loc[:, 'Chromosome'] = af_df['Chromosome'].str.replace('chr', '').astype(int)
         maf_df = maf_df.merge(af_df, left_on=['Chromosome', 'Start_Position'], right_on=['Chromosome', 'Start_Position'], how='left')
         maf_df.to_csv(os.path.join(output_path, maf_file), sep="\t", index=False)
