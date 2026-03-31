@@ -765,9 +765,9 @@ def pedmatch_clinical_vcf_flow(bucket: str, output_dir: str, manifest_path: str,
         af_df.loc[:, 'Start_Position'] = af_df['Start_Position'].astype(int)
         maf_df.loc[:, 'Chromosome'] = maf_df['Chromosome'].astype(int)
         af_df.loc[:, 'Chromosome'] = af_df['Chromosome'].str.replace('chr', '').astype(int)
-        maf_df = maf_df.merge(af_df, left_on=['Chromosome', 'Start_Position'], right_on=['Chromosome', 'Start_Position'], how='left')
+        maf_df = maf_df.set_index(['Chromosome', 'Start_Position']).combine_first(af_df.set_index(['Chromosome', 'Start_Position'])).reset_index()
         maf_df.to_csv(os.path.join(output_path, maf_file), sep="\t", index=False)
-    
+        
     @flow(name="add_vaf_flow", log_prints=True, task_runner=ConcurrentTaskRunner(max_workers=8))
     def add_vaf_flow(maf_files: list, output_path):
         """Add VAF data to MAF files concurrently"""
