@@ -675,8 +675,8 @@ def add_vaf(maf_file, output_path):
     # Chromosome and Start_postion astype(int)
     maf_df.loc[:, 'Start_Position'] = maf_df['Start_Position'].astype(int)
     af_df.loc[:, 'Start_Position'] = af_df['Start_Position'].astype(int)
-    maf_df.loc[:, 'Chromosome'] = maf_df['Chromosome'].astype(int)
-    af_df.loc[:, 'Chromosome'] = af_df['Chromosome'].str.replace('chr', '').astype(int)
+    maf_df.loc[:, 'Chromosome'] = maf_df['Chromosome']
+    af_df.loc[:, 'Chromosome'] = af_df['Chromosome'].str.replace('chr', '').str.replace('Chr', '').str.replace('.0', '')
     # replace t_alt_count and t_ref_count in maf_df with values from af_df
     maf_df['t_alt_count'] = maf_df.apply(lambda row: af_df[(af_df['Chromosome'] == row['Chromosome']) & (af_df['Start_Position'] == row['Start_Position'])]['t_alt_count'].values[0] if len(af_df[(af_df['Chromosome'] == row['Chromosome']) & (af_df['Start_Position'] == row['Start_Position'])]) > 0 else '', axis=1)
     maf_df['t_ref_count'] = maf_df.apply(lambda row: af_df[(af_df['Chromosome'] == row['Chromosome']) & (af_df['Start_Position'] == row['Start_Position'])]['t_ref_count'].values[0] if len(af_df[(af_df['Chromosome'] == row['Chromosome']) & (af_df['Start_Position'] == row['Start_Position'])]) > 0 else '', axis=1)
