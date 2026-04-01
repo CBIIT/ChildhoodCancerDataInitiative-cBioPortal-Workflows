@@ -440,6 +440,10 @@ def snv_flow(tumor_vcf: str, tumor_sample_id: str, normal_vcf: str, normal_sampl
     #filter somatic filters 
     somatic_vcf_df = somatic_vcf_df[(somatic_vcf_df['tumor_filter'] == 'PASS') & ~(somatic_vcf_df.INFO.str.contains('SVTYPE')) & (somatic_vcf_df["tumor_gt"] != ("0/0")) & (somatic_vcf_df["normal_gt"] != somatic_vcf_df["tumor_gt"])]
     somatic_vcf_name = f"{tumor_sample_id}_somatic_snvs.vcf"
+    if len(somatic_vcf_df) != 0: #no SNVs found in tumor sample, return empty df with correct columns
+        # set all variants to PASS in FILTER column of somatic_vcf_df
+        # to get pickted up by genome nexus anno
+        somatic_vcf_df.loc[:, "FILTER"] = "PASS"
     # save VCF for processing
     somatic_vcf_df.to_csv(os.path.join(intermediate_dir, somatic_vcf_name), sep="\t", index=False)    
     
