@@ -108,8 +108,8 @@ deployments:
       repository: https://github.com/CBIIT/ChildhoodCancerDataInitiative-cBioPortal-Workflows.git
   - prefect.deployments.steps.run_shell_script:
       script: |
-        git -C ChildhoodCancerDataInitiative-cBioPortal-Workflows fetch --all --tags
-        git -C ChildhoodCancerDataInitiative-cBioPortal-Workflows checkout b2a27610a8f28e3197305149cbe59f623016251f
+        git fetch --all --tags
+        git checkout b2a27610a8f28e3197305149cbe59f623016251f
       directory: '{{ clone-step.directory }}'
       stream_output: true
   - prefect.deployments.steps.pip_install_requirements:
