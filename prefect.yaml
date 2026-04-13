@@ -108,8 +108,7 @@ deployments:
         bash -c '
           git clone https://github.com/CBIIT/ChildhoodCancerDataInitiative-cBioPortal-Workflows.git repo
           cd repo
-          git checkout aeb655778c1fd8d2db6b3534c4d0eeb13e73cd15
-        '
+          git checkout aeb655778c1fd8d2db6b3534c4d0eeb13e73cd15'
       stream_output: true
   - prefect.deployments.steps.pip_install_requirements:
       requirements_file: requirements.txt
