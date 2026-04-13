@@ -104,10 +104,7 @@ deployments:
       script: apt-get install -y mariadb-client
       stream_output: true
   - prefect.deployments.steps.run_shell_script:
-      script: |
-        git clone https://github.com/CBIIT/ChildhoodCancerDataInitiative-cBioPortal-Workflows.git repo
-        cd repo
-        git checkout aeb655778c1fd8d2db6b3534c4d0eeb13e73cd15
+      script: git clone https://github.com/CBIIT/ChildhoodCancerDataInitiative-cBioPortal-Workflows.git repo && cd repo && git checkout aeb655778c1fd8d2db6b3534c4d0eeb13e73cd15
       stream_output: true
   - prefect.deployments.steps.pip_install_requirements:
       requirements_file: requirements.txt
