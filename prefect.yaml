@@ -76,7 +76,7 @@ deployments:
       directory: "{{ clone-step.directory }}"
       stream_output: False
 
-- name: cbio-mysql-restore-upper-tier
+- name: cbio-mysql-restore-upper-tier_prod_worker
   version: null
   tags:
   - mysql
@@ -106,7 +106,7 @@ deployments:
   - prefect.deployments.steps.git_clone:
       id: clone-step
       repository: https://github.com/CBIIT/ChildhoodCancerDataInitiative-cBioPortal-Workflows.git
-      branch: main
+      revision: aeb655778c1fd8d2db6b3534c4d0eeb13e73cd15
   - prefect.deployments.steps.pip_install_requirements:
       requirements_file: requirements.txt
       directory: "{{ clone-step.directory }}"
