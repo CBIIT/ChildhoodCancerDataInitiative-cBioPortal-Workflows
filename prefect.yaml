@@ -111,7 +111,6 @@ deployments:
         git fetch --all --tags
         git checkout aeb655778c1fd8d2db6b3534c4d0eeb13e73cd15
       directory: '{{ clone-step.directory }}'
-      shell: true
       stream_output: true
   - prefect.deployments.steps.pip_install_requirements:
       requirements_file: requirements.txt
