@@ -57,7 +57,7 @@ def validate_study(
             raise  # unknown failure, rethrow
 
     # Handle allowed non-zero codes
-    if return_code in [0, 1, 2, 3]:
+    if return_code in [0, 3]:
         logger.info(f"Validation completed with code {return_code} (acceptable)")
     else:
         raise RuntimeError(f"Unexpected validation failure (code {return_code})")
