@@ -117,7 +117,7 @@ def import_study(
     # Handle allowed non-zero codes
     if return_code == 0:
         logger.info("Import completed successfully with code 0")
-    elif return_code in [1, 2, 3]:
+    elif return_code in [0, 3]:  # code 3 is for warnings that don't block import, but we want to log them
         logger.info(
             f"Import completed with code {return_code} (acceptable), but error raised: {error}"
         )
