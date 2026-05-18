@@ -341,7 +341,7 @@ def main_flow(
 
             os.chdir(home_dir)
 
-            study_dir = os.path.join(working_dir, os.path.basename(source_files_dir))
+            study_dir = os.path.join(working_dir, source_files_dir)
 
         # run data loader to load data into db or run validation dry run
         if run_type == "load_dataset":
