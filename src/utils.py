@@ -110,6 +110,34 @@ def file_dl(bucket, filepath):
         )
         raise
 
+@task(
+    name="Download folder",
+    task_run_name="download_folder_{remote_folder}",
+    log_prints=True,
+)
+def folder_dl(bucket: str, remote_folder: str) -> None:
+    """Downloads a remote direcotry folder from s3
+    bucket to local. it generates a folder that follows the
+    structure in s3 bucket
+
+    for instance, if the remote_folder is "uniq_id/test_folder",
+    the local directory will create path of "uniq_id/test_folder"
+    """
+    s3_resouce = set_s3_resource()
+    bucket_obj = s3_resouce.Bucket(bucket)
+    for obj in bucket_obj.objects.filter(Prefix=remote_folder):
+        if not os.path.exists(os.path.dirname(obj.key)):
+            os.makedirs(os.path.dirname(obj.key))
+        try:
+            bucket_obj.download_file(obj.key, obj.key)
+        except NotADirectoryError as err:
+            err_str = repr(err)
+            print(
+                f"Error downloading folder {remote_folder} from bucket {bucket}: {err_str}"
+            )
+    return None
+
+
 @task(name="create_dump", log_prints=True)
 def create_dump(
     host: str,
