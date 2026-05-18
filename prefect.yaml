@@ -321,10 +321,10 @@ deployments:
 - name: TEST-cbio-dataset-load
   version: null
   tags:
-  - TEST
-  - mysql
-  - cbioportal
-  - V3
+    - TEST
+    - mysql
+    - cbioportal
+    - V3
   description: Restore the family table or entire cbioportal DB using mysql
   entrypoint: workflows/cbio_dataset_load_remove.py:main_flow
   parameters:
