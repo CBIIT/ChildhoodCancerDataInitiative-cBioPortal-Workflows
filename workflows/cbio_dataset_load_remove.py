@@ -11,13 +11,22 @@ from prefect_shell import ShellOperation
 def validate_study(
     cbio_home: str,
     portal_home: str,
-    portal_info_dir: str,
     study_dir: str,
     html_table_file_path: str,
     error_file_path: str,
+    portal_info_dir: str = None,
 ):
     """
     Runs cBioPortal validation/import dry run against configured RDS database.
+    
+    
+    Args:        
+        cbio_home (str): Path to cBioPortal home directory
+        portal_home (str): Path to portal home directory
+        study_dir (str): Path to study directory to validate
+        html_table_file_path (str): Path to output HTML file for validation results table
+        error_file_path (str): Path to output text file for validation errors/warnings
+        portal_info_dir (str, optional): Path to portal info directory for validation context
     """
     logger = get_run_logger()
 
@@ -35,10 +44,15 @@ def validate_study(
         }
     )
 
-    cmd = [
-        #f"python3 {importer_script} --study_directory {study_dir} --portal_info_dir {portal_info_dir} --html {html_table_file_path} --error_file {error_file_path} -v"
-        f"python3 {importer_script} --study_directory {study_dir} --url_server https://cbioportal-api.ccdi.cancer.gov/ --html {html_table_file_path} --error_file {error_file_path} -v"
-    ]
+    if portal_info_dir or portal_info_dir != "":
+        logger.info(f"Using portal info directory for validation: {portal_info_dir}")
+        cmd = [
+                f"python3 {importer_script} --study_directory {study_dir} --portal_info_dir {portal_info_dir} --html {html_table_file_path} --error_file {error_file_path} -v"
+        ]
+    else:
+        cmd = [
+            f"python3 {importer_script} --study_directory {study_dir} --url_server https://cbioportal-api.ccdi.cancer.gov/ --html {html_table_file_path} --error_file {error_file_path} -v"
+        ]
 
     logger.info(f"Validating study: {study_dir}")
     shell_op = ShellOperation(commands=cmd, env=env)
@@ -70,12 +84,19 @@ def validate_study(
 def import_study(
     cbio_home: str,
     portal_home: str,
-    portal_info_dir: str,
     study_dir: str,
     html_table_file_path: str,
+    portal_info_dir: str = None,
 ):
     """
     Imports study into AWS RDS-backed cBioPortal DB using configured credentials.
+    
+    Args:
+    cbio_home (str): Path to cBioPortal home directory
+    portal_home (str): Path to portal home directory
+    study_dir (str): Path to study directory to import
+    html_table_file_path (str): Path to output HTML file for import results table
+    portal_info_dir (str, optional): Path to portal info directory for import context
     """
     logger = get_run_logger()
 
@@ -92,10 +113,16 @@ def import_study(
             "PORTAL_INFO_DIR": portal_info_dir,
         }
     )
-
-    cmd = [
-        f"python3 {importer_script} --study_directory {study_dir} --portal_info_dir {portal_info_dir} --html {html_table_file_path} --override_warning --verbose"
-    ]
+    
+    if portal_info_dir or portal_info_dir != "":
+        logger.info(f"Using portal info directory for import: {portal_info_dir}")
+        cmd = [
+                f"python3 {importer_script} --study_directory {study_dir} --portal_info_dir {portal_info_dir} --html {html_table_file_path} --override_warning --verbose"
+        ]
+    else:
+        cmd = [
+            f"python3 {importer_script} --study_directory {study_dir} --url_server https://cbioportal-api.ccdi.cancer.gov/ --html {html_table_file_path} --override_warning --verbose"
+        ]
 
     logger.info(f"Importing study: {study_dir}")
     shell_op = ShellOperation(commands=cmd, env=env, stream_output=True)
@@ -331,11 +358,12 @@ def main_flow(
             folder_dl(source_files_dir_uri.split("://")[1].split("/", 1)[0], source_files_dir)
 
             # download validation portal files from s3 to working directory if running validation dry run
-            validation_portal_files_dir = validation_portal_files_dir_uri.split("://")[1].split("/", 1)[1]
-            folder_dl(validation_portal_files_dir_uri.split("://")[1].split("/", 1)[0], validation_portal_files_dir)
-            PORTAL_INFO_DIR = os.path.join(
-                working_dir, validation_portal_files_dir)
-            os.environ["PORTAL_INFO_DIR"] = PORTAL_INFO_DIR
+            if validation_portal_files_dir_uri or validation_portal_files_dir_uri != "":
+                validation_portal_files_dir = validation_portal_files_dir_uri.split("://")[1].split("/", 1)[1]
+                folder_dl(validation_portal_files_dir_uri.split("://")[1].split("/", 1)[0], validation_portal_files_dir)
+                PORTAL_INFO_DIR = os.path.join(
+                    working_dir, validation_portal_files_dir)
+                os.environ["PORTAL_INFO_DIR"] = PORTAL_INFO_DIR
 
             os.chdir(home_dir)
 
@@ -346,18 +374,18 @@ def main_flow(
             import_study(
                 CBIOPORTAL_HOME,
                 PORTAL_HOME,
-                PORTAL_INFO_DIR,
                 study_dir,
                 f"{working_dir}/validation_output_{dt}.html",
+                PORTAL_INFO_DIR,
             )
         elif run_type == "validate_dataset":
             validate_study(
                 CBIOPORTAL_HOME,
                 PORTAL_HOME,
-                PORTAL_INFO_DIR,
                 study_dir,
                 f"{working_dir}/validation_output_{dt}.html",
                 f"{working_dir}/validation_errors_{dt}.txt",
+                PORTAL_INFO_DIR,
             )
         elif run_type == "remove_dataset":
             # check that remove_study_id is provided
