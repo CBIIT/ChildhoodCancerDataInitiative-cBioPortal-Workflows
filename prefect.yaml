@@ -330,7 +330,7 @@ deployments:
   parameters:
     target_env_name: "dev"
     run_type: "load_dataset"
-    validation_portal_files_dir_uri: "s3://cbio-backup-dev/v6.4.1_load_json_validation"
+    validation_portal_files_dir_uri
     source_files_dir_uri: ""
     output_dir_uri: ""
     remove_study_id: ""
