@@ -36,7 +36,8 @@ def validate_study(
     )
 
     cmd = [
-        f"python3 {importer_script} --study_directory {study_dir} --portal_info_dir {portal_info_dir} --html {html_table_file_path} --error_file {error_file_path} -v"
+        #f"python3 {importer_script} --study_directory {study_dir} --portal_info_dir {portal_info_dir} --html {html_table_file_path} --error_file {error_file_path} -v"
+        f"python3 {importer_script} --study_directory {study_dir} --url_server https://cbioportal.ccdi.cancer.gov/ --html {html_table_file_path} --error_file {error_file_path} -v"
     ]
 
     logger.info(f"Validating study: {study_dir}")
