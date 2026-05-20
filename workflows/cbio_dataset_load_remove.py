@@ -44,7 +44,7 @@ def validate_study(
         }
     )
 
-    if portal_info_dir or portal_info_dir != "":
+    if portal_info_dir and portal_info_dir != "":
         logger.info(f"Using portal info directory for validation: {portal_info_dir}")
         cmd = [
                 f"python3 {importer_script} --study_directory {study_dir} --portal_info_dir {portal_info_dir} --html {html_table_file_path} --error_file {error_file_path} -v"
@@ -114,7 +114,7 @@ def import_study(
         }
     )
     
-    if portal_info_dir or portal_info_dir != "":
+    if portal_info_dir and portal_info_dir != "":
         logger.info(f"Using portal info directory for import: {portal_info_dir}")
         cmd = [
                 f"python3 {importer_script} --study_directory {study_dir} --portal_info_dir {portal_info_dir} --html {html_table_file_path} --override_warning --verbose"
