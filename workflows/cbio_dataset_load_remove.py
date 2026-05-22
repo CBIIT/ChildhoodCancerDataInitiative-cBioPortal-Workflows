@@ -364,6 +364,8 @@ def main_flow(
                 PORTAL_INFO_DIR = os.path.join(
                     working_dir, validation_portal_files_dir)
                 os.environ["PORTAL_INFO_DIR"] = PORTAL_INFO_DIR
+            else:
+                PORTAL_INFO_DIR = None
 
             os.chdir(home_dir)
 
