@@ -295,20 +295,20 @@ DropDownEnvChoice = Literal["dev", "qa"]
 def main_flow(
     target_env_name: DropDownEnvChoice,
     run_type: DropDownRunChoice,
-    validation_portal_files_dir_uri: str = None,
     source_files_dir_uri: str = None,
     output_dir_uri: str = None,
     remove_study_id: str = None,
+    validation_portal_files_dir_uri: str = None,
 ) -> None:
     """workflow to load, dryrun validate or remove cBioPortal datasets from a tier, or clear working directory of any files
 
     Args:
         target_env_name (DropDownEnvChoice): Environment to run workflow in (e.g., dev, qa)
         run_type (DropDownRunChoice): Type of operation to perform (e.g., load_dataset, validate_dataset, remove_dataset, clear_working_dir)
-        validation_portal_files_dir_uri (str, optional): URI to validation portal files. Defaults to None. Example: s3://cbio-backup-dev/v6.4.1_load_json_validation
         source_files_dir_uri (str, optional): URI to source files directory. Defaults to None. Example: s3://cbio-backup-dev/study_files_to_load/study1
         output_dir_uri (str, optional): URI to output directory. Defaults to None. Example: s3://cbio-backup-dev/study_files_to_load/study1/validation_output
         remove_study_id (str, optional): Study ID to remove from the database. Defaults to None. Example: lgg_ucsf_2014
+        validation_portal_files_dir_uri (str, optional): URI to validation portal files. Defaults to None. When not provided, CCDI cBio server used instead (using server is recommended). Example: s3://cbio-backup-dev/v6.4.1_load_json_validation
     """
 
     dt = get_time()
