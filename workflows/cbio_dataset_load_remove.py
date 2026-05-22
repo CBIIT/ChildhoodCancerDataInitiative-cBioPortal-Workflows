@@ -40,7 +40,6 @@ def validate_study(
         {
             "CBIOPORTAL_HOME": cbio_home,
             "PORTAL_HOME": portal_home,
-            "PORTAL_INFO_DIR": portal_info_dir,
         }
     )
 
@@ -110,7 +109,6 @@ def import_study(
         {
             "CBIOPORTAL_HOME": cbio_home,
             "PORTAL_HOME": portal_home,
-            "PORTAL_INFO_DIR": portal_info_dir,
         }
     )
     
