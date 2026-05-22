@@ -162,6 +162,11 @@ def remove_study(
 ):
     """
     Removes study from AWS RDS-backed cBioPortal DB using configured credentials.
+    
+    Args:
+    cbio_home (str): Path to cBioPortal home directory
+    portal_home (str): Path to portal home directory
+    study_id (str): Study ID to remove from database 
     """
     logger = get_run_logger()
 
