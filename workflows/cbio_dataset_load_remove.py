@@ -50,7 +50,7 @@ def validate_study(
         ]
     else:
         cmd = [
-            f"python3 {importer_script} --study_directory {study_dir} --url_server https://cbioportal-api.ccdi.cancer.gov/ --html {html_table_file_path} --error_file {error_file_path} -v"
+            f"python3 {importer_script} --study_directory {study_dir} --url_server https://cbioportal-api-dev.ccdi.cancer.gov/ --html {html_table_file_path} --error_file {error_file_path} -v"
         ]
 
     logger.info(f"Validating study: {study_dir}")
@@ -119,7 +119,7 @@ def import_study(
         ]
     else:
         cmd = [
-            f"python3 {importer_script} --study_directory {study_dir} --url_server https://cbioportal-api.ccdi.cancer.gov/ --html {html_table_file_path} --override_warning --verbose"
+            f"python3 {importer_script} --study_directory {study_dir} --url_server https://cbioportal-api-dev.ccdi.cancer.gov/ --html {html_table_file_path} --override_warning --verbose"
         ]
 
     logger.info(f"Importing study: {study_dir}")
