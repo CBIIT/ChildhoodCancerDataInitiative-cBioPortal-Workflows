@@ -357,7 +357,7 @@ deployments:
   - prefect.deployments.steps.git_clone:
       id: clone-cbio-core-step
       repository: https://github.com/cBioPortal/cbioportal-core.git
-      branch: main
+      branch: v1.0.7
   - prefect.deployments.steps.pip_install_requirements:
       requirements_file: requirements.txt
       directory: "{{ clone-cbio-core-step.directory }}"
