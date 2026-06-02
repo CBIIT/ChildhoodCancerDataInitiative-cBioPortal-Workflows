@@ -231,7 +231,7 @@ def app_props(cbio_home: str, portal_home: str, creds: dict):
         raise RuntimeError(f"Missing required credentials: {missing}")
 
     # Set paths to config files
-    core_app_props_path = f"{cbio_home}/src/v1.0.7/resources/application.properties"
+    core_app_props_path = f"{cbio_home}/src/main/resources/application.properties"
     app_props_path = f"{portal_home}/application.properties"
 
     # MySQL JDBC parameters for RDS compatibility
