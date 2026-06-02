@@ -231,7 +231,7 @@ def app_props(cbio_home: str, portal_home: str, creds: dict):
         raise RuntimeError(f"Missing required credentials: {missing}")
 
     # Set paths to config files
-    core_app_props_path = f"{cbio_home}/src/main/resources/application.properties"
+    core_app_props_path = f"{cbio_home}/src/v1.0.7/resources/application.properties"
     app_props_path = f"{portal_home}/application.properties"
 
     # MySQL JDBC parameters for RDS compatibility
@@ -339,7 +339,7 @@ def main_flow(
         creds = json.loads(creds_string)
 
         # set CBIOPORTAL_HOME env variable for use in validation and import tasks
-        CBIOPORTAL_HOME = "/opt/prefect/cbioportal-core-main"
+        CBIOPORTAL_HOME = "/opt/prefect/cbioportal-core-v1.0.7"
         PORTAL_HOME = "/opt/prefect/cbioportal-v6.4.1"
         os.environ["CBIOPORTAL_HOME"] = CBIOPORTAL_HOME
         os.environ["PORTAL_HOME"] = PORTAL_HOME
