@@ -339,7 +339,7 @@ def main_flow(
         creds = json.loads(creds_string)
 
         # set CBIOPORTAL_HOME env variable for use in validation and import tasks
-        CBIOPORTAL_HOME = "/opt/prefect/cbioportal-core-v1.0.7"
+        CBIOPORTAL_HOME = "/opt/prefect/cbioportal-core-v1.0.17"
         PORTAL_HOME = "/opt/prefect/cbioportal-v6.4.1"
         os.environ["CBIOPORTAL_HOME"] = CBIOPORTAL_HOME
         os.environ["PORTAL_HOME"] = PORTAL_HOME
