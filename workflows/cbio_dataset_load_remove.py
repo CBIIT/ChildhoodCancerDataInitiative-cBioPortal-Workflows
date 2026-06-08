@@ -120,7 +120,6 @@ def import_study(
             "JAVA_TOOL_OPTIONS" : config_env
         }
     )
-    env.update(config_env)
     
     if portal_info_dir and portal_info_dir != "":
         logger.info(f"Using portal info directory for import: {portal_info_dir}")
