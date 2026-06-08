@@ -189,10 +189,10 @@ def remove_study(
         }
     )
 
-    cmd = [f"python3 {remover_script} -c remove-study -id {study_id}"]
+    cmd = [f"python3 {remover_script} -c remove-study -id {study_id} 2>/dev/null 1>/dev/null"]
 
     logger.info(f"Removing study: {study_id}")
-    shell_op = ShellOperation(commands=cmd, env=env, stream_output=True)
+    shell_op = ShellOperation(commands=cmd, env=env)
     try:
         result = shell_op.run()
         return_code = 0  # if no exception, it's 0
