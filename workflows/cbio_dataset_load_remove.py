@@ -113,10 +113,11 @@ def import_study(
         raise RuntimeError(f"Importer script not found at {importer_script}")
 
     env = os.environ.copy()
-    config_env.update(
+    env.update(
         {
             "CBIOPORTAL_HOME": cbio_home,
             "PORTAL_HOME": portal_home,
+            "JAVA_TOOL_OPTIONS" : config_env
         }
     )
     env.update(config_env)
@@ -253,23 +254,23 @@ def app_props(cbio_home: str, portal_home: str, creds: dict):
     conn_string = f"jdbc:mysql://{creds['host']}:{creds['port']}/{creds['dbClusterIdentifier']}?{jdbc_params}"
 
     # cBioPortal application.properties format (Spring Data properties)
-    """config_lines = [
-        f"spring.datasource.url={conn_string}",
-        f"spring.datasource.username={creds['username']}",
-        f"spring.datasource.password={creds['password']}",
-        "spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver",
-        "spring.jpa.database-platform=org.hibernate.dialect.MySQL8Dialect",
-        "spring.jpa.hibernate.ddl-auto=validate",
-    ]"""
+    config_lines = " ".join([
+        f"-Dspring.datasource.url={conn_string}",
+        f"-Dspring.datasource.username={creds['username']}",
+        f"-Dspring.datasource.password={creds['password']}",
+        "-Dspring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver",
+        "-Dspring.jpa.database-platform=org.hibernate.dialect.MySQL8Dialect",
+        "-Dspring.jpa.hibernate.ddl-auto=validate",
+    ])
     
-    config_lines = {
+    """config_lines = {
         "spring.datasource.url" : conn_string,
         "spring.datasource.username" : creds['username'],
         "spring.datasource.password" : creds['password'],
         "spring.datasource.driver-class-name" : "com.mysql.cj.jdbc.Driver",
         "spring.jpa.database-platform" : "org.hibernate.dialect.MySQL8Dialect",
         "spring.jpa.hibernate.ddl-auto" : "validate",
-    }
+    }"""
     
 
     #config_content = "\n".join(config_lines)
