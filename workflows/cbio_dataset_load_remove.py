@@ -132,7 +132,7 @@ def import_study(
         ]
 
     logger.info(f"Importing study: {study_dir}")
-    shell_op = ShellOperation(commands=cmd, env=env, stream_output=True)
+    shell_op = ShellOperation(commands=cmd, env=env)
     try:
         result = shell_op.run()
         return_code = 0  # if no exception, it's 0
