@@ -14,6 +14,7 @@ def validate_study(
     study_dir: str,
     html_table_file_path: str,
     error_file_path: str,
+    config_env: dict,
     portal_info_dir: str = None,
 ):
     """
@@ -42,6 +43,7 @@ def validate_study(
             "PORTAL_HOME": portal_home,
         }
     )
+    env.update(config_env)
 
     if portal_info_dir and portal_info_dir != "":
         logger.info(f"Using portal info directory for validation: {portal_info_dir}")
@@ -85,6 +87,7 @@ def import_study(
     portal_home: str,
     study_dir: str,
     html_table_file_path: str,
+    config_env: dict,
     portal_info_dir: str = None,
 ):
     """
@@ -111,6 +114,7 @@ def import_study(
             "PORTAL_HOME": portal_home,
         }
     )
+    env.update(config_env)
     
     if portal_info_dir and portal_info_dir != "":
         logger.info(f"Using portal info directory for import: {portal_info_dir}")
@@ -159,6 +163,7 @@ def remove_study(
     cbio_home: str,
     portal_home: str,
     study_id: str,
+    config_env: dict,
 ):
     """
     Removes study from AWS RDS-backed cBioPortal DB using configured credentials.
@@ -243,16 +248,26 @@ def app_props(cbio_home: str, portal_home: str, creds: dict):
     conn_string = f"jdbc:mysql://{creds['host']}:{creds['port']}/{creds['dbClusterIdentifier']}?{jdbc_params}"
 
     # cBioPortal application.properties format (Spring Data properties)
-    config_lines = [
+    """config_lines = [
         f"spring.datasource.url={conn_string}",
         f"spring.datasource.username={creds['username']}",
         f"spring.datasource.password={creds['password']}",
         "spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver",
         "spring.jpa.database-platform=org.hibernate.dialect.MySQL8Dialect",
         "spring.jpa.hibernate.ddl-auto=validate",
-    ]
+    ]"""
+    
+    config_lines = {
+        "spring.datasource.url" : conn_string,
+        "spring.datasource.username" : creds['username'],
+        "spring.datasource.password" : creds['password'],
+        "spring.datasource.driver-class-name" : "com.mysql.cj.jdbc.Driver",
+        "spring.jpa.database-platform" : "org.hibernate.dialect.MySQL8Dialect",
+        "spring.jpa.hibernate.ddl-auto" : "validate",
+    }
+    
 
-    config_content = "\n".join(config_lines)
+    """config_content = "\n".join(config_lines)
 
     # Write to portal info directory
     try:
@@ -268,7 +283,7 @@ def app_props(cbio_home: str, portal_home: str, creds: dict):
             f.write(config_content)
         logger.info(f"Wrote config to {core_app_props_path}")
     except IOError as e:
-        raise RuntimeError(f"Failed to write {core_app_props_path}: {e}")
+        raise RuntimeError(f"Failed to write {core_app_props_path}: {e}")"""
 
     # install maven
     env = os.environ.copy()
@@ -288,6 +303,8 @@ def app_props(cbio_home: str, portal_home: str, creds: dict):
         logger.warning(f"Maven install returned non-zero exit: {msg}")
         raise RuntimeError(f"Failed to install maven dependencies: {msg}")
     logger.info("cBioPortal application properties configured successfully")
+    
+    return config_lines
 
 
 DropDownRunChoice = Literal[
@@ -345,7 +362,7 @@ def main_flow(
         os.environ["PORTAL_HOME"] = PORTAL_HOME
 
         # write db creds to app props file
-        app_props(CBIOPORTAL_HOME, PORTAL_HOME, creds)
+        config_env = app_props(CBIOPORTAL_HOME, PORTAL_HOME, creds)
         
         if run_type in ["load_dataset", "validate_dataset"]:
             # get cwd for future use
@@ -381,6 +398,7 @@ def main_flow(
                 PORTAL_HOME,
                 study_dir,
                 f"{working_dir}/validation_output_{dt}.html",
+                config_env,
                 PORTAL_INFO_DIR,
             )
         elif run_type == "validate_dataset":
@@ -390,6 +408,7 @@ def main_flow(
                 study_dir,
                 f"{working_dir}/validation_output_{dt}.html",
                 f"{working_dir}/validation_errors_{dt}.txt",
+                config_env,
                 PORTAL_INFO_DIR,
             )
         elif run_type == "remove_dataset":
@@ -403,6 +422,7 @@ def main_flow(
                 CBIOPORTAL_HOME,
                 PORTAL_HOME,
                 remove_study_id,
+                config_env,
             )
         else:
             raise ValueError(f"Invalid run_type: {run_type}")
