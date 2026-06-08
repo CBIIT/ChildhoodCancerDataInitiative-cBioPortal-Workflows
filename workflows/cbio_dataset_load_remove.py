@@ -272,7 +272,8 @@ def app_props(cbio_home: str, portal_home: str, creds: dict):
     }
     
 
-    """config_content = "\n".join(config_lines)
+    #config_content = "\n".join(config_lines)
+    config_content = "" # leave empty for testing
 
     # Write to portal info directory
     try:
@@ -288,7 +289,7 @@ def app_props(cbio_home: str, portal_home: str, creds: dict):
             f.write(config_content)
         logger.info(f"Wrote config to {core_app_props_path}")
     except IOError as e:
-        raise RuntimeError(f"Failed to write {core_app_props_path}: {e}")"""
+        raise RuntimeError(f"Failed to write {core_app_props_path}: {e}")
 
     # install maven
     env = os.environ.copy()
