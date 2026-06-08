@@ -37,8 +37,13 @@ def validate_study(
         raise RuntimeError(f"Importer script not found at {importer_script}")
 
     env = os.environ.copy()
-    env.update(
+    """env.update(
         {
+            "CBIOPORTAL_HOME": cbio_home,
+            "PORTAL_HOME": portal_home,
+        }
+    )"""
+    config_env.update({
             "CBIOPORTAL_HOME": cbio_home,
             "PORTAL_HOME": portal_home,
         }
@@ -108,7 +113,7 @@ def import_study(
         raise RuntimeError(f"Importer script not found at {importer_script}")
 
     env = os.environ.copy()
-    env.update(
+    config_env.update(
         {
             "CBIOPORTAL_HOME": cbio_home,
             "PORTAL_HOME": portal_home,
