@@ -37,18 +37,13 @@ def validate_study(
         raise RuntimeError(f"Importer script not found at {importer_script}")
 
     env = os.environ.copy()
-    """env.update(
+    env.update(
         {
             "CBIOPORTAL_HOME": cbio_home,
             "PORTAL_HOME": portal_home,
-        }
-    )"""
-    config_env.update({
-            "CBIOPORTAL_HOME": cbio_home,
-            "PORTAL_HOME": portal_home,
+            "JAVA_TOOL_OPTIONS" : config_env
         }
     )
-    env.update(config_env)
 
     if portal_info_dir and portal_info_dir != "":
         logger.info(f"Using portal info directory for validation: {portal_info_dir}")
@@ -190,6 +185,7 @@ def remove_study(
         {
             "CBIOPORTAL_HOME": cbio_home,
             "PORTAL_HOME": portal_home,
+            "JAVA_TOOL_OPTIONS" : config_env
         }
     )
 
@@ -241,8 +237,8 @@ def app_props(cbio_home: str, portal_home: str, creds: dict):
         raise RuntimeError(f"Missing required credentials: {missing}")
 
     # Set paths to config files
-    core_app_props_path = f"{cbio_home}/src/main/resources/application.properties"
-    app_props_path = f"{portal_home}/application.properties"
+    """core_app_props_path = f"{cbio_home}/src/main/resources/application.properties"
+    app_props_path = f"{portal_home}/application.properties"""
 
     # MySQL JDBC parameters for RDS compatibility
     jdbc_params = (
@@ -262,18 +258,9 @@ def app_props(cbio_home: str, portal_home: str, creds: dict):
         "-Dspring.jpa.hibernate.ddl-auto=validate",
     ])
     
-    """config_lines = {
-        "spring.datasource.url" : conn_string,
-        "spring.datasource.username" : creds['username'],
-        "spring.datasource.password" : creds['password'],
-        "spring.datasource.driver-class-name" : "com.mysql.cj.jdbc.Driver",
-        "spring.jpa.database-platform" : "org.hibernate.dialect.MySQL8Dialect",
-        "spring.jpa.hibernate.ddl-auto" : "validate",
-    }"""
-    
 
     #config_content = "\n".join(config_lines)
-    config_content = "" # leave empty for testing
+    """config_content = "" # leave empty for testing
 
     # Write to portal info directory
     try:
@@ -289,7 +276,7 @@ def app_props(cbio_home: str, portal_home: str, creds: dict):
             f.write(config_content)
         logger.info(f"Wrote config to {core_app_props_path}")
     except IOError as e:
-        raise RuntimeError(f"Failed to write {core_app_props_path}: {e}")
+        raise RuntimeError(f"Failed to write {core_app_props_path}: {e}")"""
 
     # install maven
     env = os.environ.copy()
