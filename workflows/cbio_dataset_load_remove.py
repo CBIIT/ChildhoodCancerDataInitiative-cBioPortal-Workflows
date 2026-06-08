@@ -124,11 +124,11 @@ def import_study(
     if portal_info_dir and portal_info_dir != "":
         logger.info(f"Using portal info directory for import: {portal_info_dir}")
         cmd = [
-                f"python3 {importer_script} --study_directory {study_dir} --portal_info_dir {portal_info_dir} --html {html_table_file_path} --override_warning --verbose"
+                f"python3 {importer_script} --study_directory {study_dir} --portal_info_dir {portal_info_dir} --html {html_table_file_path} --override_warning --verbose 2>/dev/null"
         ]
     else:
         cmd = [
-            f"python3 {importer_script} --study_directory {study_dir} --url_server https://cbioportal-api-dev.ccdi.cancer.gov/ --html {html_table_file_path} --override_warning --verbose"
+            f"python3 {importer_script} --study_directory {study_dir} --url_server https://cbioportal-api-dev.ccdi.cancer.gov/ --html {html_table_file_path} --override_warning --verbose 2>/dev/null"
         ]
 
     logger.info(f"Importing study: {study_dir}")
