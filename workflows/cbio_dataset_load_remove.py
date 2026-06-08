@@ -86,7 +86,7 @@ def validate_study(
     logger.info("Study validation complete")
 
 
-@task(name="import_study", log_prints=True)
+@task(name="import_study")
 def import_study(
     cbio_home: str,
     portal_home: str,
