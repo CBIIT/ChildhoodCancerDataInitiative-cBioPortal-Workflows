@@ -27,6 +27,7 @@ def validate_study(
         study_dir (str): Path to study directory to validate
         html_table_file_path (str): Path to output HTML file for validation results table
         error_file_path (str): Path to output text file for validation errors/warnings
+        config_env (dict): Dictionary of environment variables for Java config (e.g., database connection properties)
         portal_info_dir (str, optional): Path to portal info directory for validation context
     """
     logger = get_run_logger()
@@ -48,11 +49,11 @@ def validate_study(
     if portal_info_dir and portal_info_dir != "":
         logger.info(f"Using portal info directory for validation: {portal_info_dir}")
         cmd = [
-                f"python3 {importer_script} --study_directory {study_dir} --portal_info_dir {portal_info_dir} --html {html_table_file_path} --error_file {error_file_path} -v"
+                f"python3 {importer_script} --study_directory {study_dir} --portal_info_dir {portal_info_dir} --html {html_table_file_path} --error_file {error_file_path} -v 2>/dev/null 1>/dev/null"
         ]
     else:
         cmd = [
-            f"python3 {importer_script} --study_directory {study_dir} --url_server https://cbioportal-api-dev.ccdi.cancer.gov/ --html {html_table_file_path} --error_file {error_file_path} -v"
+            f"python3 {importer_script} --study_directory {study_dir} --url_server https://cbioportal-api-dev.ccdi.cancer.gov/ --html {html_table_file_path} --error_file {error_file_path} -v 2>/dev/null 1>/dev/null"
         ]
 
     logger.info(f"Validating study: {study_dir}")
@@ -98,6 +99,7 @@ def import_study(
     portal_home (str): Path to portal home directory
     study_dir (str): Path to study directory to import
     html_table_file_path (str): Path to output HTML file for import results table
+    config_env (dict): Dictionary of environment variables for Java config (e.g., database connection properties)
     portal_info_dir (str, optional): Path to portal info directory for import context
     """
     logger = get_run_logger()
@@ -171,7 +173,8 @@ def remove_study(
     Args:
     cbio_home (str): Path to cBioPortal home directory
     portal_home (str): Path to portal home directory
-    study_id (str): Study ID to remove from database 
+    study_id (str): Study ID to remove from database
+    config_env (dict): Dictionary of environment variables for Java config (e.g., database connection properties)
     """
     logger = get_run_logger()
 
@@ -236,9 +239,6 @@ def app_props(cbio_home: str, portal_home: str, creds: dict):
     if missing:
         raise RuntimeError(f"Missing required credentials: {missing}")
 
-    # Set paths to config files
-    """core_app_props_path = f"{cbio_home}/src/main/resources/application.properties"
-    app_props_path = f"{portal_home}/application.properties"""
 
     # MySQL JDBC parameters for RDS compatibility
     jdbc_params = (
@@ -258,25 +258,6 @@ def app_props(cbio_home: str, portal_home: str, creds: dict):
         "-Dspring.jpa.hibernate.ddl-auto=validate",
     ])
     
-
-    #config_content = "\n".join(config_lines)
-    """config_content = "" # leave empty for testing
-
-    # Write to portal info directory
-    try:
-        with open(app_props_path, "w") as f:
-            f.write(config_content)
-        logger.info(f"Wrote config to {app_props_path}")
-    except IOError as e:
-        raise RuntimeError(f"Failed to write {app_props_path}: {e}")
-
-    # Write to core cBioPortal directory
-    try:
-        with open(core_app_props_path, "w") as f:
-            f.write(config_content)
-        logger.info(f"Wrote config to {core_app_props_path}")
-    except IOError as e:
-        raise RuntimeError(f"Failed to write {core_app_props_path}: {e}")"""
 
     # install maven
     env = os.environ.copy()
