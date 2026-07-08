@@ -79,7 +79,7 @@ def validate_study(
     else:
         logger.warning(f"Unexpected validation failure (code {return_code})")
 
-    logger.info("Study validation processcomplete")
+    logger.info("Study validation process complete")
 
 
 @task(name="import_study", log_prints=False)
@@ -155,7 +155,7 @@ def import_study(
         )
         logger.info(f"Warning/error message: {msg}")
     else:
-        logger.warning(f"Unexpected import failure (code {return_code})")
+        raise RuntimeError(f"Unexpected import failure (code {return_code})")
 
     logger.info("Study import process complete")
 
