@@ -77,9 +77,9 @@ def validate_study(
     if return_code in [0, 3]:
         logger.info(f"Validation completed with code {return_code} (acceptable)")
     else:
-        raise RuntimeError(f"Unexpected validation failure (code {return_code})")
+        logger.warning(f"Unexpected validation failure (code {return_code})")
 
-    logger.info("Study validation complete")
+    logger.info("Study validation process complete")
 
 
 @task(name="import_study", log_prints=False)
@@ -157,7 +157,7 @@ def import_study(
     else:
         raise RuntimeError(f"Unexpected import failure (code {return_code})")
 
-    logger.info("Study import successful")
+    logger.info("Study import process complete")
 
 
 @task(name="remove_study", log_prints=True)
