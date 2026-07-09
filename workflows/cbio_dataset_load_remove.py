@@ -49,11 +49,11 @@ def validate_study(
     if portal_info_dir and portal_info_dir != "":
         logger.info(f"Using portal info directory for validation: {portal_info_dir}")
         cmd = [
-                f"python3 {importer_script} --study_directory {study_dir} --portal_info_dir {portal_info_dir} --html {html_table_file_path} --error_file {error_file_path} -v "
+                f"python3 {importer_script} --study_directory {study_dir} --portal_info_dir {portal_info_dir} --html {html_table_file_path} --error_file {error_file_path} -v 1>output.log 2>output.log"
         ]
     else:
         cmd = [
-            f"python3 {importer_script} --study_directory {study_dir} --url_server https://cbioportal-api-dev.ccdi.cancer.gov --html {html_table_file_path} --error_file {error_file_path} -v "
+            f"python3 {importer_script} --study_directory {study_dir} --url_server https://cbioportal-api-dev.ccdi.cancer.gov --html {html_table_file_path} --error_file {error_file_path} -v 1>output.log 2>output.log"
         ]
 
     logger.info(f"Validating study: {study_dir}")
@@ -77,6 +77,9 @@ def validate_study(
     if return_code in [0, 3]:
         logger.info(f"Validation completed with code {return_code} (acceptable)")
     else:
+        error_strings = ["grep ERROR output.log"]
+        shell_op = ShellOperation(commands=error_strings)
+        result = shell_op.run()
         logger.warning(f"Unexpected validation failure (code {result})")
 
     logger.info("Study validation process complete")
