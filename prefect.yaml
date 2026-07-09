@@ -318,10 +318,10 @@ deployments:
         apt install maven -y
       stream_output: true
       
-- name: TEST-cbio-dataset-load
+- name: cbio-dataset-load
   version: null
   tags:
-    - TEST
+    - PROD
     - mysql
     - cbioportal
     - V3
@@ -365,7 +365,7 @@ deployments:
   - prefect.deployments.steps.git_clone:
       id: clone-step
       repository: https://github.com/CBIIT/ChildhoodCancerDataInitiative-cBioPortal-Workflows.git
-      branch: load_patch2
+      branch: main
   - prefect.deployments.steps.pip_install_requirements:
       requirements_file: requirements.txt
       directory: "{{ clone-step.directory }}"
