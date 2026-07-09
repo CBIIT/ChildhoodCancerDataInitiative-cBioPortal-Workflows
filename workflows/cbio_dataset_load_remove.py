@@ -77,7 +77,7 @@ def validate_study(
     if return_code in [0, 3]:
         logger.info(f"Validation completed with code {return_code} (acceptable)")
     else:
-        logger.warning(f"Unexpected validation failure (code {return_code})")
+        logger.warning(f"Unexpected validation failure (code {result})")
 
     logger.info("Study validation process complete")
 
@@ -155,7 +155,7 @@ def import_study(
         )
         logger.info(f"Warning/error message: {msg}")
     else:
-        raise RuntimeError(f"Unexpected import failure (code {return_code})")
+        raise RuntimeError(f"Unexpected import failure (code {result})")
 
     logger.info("Study import process complete")
 
