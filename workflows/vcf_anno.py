@@ -508,7 +508,7 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
         if os.path.exists(vcf_anno_path):
             shutil.rmtree(vcf_anno_path)
             runner_logger.info(f"Cleaned up existing vcf annotation folder at {vcf_anno_path}")
-            return None
+        return None
     
     dt = get_time()
     
