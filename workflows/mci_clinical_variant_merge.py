@@ -230,7 +230,7 @@ def annotate_clinical_variants(clin_muts: pd.DataFrame, reference_genome: str) -
     clin_muts = clin_muts[cols]
     
     # rename cols to match maf for merging
-    clin_muts = clin_muts.rename(columns={'sample.sample_id' : 'Tumor_Sample_Barcode', 'transcript': 'RefSeq', 'reference_genome' : 'NCBI_Build','chromosome' : 'Chromosome','gene_symbol' : 'Hugo_Symbol','start' : 'Start_Position', 'end' : 'End_Position','variant_classification' : 'Variant_Classification','variant_type' : 'Variant_Type','reference_allele' : 'Reference_Allele','variant_allele' : 'Tumor_Seq_Allele2','hgvs_short' : 'HGVSp_Short', "reported_significance_system": "Reported.Significance System", "reported_significance": "Reported.Significance"})
+    clin_muts = clin_muts.rename(columns={'sample.sample_id' : 'Tumor_Sample_Barcode', 'transcript': 'RefSeq', 'reference_genome' : 'NCBI_Build','chromosome' : 'Chromosome','gene_symbol' : 'Hugo_Symbol','start' : 'Start_Position', 'end' : 'End_Position','variant_classification' : 'Variant_Classification','variant_type' : 'Variant_Type','reference_allele' : 'Reference_Allele','variant_allele' : 'Tumor_Seq_Allele2','hgvs_short' : 'HGVSp_Short', "reported_significance_system": "Reported.Significance_System", "reported_significance": "Reported.Significance"})
     
     return clin_muts, not_anno
 
