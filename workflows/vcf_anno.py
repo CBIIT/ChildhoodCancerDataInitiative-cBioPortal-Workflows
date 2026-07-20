@@ -251,7 +251,7 @@ def annotator(anno_parameter: dict, logger) -> None:
     runner_logger = get_run_logger()
     
     # throttle submission of tasks to avoid overwhelming the system
-    time.sleep(5)
+    time.sleep(60)
     
     # load in anno params
     vcf_file = anno_parameter['vcf_file']
