@@ -248,7 +248,7 @@ deployments:
         apt install maven -y
       stream_output: true
   
-- name: cbio-mci-vcf-clinical-variant-merge
+- name: TEST-cbio-mci-vcf-clinical-variant-merge
   version: null
   tags:
   - cbioportal
@@ -270,7 +270,7 @@ deployments:
   - prefect.deployments.steps.git_clone:
       id: clone-step
       repository: https://github.com/CBIIT/ChildhoodCancerDataInitiative-cBioPortal-Workflows.git
-      branch: main
+      branch: anno-patch
   - prefect.deployments.steps.pip_install_requirements:
       requirements_file: requirements.txt
       directory: "{{ clone-step.directory }}"
