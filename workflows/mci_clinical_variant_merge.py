@@ -37,8 +37,9 @@ def clin_file_prep(clin_file_path: str, maf_samples: list, reference_genome: str
     cols = ["sample.sample_id", "gene_symbol", "transcript", "chromosome", "hgvs_genome", "hgvs_coding", "hgvs_protein", "reported_significance_system", "reported_significance"]
     clin_muts = clin_muts[cols]
     
-    # remove chr prefix for genome nexus query if needed
-    clin_muts["chromosome"] = clin_muts["chromosome"].apply(lambda x : x.replace("chr", "") if str(x).startswith("chr") else x)
+    # remove chr/Chr prefix for genome nexus query if needed
+    # also replace any space chars with ""
+    clin_muts["chromosome"] = clin_muts["chromosome"].apply(lambda x : x.replace("chr", "").replace("Chr", "").replace(" ", "") if str(x).startswith(("chr", "Chr")) else x)
     
     # add reference genome 
     clin_muts["reference_genome"] = reference_genome
@@ -229,7 +230,7 @@ def annotate_clinical_variants(clin_muts: pd.DataFrame, reference_genome: str) -
     clin_muts = clin_muts[cols]
     
     # rename cols to match maf for merging
-    clin_muts = clin_muts.rename(columns={'sample.sample_id' : 'Tumor_Sample_Barcode', 'transcript': 'RefSeq', 'reference_genome' : 'NCBI_Build','chromosome' : 'Chromosome','gene_symbol' : 'Hugo_Symbol','start' : 'Start_Position', 'end' : 'End_Position','variant_classification' : 'Variant_Classification','variant_type' : 'Variant_Type','reference_allele' : 'Reference_Allele','variant_allele' : 'Tumor_Seq_Allele2','hgvs_short' : 'HGVSp_Short', "reported_significance_system": "Reported.Significance System", "reported_significance": "Reported.Significance"})
+    clin_muts = clin_muts.rename(columns={'sample.sample_id' : 'Tumor_Sample_Barcode', 'transcript': 'RefSeq', 'reference_genome' : 'NCBI_Build','chromosome' : 'Chromosome','gene_symbol' : 'Hugo_Symbol','start' : 'Start_Position', 'end' : 'End_Position','variant_classification' : 'Variant_Classification','variant_type' : 'Variant_Type','reference_allele' : 'Reference_Allele','variant_allele' : 'Tumor_Seq_Allele2','hgvs_short' : 'HGVSp_Short', "reported_significance_system": "Reported.Significance_System", "reported_significance": "Reported.Significance"})
     
     return clin_muts, not_anno
 
