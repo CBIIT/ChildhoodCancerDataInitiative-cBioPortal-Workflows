@@ -1,3 +1,4 @@
+from io import StringIO
 import os
 import time
 import pandas as pd
@@ -274,20 +275,47 @@ def annotator(anno_parameter: dict, logger) -> None:
         vcf_path = os.path.join(download_dir, vcf_file)
         runner_logger.info(f"Gunzipped vcf file: {vcf_file}")
     
-    # read in file and ignore lines starting with ##
-    vcf = pd.read_csv(vcf_path, comment='#', header=None, sep='\t')
+    # read in file and ignore lines starting with two ##, keep #CHROM row as header
+    pre_vcf = [i.strip() for i in open(vcf_path) if not i.startswith('##')]
+    vcf = pd.read_csv(StringIO("\n".join(pre_vcf)), sep='\t')
     
     # filter PASS filter
-    vcf = vcf[vcf[6] == 'PASS']
+    vcf = vcf[vcf['FILTER'] == 'PASS']
     
     # select columns 0, 1, 3, 4
-    vcf = vcf[[0, 1, 3, 4]]
+    vcf = vcf[["#CHROM", "POS", "REF", "ALT", "FORMAT", sample_barcode]]
     
     # replace 'chr' in column 0
-    vcf[0] = vcf[0].str.replace('chr', '')
+    vcf["#CHROM"] = vcf["#CHROM"].str.replace('chr', '')
     
     # rename columns to Chromosome, Start_Position, Reference_Allele, Tumor_Seq_Allele1
-    vcf.columns = ["Chromosome", "Start_Position", "Reference_Allele", "Tumor_Seq_Allele1"]
+    vcf.columns = ["Chromosome", "Start_Position", "Reference_Allele", "Tumor_Seq_Allele1", "FORMAT", sample_barcode]
+
+    def vaf_calc(row):
+        """For a given row, return read depth values for tumor and normal samples            
+
+        Args:
+            row (pd.Series): Row of the vcf file
+        Returns:
+            str: t_alt_count Variant allele count (tumor)
+            str: t_ref_count Reference allele count (tumor)
+
+        """
+        try:
+            format_fields = row['FORMAT'].split(':')
+            sample_fields = row[sample_barcode].split(':')
+
+            # zip vals into a dict
+            format_dict = dict(zip(format_fields, sample_fields))
+
+            t_alt_count = int(format_dict.get('AD', '0,0').split(',')[1])
+            t_ref_count = int(format_dict.get('AD', '0,0').split(',')[0])
+
+            return t_alt_count, t_ref_count
+            
+        except Exception as e:
+            runner_logger.error(f"Error parsing t_alt_count and t_ref_count for row {row}: {e}")
+            return 0, 0
     
     def end_position(row):
         """Calculate end position for vcf file
@@ -301,6 +329,11 @@ def annotator(anno_parameter: dict, logger) -> None:
     
     # annotate end position
     vcf['End_Position'] = vcf.apply(end_position, axis=1)
+
+    vcf['t_alt_count'], vcf['t_ref_count'] = zip(*vcf.apply(vaf_calc, axis=1))
+
+    # drop foramt and info for sample columns
+    vcf = vcf.drop(columns=['FORMAT', sample_barcode])
     
     # write to new vcf file
     vcf.to_csv(vcf_path, sep='\t', index=False)
