@@ -477,6 +477,7 @@ def concat_maf_check(output_path: str, concatenated_maf_name: str, line_count_fi
             samples_to_rerun.append(row['sample'])
     
     # check for FAILED annotations in col Annotation_Status
+    concat_maf.Chromosome = concat_maf.Chromosome.astype(str)
     fail_check_df = concat_maf[(concat_maf.Annotation_Status == 'FAILED') & ~(concat_maf.Chromosome.str.contains('KI2'))].groupby('Tumor_Sample_Barcode').size()
     
     if not fail_check_df.empty:
