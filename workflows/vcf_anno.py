@@ -279,7 +279,7 @@ def annotator(anno_parameter: dict, logger) -> None:
         runner_logger.info(f"Gunzipped vcf file: {vcf_file}")
     
     # read in file and ignore lines starting with two ##, keep #CHROM row as header
-    pre_vcf = [i.strip() for i in open(vcf_path) if not i.startswith('##')]
+    pre_vcf = [i.strip() for i in open(vcf_path).readlines() if not i.startswith('##')]
     vcf = pd.read_csv(StringIO("\n".join(pre_vcf)), sep='\t')
     
     # filter PASS filter
@@ -290,6 +290,14 @@ def annotator(anno_parameter: dict, logger) -> None:
 
     # filter out Y chr 
     vcf = vcf[(vcf["#CHROM"] != "Y") & (vcf["#CHROM"] != "chrY")]
+
+    # right after reading the file
+    print(vcf["#CHROM"].isna().sum())
+    print(vcf[vcf["#CHROM"].isna()])  # look at the raw malformed rows
+
+    # right before the replace
+    print(vcf["#CHROM"].dtype)
+    print(vcf["#CHROM"].unique())
     
     # replace 'chr' in column 0
     vcf["#CHROM"] = vcf["#CHROM"].str.replace('chr', '')
@@ -342,7 +350,6 @@ def annotator(anno_parameter: dict, logger) -> None:
     vcf = vcf.drop(columns=['FORMAT', sample_barcode])
 
     print(vcf.head())
-    print(vcf.Chromosome.dtype)
     
     # write to new vcf file
     vcf.to_csv(vcf_path, sep='\t', index=False)
