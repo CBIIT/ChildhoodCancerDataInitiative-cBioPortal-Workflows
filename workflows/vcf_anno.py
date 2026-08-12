@@ -168,8 +168,7 @@ def download_vcf(manifest_df: pd.DataFrame) -> None:
     return file_downloads.result()
 
 
-#@flow(name="annotate-vcf-flow", task_runner=ConcurrentTaskRunner(), log_prints=True)
-@flow(name="annotate-vcf-flow", log_prints=True)
+@flow(name="annotate-vcf-flow", task_runner=ConcurrentTaskRunner(), log_prints=True)
 def annotator_flow(manifest_df: pd.DataFrame, download_dir: str, output_dir: str, reference_genome: str, logger) -> None:
     """Annotate vcf files
 
@@ -197,13 +196,11 @@ def annotator_flow(manifest_df: pd.DataFrame, download_dir: str, output_dir: str
             'output_dir': output_dir,
             'reference_genome': reference_genome
         })
-        annotator(submit_list[-1], logger)
         
     # run parallelized annotation
-    #annotation = annotator.map(submit_list, unmapped(logger))
+    annotation = annotator.map(submit_list, unmapped(logger))
     
-    return None
-    #return annotation.result()
+    return annotation.result()
 
 @task(name="version_check", log_prints=True)
 def version_check(runner_logger) -> None:
@@ -238,7 +235,7 @@ def version_check(runner_logger) -> None:
 @task(
     name="vcf_annotator", 
     log_prints=True, 
-    #tags=["vcf_anno_task-tag"],
+    tags=["vcf_anno_task-tag"],
     retries=3,
     retry_delay_seconds=[2, 5, 10]
 )
