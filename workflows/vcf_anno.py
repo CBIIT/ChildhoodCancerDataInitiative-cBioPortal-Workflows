@@ -288,12 +288,11 @@ def annotator(anno_parameter: dict, logger) -> None:
     # select columns 0, 1, 3, 4
     vcf = vcf[["#CHROM", "POS", "REF", "ALT", "FORMAT", sample_barcode]]
 
+    # conver CHROM to str
+    vcf["#CHROM"] = vcf["#CHROM"].astype(str)
+
     # filter out Y chr 
     vcf = vcf[(vcf["#CHROM"] != "Y") & (vcf["#CHROM"] != "chrY")]
-
-    # right after reading the file
-    print(vcf["#CHROM"].isna().sum())
-    print(vcf[vcf["#CHROM"].isna()])  # look at the raw malformed rows
 
     # right before the replace
     print(vcf["#CHROM"].dtype)
