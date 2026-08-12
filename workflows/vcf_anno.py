@@ -665,14 +665,14 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
             # filter manifest df to only include files to annotate
             annotate_df = manifest_df[manifest_df['file_url'].apply(lambda x: os.path.basename(x).replace(".vcf.gz", "") in to_annotate_files)]
             runner_logger.info(f"Number of files to annotate: {len(annotate_df)}")
-            for i in range(0, len(annotate_df), 200):
-                batch_df = annotate_df.iloc[i:i+200]
-                runner_logger.info(f"Annotating batch {i//200 + 1} of {len(annotate_df)//200 + 1} VCF files...")
+            for i in range(0, len(annotate_df), 5):
+                batch_df = annotate_df.iloc[i:i+5]
+                runner_logger.info(f"Annotating batch {i//5 + 1} of {(len(annotate_df) + 4)//5} VCF files...")
                 annotator_flow(batch_df, download_path, output_path, reference_genome, logger=logger)
     else:
-        for i in range(0, len(manifest_df), 200):
-            batch_df = manifest_df.iloc[i:i+200]
-            runner_logger.info(f"Annotating batch {i//200 + 1} of {len(manifest_df)//200 + 1} VCF files...")
+        for i in range(0, len(manifest_df), 5):
+            batch_df = manifest_df.iloc[i:i+5]
+            runner_logger.info(f"Annotating batch {i//5 + 1} of {(len(manifest_df) + 4)//5} VCF files...")
             annotator_flow(batch_df, download_path, output_path, reference_genome, logger=logger)
     
     # concatenation of MAFs
