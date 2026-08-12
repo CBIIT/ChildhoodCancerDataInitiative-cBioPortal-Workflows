@@ -290,13 +290,6 @@ def annotator(anno_parameter: dict, logger) -> None:
 
     # conver CHROM to str
     vcf["#CHROM"] = vcf["#CHROM"].astype(str)
-
-    # filter out Y chr 
-    vcf = vcf[(vcf["#CHROM"] != "Y") & (vcf["#CHROM"] != "chrY")]
-
-    # right before the replace
-    print(vcf["#CHROM"].dtype)
-    print(vcf["#CHROM"].unique())
     
     # replace 'chr' in column 0
     vcf["#CHROM"] = vcf["#CHROM"].str.replace('chr', '')
@@ -348,8 +341,6 @@ def annotator(anno_parameter: dict, logger) -> None:
     # drop foramt and info for sample columns
     vcf = vcf.drop(columns=['FORMAT', sample_barcode])
 
-    print(vcf.head())
-    
     # write to new vcf file
     vcf.to_csv(vcf_path, sep='\t', index=False)
     
