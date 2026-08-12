@@ -342,6 +342,7 @@ def annotator(anno_parameter: dict, logger) -> None:
     vcf = vcf.drop(columns=['FORMAT', sample_barcode])
 
     print(vcf.head())
+    print(vcf.Chromosome.dtype)
     
     # write to new vcf file
     vcf.to_csv(vcf_path, sep='\t', index=False)
