@@ -15,6 +15,7 @@ import ssl
 import socket
 from urllib3.exceptions import SSLError as Urllib3SSLError
 from requests.exceptions import SSLError as RequestsSSLError, ConnectionError
+import requests
 
 @task(name="install-genome-nexus-annotation", log_prints=True)
 def install_nexus():
@@ -540,6 +541,19 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
     runner_logger = get_run_logger()
     
     if cleanup == "yes":
+
+        ### TESTING ####
+        # try to query genome nexus API
+        
+        response = requests.post(
+            "https://www.genomenexus.org/annotation",
+            headers={"Content-Type": "application/json"},
+            json=["17:g.41242962_41242963insG"]
+)
+
+        print(response.status_code)
+        print(response.json())
+        
         # cleanup vcf annotation folder on mnt drive
         vcf_anno_path = "/usr/local/data/vcf_annotation"
         if os.path.exists(vcf_anno_path):
