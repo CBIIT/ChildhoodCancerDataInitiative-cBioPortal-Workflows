@@ -709,6 +709,13 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
         shutil.move(maf_concat_basename, os.path.join(output_path, maf_concat_basename)) # move to output path
         maf_files.insert(0, maf_concat_basename) # add to list of mafs to concatenate
     
+    upload_folder_to_s3(
+            local_folder=output_path,
+            bucket=bucket,
+            destination=runner,
+            sub_folder=""
+        )
+
     concat_mafs(maf_files, output_path, concatenated_maf_name, dt, logger, runner_logger)
     
     # concat MAF checks
