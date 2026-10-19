@@ -388,6 +388,7 @@ def main_flow(
                 PORTAL_HOME,
                 study_dir,
                 f"{working_dir}/validation_output_{dt}.html",
+                f"{working_dir}/validation_errors_{dt}.txt",
                 config_env,
                 PORTAL_INFO_DIR,
             )
@@ -416,6 +417,12 @@ def main_flow(
                 output_bucket,
                 f"{output_path}/validation_output_{dt}",
             )
+            if os.path.exists(f"{working_dir}/validation_errors_{dt}.txt"):
+                upload_to_s3(
+                    f"{working_dir}/validation_errors_{dt}.txt",
+                    output_bucket,
+                    f"{output_path}/validation_errors_{dt}.txt",
+                            )
             if os.path.exists(f"{working_dir}/output.log"):
                 upload_to_s3(
                     f"{working_dir}/output.log",
