@@ -49,11 +49,11 @@ def validate_study(
     if portal_info_dir and portal_info_dir != "":
         logger.info(f"Using portal info directory for validation: {portal_info_dir}")
         cmd = [
-                f"python3 {importer_script} --study_directory {study_dir} --portal_info_dir {portal_info_dir} --html {html_table_file_path} --error_file {error_file_path} -v 1>output.log 2>output.log"
+                f"python3 {importer_script} --study_directory {study_dir} --portal_info_dir {portal_info_dir} --html {html_table_file_path} --error_file {error_file_path} -v > output.log 2>&1 "
         ]
     else:
         cmd = [
-            f"python3 {importer_script} --study_directory {study_dir} --url_server https://cbioportal-api-dev.ccdi.cancer.gov --html {html_table_file_path} --error_file {error_file_path} -v 1>output.log 2>output.log"
+            f"python3 {importer_script} --study_directory {study_dir} --url_server https://cbioportal-api-dev.ccdi.cancer.gov --html {html_table_file_path} --error_file {error_file_path} -v > output.log 2>&1 "
         ]
 
     logger.info(f"Validating study: {study_dir}")
@@ -421,7 +421,7 @@ def main_flow(
                 upload_to_s3(
                     f"{working_dir}/validation_errors_{dt}.txt",
                     output_bucket,
-                    f"{output_path}/validation_errors_{dt}.txt",
+                    f"{output_path}/validation_output_{dt}",
                             )
             if os.path.exists(f"{working_dir}/output.log"):
                 upload_to_s3(
