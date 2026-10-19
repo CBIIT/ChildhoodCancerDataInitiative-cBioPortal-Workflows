@@ -35,12 +35,14 @@ def validate_study(
 
     # add FileHandler to the run logger so everything streamed to
     # prefect UI (via stream_output=True below) also lands on disk 
+    underlying_logger = logger.logger
+
     file_handler = logging.FileHandler(streamed_log_file_path, mode="w")
     file_handler.setLevel(logging.INFO)
     file_handler.setFormatter(
         logging.Formatter("%(asctime)s | %(levelname)s | %(message)s")
     )
-    logger.addHandler(file_handler)
+    underlying_logger.addHandler(file_handler)
 
     try:
         importer_script = f"{cbio_home}/scripts/importer/validateData.py"
@@ -97,9 +99,7 @@ def validate_study(
         if return_code in [0, 3]:
             logger.info(f"Validation completed with code {return_code} (acceptable)")
         else:
-            error_lines = [
-                line for line in output_text.splitlines() if "ERROR" in line
-            ]
+            error_lines = [line for line in output_text.splitlines() if "ERROR" in line]
             logger.error(
                 f"Unexpected validation failure (code {return_code}). "
                 f"Error lines:\n" + "\n".join(error_lines)
@@ -109,9 +109,8 @@ def validate_study(
         return return_code
 
     finally:
-        # Flush and detach so repeated/retried task calls don't duplicate handlers
         file_handler.flush()
-        logger.removeHandler(file_handler)
+        underlying_logger.removeHandler(file_handler)
         file_handler.close()
 
 
