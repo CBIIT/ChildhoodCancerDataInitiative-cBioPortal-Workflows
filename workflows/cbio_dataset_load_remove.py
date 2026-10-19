@@ -61,18 +61,20 @@ def validate_study(
     try:
         result = shell_op.run()
         return_code = 0  # if no exception, it's 0
-
+        output_text = "\n".join(result) if isinstance(result, list) else str(result)
     except RuntimeError as e:
         # Extract return code from Prefect error
         msg = str(e)
         logger.warning(f"Validation returned non-zero exit: {msg}")
-
+        output_text = msg
         # crude parse (works reliably for Prefect error format)
         if "return code" in msg:
             return_code = int(msg.split("return code")[-1].strip().strip("."))
         else:
             raise  # unknown failure, rethrow
 
+    with open("output.log", "w") as f:
+        f.write(output_text)
     # Handle allowed non-zero codes
     if return_code in [0, 3]:
         logger.info(f"Validation completed with code {return_code} (acceptable)")
