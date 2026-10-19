@@ -1,3 +1,4 @@
+import logging
 import os
 import json
 from prefect import flow, task, get_run_logger
@@ -16,12 +17,11 @@ def validate_study(
     error_file_path: str,
     config_env: dict,
     portal_info_dir: str = None,
+    streamed_log_file_path: str = "validate_study_stream.log",
 ):
     """
     Runs cBioPortal validation/import dry run against configured RDS database.
-    
-    
-    Args:        
+    Args:
         cbio_home (str): Path to cBioPortal home directory
         portal_home (str): Path to portal home directory
         study_dir (str): Path to study directory to validate
@@ -29,62 +29,90 @@ def validate_study(
         error_file_path (str): Path to output text file for validation errors/warnings
         config_env (dict): Dictionary of environment variables for Java config (e.g., database connection properties)
         portal_info_dir (str, optional): Path to portal info directory for validation context
+        streamed_log_file_path (str, optional): Path to write the live-streamed Prefect log lines to
     """
     logger = get_run_logger()
 
-    importer_script = f"{cbio_home}/scripts/importer/validateData.py"
-
-    if not Path(importer_script).exists():
-        raise RuntimeError(f"Importer script not found at {importer_script}")
-
-    env = os.environ.copy()
-    env.update(
-        {
-            "CBIOPORTAL_HOME": cbio_home,
-            "PORTAL_HOME": portal_home,
-            "JAVA_TOOL_OPTIONS" : config_env
-        }
+    # add FileHandler to the run logger so everything streamed to
+    # prefect UI (via stream_output=True below) also lands on disk 
+    file_handler = logging.FileHandler(streamed_log_file_path, mode="w")
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(
+        logging.Formatter("%(asctime)s | %(levelname)s | %(message)s")
     )
+    logger.addHandler(file_handler)
 
-    if portal_info_dir and portal_info_dir != "":
-        logger.info(f"Using portal info directory for validation: {portal_info_dir}")
-        cmd = [
-                f"python3 {importer_script} --study_directory {study_dir} --portal_info_dir {portal_info_dir} --html {html_table_file_path} --error_file {error_file_path} -v"
-        ]
-    else:
-        cmd = [
-            f"python3 {importer_script} --study_directory {study_dir} --url_server https://cbioportal-api-dev.ccdi.cancer.gov --html {html_table_file_path} --error_file {error_file_path} -v"
-        ]
-
-    logger.info(f"Validating study: {study_dir}")
-    shell_op = ShellOperation(commands=cmd, env=env)
     try:
-        result = shell_op.run()
-        return_code = 0  # if no exception, it's 0
-        output_text = "\n".join(result) if isinstance(result, list) else str(result)
-    except RuntimeError as e:
-        # Extract return code from Prefect error
-        msg = str(e)
-        logger.warning(f"Validation returned non-zero exit: {msg}")
-        output_text = msg
-        # crude parse (works reliably for Prefect error format)
-        if "return code" in msg:
-            return_code = int(msg.split("return code")[-1].strip().strip("."))
+        importer_script = f"{cbio_home}/scripts/importer/validateData.py"
+        if not Path(importer_script).exists():
+            raise RuntimeError(f"Importer script not found at {importer_script}")
+
+        env = os.environ.copy()
+        env.update(
+            {
+                "CBIOPORTAL_HOME": cbio_home,
+                "PORTAL_HOME": portal_home,
+                "JAVA_TOOL_OPTIONS": config_env,
+            }
+        )
+
+        if portal_info_dir and portal_info_dir != "":
+            logger.info(f"Using portal info directory for validation: {portal_info_dir}")
+            cmd = [
+                f"python3 {importer_script} --study_directory {study_dir} "
+                f"--portal_info_dir {portal_info_dir} --html {html_table_file_path} "
+                f"--error_file {error_file_path} -v"
+            ]
         else:
-            raise  # unknown failure, rethrow
+            cmd = [
+                f"python3 {importer_script} --study_directory {study_dir} "
+                f"--url_server https://cbioportal-api-dev.ccdi.cancer.gov "
+                f"--html {html_table_file_path} --error_file {error_file_path} -v"
+            ]
 
-    with open("output.log", "w") as f:
-        f.write(output_text)
-    # Handle allowed non-zero codes
-    if return_code in [0, 3]:
-        logger.info(f"Validation completed with code {return_code} (acceptable)")
-    else:
-        error_strings = ["grep ERROR output.log"]
-        shell_op = ShellOperation(commands=error_strings)
-        result = shell_op.run()
-        logger.error(f"Unexpected validation failure (code {result})")
+        logger.info(f"Validating study: {study_dir}")
 
-    logger.info("Study validation process complete")
+        shell_op = ShellOperation(
+            commands=cmd,
+            env=env,
+            stream_output=True,  # streams to Prefect UI + now also to file_handler above
+        )
+        try:
+            result = shell_op.run()
+            return_code = 0  # if no exception, it's 0
+            output_text = "\n".join(result) if isinstance(result, list) else str(result)
+        except RuntimeError as e:
+            msg = str(e)
+            logger.warning(f"Validation returned non-zero exit: {msg}")
+            output_text = msg
+            if "return code" in msg:
+                return_code = int(msg.split("return code")[-1].strip().strip("."))
+            else:
+                raise  # unknown failure, rethrow
+
+        with open("output.log", "w") as f:
+            f.write(output_text)
+
+        # Handle allowed non-zero codes
+        if return_code in [0, 3]:
+            logger.info(f"Validation completed with code {return_code} (acceptable)")
+        else:
+            error_lines = [
+                line for line in output_text.splitlines() if "ERROR" in line
+            ]
+            logger.error(
+                f"Unexpected validation failure (code {return_code}). "
+                f"Error lines:\n" + "\n".join(error_lines)
+            )
+
+        logger.info("Study validation process complete")
+        return return_code
+
+    finally:
+        # Flush and detach so repeated/retried task calls don't duplicate handlers
+        file_handler.flush()
+        logger.removeHandler(file_handler)
+        file_handler.close()
 
 
 @task(name="import_study", log_prints=False)
