@@ -96,9 +96,6 @@ def validate_study(
             else:
                 raise
 
-        with open("output.log", "w") as f:
-            f.write(output_text)
-
         if return_code in [0, 3]:
             logger.info(f"Validation completed with code {return_code} (acceptable)")
         else:
@@ -459,9 +456,9 @@ def main_flow(
                     output_bucket,
                     f"{output_path}/validation_output_{dt}",
                             )
-            if os.path.exists(f"{working_dir}/validate_study_stream.log"):
+            if os.path.exists(f"{home_dir}/validate_study_stream.log"):
                 upload_to_s3(
-                    f"{working_dir}/validate_study_stream.log",
+                    f"{home_dir}/validate_study_stream.log",
                     output_bucket,
                     f"{output_path}/validation_output_{dt}",
                 )
