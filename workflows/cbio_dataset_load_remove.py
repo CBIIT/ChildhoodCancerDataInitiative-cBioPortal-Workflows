@@ -424,6 +424,7 @@ def main_flow(
                 f"{working_dir}/validation_errors_{dt}.txt",
                 config_env,
                 PORTAL_INFO_DIR,
+                f"validate_study_stream_{dt}.log"
             )
         elif run_type == "remove_dataset":
             # check that remove_study_id is provided
@@ -456,21 +457,12 @@ def main_flow(
                     output_bucket,
                     f"{output_path}/validation_output_{dt}",
                             )
-            if os.path.exists(f"{home_dir}/validate_study_stream.log"):
+            if os.path.exists(f"{home_dir}/validate_study_stream_{dt}.log"):
                 upload_to_s3(
-                    f"{home_dir}/validate_study_stream.log",
+                    f"{home_dir}/validate_study_stream_{dt}.log",
                     output_bucket,
                     f"{output_path}/validation_output_{dt}",
                 )
-
-        # list directory contents of working and home directory
-        logger.info("Listing contents of working directory:")
-        for file_name in os.listdir(working_dir):
-            logger.info(f"Found file: {file_name}")
-
-        logger.info("Listing contents of home directory:")
-        for file_name in os.listdir(home_dir):
-            logger.info(f"Found file: {file_name}")
         
         # restart ecs service to restart cBioPortal and apply changes
         if run_type in ["load_dataset", "remove_dataset"]:
