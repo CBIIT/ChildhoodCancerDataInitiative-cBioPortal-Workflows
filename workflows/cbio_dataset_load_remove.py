@@ -351,6 +351,8 @@ def main_flow(
     dt = get_time()
     print(f"Workflow started at {dt}")
 
+    logger = get_run_logger()
+
     # elif load dataset:
     if run_type == "clear_working_dir":
         print(">>> Performing data cleanup ...")
