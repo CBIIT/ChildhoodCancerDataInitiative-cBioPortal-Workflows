@@ -464,6 +464,15 @@ def main_flow(
                     f"{output_path}/validation_output_{dt}",
                 )
 
+        # list directory contents of working and home directory
+        logger.info("Listing contents of working directory:")
+        for file_name in os.listdir(working_dir):
+            logger.info(f"Found file: {file_name}")
+
+        logger.info("Listing contents of home directory:")
+        for file_name in os.listdir(home_dir):
+            logger.info(f"Found file: {file_name}")
+        
         # restart ecs service to restart cBioPortal and apply changes
         if run_type in ["load_dataset", "remove_dataset"]:
             restart_ecs_service(target_env_name)
