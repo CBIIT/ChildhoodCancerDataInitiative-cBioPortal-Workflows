@@ -457,11 +457,11 @@ def main_flow(
                     output_bucket,
                     f"{output_path}/validation_output_{dt}",
                             )
-            if os.path.exists(f"{working_dir}/output.log"):
+            if os.path.exists(f"{working_dir}/validate_study_stream.log"):
                 upload_to_s3(
-                    f"{working_dir}/output.log",
+                    f"{working_dir}/validate_study_stream.log",
                     output_bucket,
-                    f"{output_path}/output.log",
+                    f"{output_path}/validation_output_{dt}",
                 )
 
         # restart ecs service to restart cBioPortal and apply changes
