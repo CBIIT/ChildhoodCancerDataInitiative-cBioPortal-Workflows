@@ -33,16 +33,20 @@ def validate_study(
     """
     logger = get_run_logger()
 
-    # add FileHandler to the run logger so everything streamed to
-    # prefect UI (via stream_output=True below) also lands on disk 
-    underlying_logger = logger.logger
+    # Attach to the ROOT logger instead of just the task's logger,
+    # so we catch stream output regardless of which logger name
+    # ShellOperation/prefect_shell internally emits through.
+    root_logger = logging.getLogger()
 
     file_handler = logging.FileHandler(streamed_log_file_path, mode="w")
-    file_handler.setLevel(logging.INFO)
+    file_handler.setLevel(logging.DEBUG)  # capture DEBUG-level lines too, per your example output
     file_handler.setFormatter(
-        logging.Formatter("%(asctime)s | %(levelname)s | %(message)s")
+        logging.Formatter("%(asctime)s | %(levelname)s | %(name)s | %(message)s")
     )
-    underlying_logger.addHandler(file_handler)
+    root_logger.addHandler(file_handler)
+    # Make sure the root logger's effective level doesn't filter DEBUG out
+    previous_level = root_logger.level
+    root_logger.setLevel(logging.DEBUG)
 
     try:
         importer_script = f"{cbio_home}/scripts/importer/validateData.py"
@@ -77,11 +81,11 @@ def validate_study(
         shell_op = ShellOperation(
             commands=cmd,
             env=env,
-            stream_output=True,  # streams to Prefect UI + now also to file_handler above
+            stream_output=True,
         )
         try:
             result = shell_op.run()
-            return_code = 0  # if no exception, it's 0
+            return_code = 0
             output_text = "\n".join(result) if isinstance(result, list) else str(result)
         except RuntimeError as e:
             msg = str(e)
@@ -90,17 +94,17 @@ def validate_study(
             if "return code" in msg:
                 return_code = int(msg.split("return code")[-1].strip().strip("."))
             else:
-                raise  # unknown failure, rethrow
+                raise
 
-        logger.info(f"OUTPUT TEXT: {output_text}") ##TESTING
         with open("output.log", "w") as f:
             f.write(output_text)
 
-        # Handle allowed non-zero codes
         if return_code in [0, 3]:
             logger.info(f"Validation completed with code {return_code} (acceptable)")
         else:
-            error_lines = [line for line in output_text.splitlines() if "ERROR" in line]
+            with open(streamed_log_file_path) as f:
+                streamed_content = f.read()
+            error_lines = [line for line in streamed_content.splitlines() if "ERROR" in line]
             logger.error(
                 f"Unexpected validation failure (code {return_code}). "
                 f"Error lines:\n" + "\n".join(error_lines)
@@ -111,9 +115,9 @@ def validate_study(
 
     finally:
         file_handler.flush()
-        underlying_logger.removeHandler(file_handler)
+        root_logger.removeHandler(file_handler)
+        root_logger.setLevel(previous_level)
         file_handler.close()
-
 
 @task(name="import_study", log_prints=False)
 def import_study(
