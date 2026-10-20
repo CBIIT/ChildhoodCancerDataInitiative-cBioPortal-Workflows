@@ -439,6 +439,7 @@ def main_flow(
                 f"{working_dir}/validation_output_{dt}.html",
                 config_env,
                 PORTAL_INFO_DIR,
+                f"import_study_stream_{dt}.log"
             )
         elif run_type == "validate_dataset":
             validate_study(
@@ -485,6 +486,12 @@ def main_flow(
             if os.path.exists(f"{home_dir}/validate_study_stream_{dt}.log"):
                 upload_to_s3(
                     f"{home_dir}/validate_study_stream_{dt}.log",
+                    output_bucket,
+                    f"{output_path}/validation_output_{dt}",
+                )
+            if os.path.exists(f"{home_dir}/import_study_stream_{dt}.log"):
+                upload_to_s3(
+                    f"{home_dir}/import_study_stream_{dt}.log",
                     output_bucket,
                     f"{output_path}/validation_output_{dt}",
                 )
