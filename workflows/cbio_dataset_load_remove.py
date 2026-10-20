@@ -92,7 +92,7 @@ def validate_study(
             else:
                 raise  # unknown failure, rethrow
 
-        print(output_text) ##TESTING
+        logger.info(f"OUTPUT TEXT: {output_text}") ##TESTING
         with open("output.log", "w") as f:
             f.write(output_text)
 
