@@ -283,7 +283,15 @@ def annotator(anno_parameter: dict, logger) -> None:
     vcf = vcf[vcf['FILTER'] == 'PASS']
     
     # select columns 0, 1, 3, 4
-    vcf = vcf[["#CHROM", "POS", "REF", "ALT", "FORMAT", sample_barcode]]
+    try:
+        vcf = vcf[["#CHROM", "POS", "REF", "ALT", "FORMAT", sample_barcode]]
+    except KeyError as e:
+        runner_logger.warning(f"Sample barcode {sample_barcode} not found, trying 'tumor' column instead.")
+        try:
+            vcf = vcf[["#CHROM", "POS", "REF", "ALT", "FORMAT", "tumor"]]
+        except KeyError as e:
+            runner_logger.error(f"Error selecting columns: {e}")
+            raise
 
     # conver CHROM to str
     vcf["#CHROM"] = vcf["#CHROM"].astype(str)
