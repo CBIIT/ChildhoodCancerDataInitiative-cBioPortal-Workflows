@@ -673,6 +673,7 @@ def vcf_anno_flow(bucket: str, runner: str, manifest_path: str, reference_genome
             
             # filter manifest df to only include files to annotate
             annotate_df = manifest_df[manifest_df['file_url'].apply(lambda x: os.path.basename(x).replace(".vcf.gz", "") in to_annotate_files)]
+            annotate_df['file_url'] = annotate_df['file_url'].str.replace(".gz", "", regex=False)
             runner_logger.info(f"Number of files to annotate: {len(annotate_df)}")
             for i in range(0, len(annotate_df), 200):
                 batch_df = annotate_df.iloc[i:i+200]
